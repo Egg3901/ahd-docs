@@ -1,0 +1,241 @@
+# Tariffs
+
+Tariffs are trade barriers enacted via legislation that impose costs on corporations operating outside their home country. They affect profit margins, market capture, and commodity pricing.
+
+**Entry point:** `src/lib/tariffs/tariffEffects.ts`
+
+## Overview
+
+- **Scope:** National or state-level trade policy
+- **Target:** Foreign corporations operating in the tariff-imposing country
+- **Effects:** Margin penalty, market capture modifier, commodity blend weight shift
+- **Enactment:** Via `tariff` bill provisions in legislation system
+
+## Tariff Structure
+
+```typescript
+interface Tariff {
+  _id: ObjectId;
+  countryId: CountryId; // Country imposing the tariff
+  scopeType: string; // "economy_wide" | "sector" | "origin_country" | "corporation"
+  targetSectorType?: string; // For sector scope
+  targetOriginCountryId?: string; // For origin_country scope
+  targetCorporationId?: ObjectId; // For corporation scope
+  rate: number; // 0-100 (percentage points)
+  sourceBillId: ObjectId; // Enacting legislation
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Scope Types
+
+| Scope            | Description                                | Target                             |
+| ---------------- | ------------------------------------------ | ---------------------------------- |
+| `economy_wide`   | Blanket tariff on all foreign corporations | All foreign corps in country       |
+| `sector`         | Targeted tariff on specific sector type    | e.g., all foreign steel producers  |
+| `origin_country` | Country-specific tariff                    | Corps from specific origin country |
+| `corporation`    | Entity-specific tariff                     | Single named corporation           |
+
+### Composite Key
+
+Tariffs use a five-field upsert key to prevent duplicates:
+
+```typescript
+{
+  (countryId, scopeType, targetSectorType, targetOriginCountryId, targetCorporationId);
+}
+```
+
+Re-enacting the same provision updates the existing tariff rather than creating a duplicate.
+
+## Territorial Invariant
+
+**Critical:** Only tariffs where `tariff.countryId === sectorCountryId` are consulted. A tariff imposed by the US on Chinese corps only applies to sectors operating **in the US**, not to Chinese sectors operating in third countries.
+
+```typescript
+// getEffectiveTariffRate():25
+if (t.countryId !== sectorCountryId) continue;
+```
+
+## Margin Modifiers
+
+### Foreign Corporations
+
+Foreign corporations pay the full effective tariff rate as a margin penalty:
+
+```typescript
+// getForeignTariffMarginModifier():89-106
+const rate = getEffectiveTariffRate(tariffs, sectorCountryId, sectorType, corpHqCountryId, corpId);
+if (rate === 0) return 0;
+return -rate; // -rate percentage points
+```
+
+**Example:** 25% tariff → -25pp margin modifier
+
+### Domestic Corporations
+
+Domestic corporations pay a smaller **supply-chain friction malus** from economy-wide and sector tariffs only:
+
+```typescript
+// getDomesticTariffMalus():118-136
+let total = 0;
+for (const t of tariffs) {
+  if (t.countryId !== sectorCountryId) continue;
+  if (t.scopeType === "economy_wide") total += t.rate;
+  else if (t.scopeType === "sector" && t.targetSectorType === sectorType) total += t.rate;
+}
+const T = Math.min(100, total);
+return -(T / 100) * 10; // -0 to -10pp
+```
+
+**Rationale:** Broad tariffs create domestic supply-chain friction, but targeted origin-country and corporation-specific tariffs are too narrow to affect domestic costs.
+
+| Tariff Rate | Domestic Malus |
+| ----------- | -------------- |
+| 0%          | 0pp            |
+| 25%         | -2.5pp         |
+| 50%         | -5pp           |
+| 100%        | -10pp          |
+
+## Effective Tariff Rate Calculation
+
+The effective rate is the sum of all applicable tariffs:
+
+```typescript
+// getEffectiveTariffRate():12-43
+if (sectorCountryId === corpHqCountryId) return 0; // Domestic corps pay no tariff
+
+for (const t of tariffs) {
+  if (t.countryId !== sectorCountryId) continue;
+  if (t.rate === 0) continue;
+
+  if (t.scopeType === "economy_wide") {
+    total += t.rate;
+  } else if (t.scopeType === "sector" && t.targetSectorType === sectorType) {
+    total += t.rate;
+  } else if (t.scopeType === "origin_country" && t.targetOriginCountryId === corpHqCountryId) {
+    total += t.rate;
+  } else if (t.scopeType === "corporation" && t.targetCorporationId === corpId) {
+    total += t.rate;
+  }
+}
+return Math.min(100, total);
+```
+
+**Stacking:** Multiple tariffs stack additively. A 20% economy-wide + 15% sector tariff = 35% effective rate.
+
+## Commodity Blend Weights
+
+Tariffs shift commodity margin calculation toward local (state-level) prices:
+
+```typescript
+// getTariffBlendWeights():54-83
+let blendRate = 0;
+for (const t of tariffs) {
+  if (t.countryId !== sectorCountryId) continue;
+  if (t.rate === 0) continue;
+
+  if (t.scopeType === "economy_wide") blendRate += t.rate;
+  else if (t.scopeType === "sector" && t.targetSectorType === sectorType) blendRate += t.rate;
+  else if (t.scopeType === "origin_country") {
+    const key = `${sectorCountryId}:${t.targetOriginCountryId}:${sectorType}`;
+    if (allSectorKeys.has(key)) blendRate += t.rate;
+  } else if (t.scopeType === "corporation") {
+    const key = `${sectorCountryId}:corp:${t.targetCorporationId}:${sectorType}`;
+    if (allSectorKeys.has(key)) blendRate += t.rate;
+  }
+}
+
+const T = Math.min(100, blendRate);
+const localWeight = 0.25 + (T / 100) * 0.25; // 0.25 → 0.50
+const globalWeight = 1 - localWeight; // 0.75 → 0.50
+```
+
+| Tariff Rate | Local Weight | Global Weight |
+| ----------- | ------------ | ------------- |
+| 0%          | 0.25         | 0.75          |
+| 25%         | 0.3125       | 0.6875        |
+| 50%         | 0.375        | 0.625         |
+| 100%        | 0.50         | 0.50          |
+
+**Rationale:** Tariffs make local commodity markets more relevant to margin calculation, reflecting that import costs push buyers toward domestic alternatives.
+
+## Market Capture (Split Attacks)
+
+Tariffs affect market capture during sector split attacks:
+
+```typescript
+// getSplitCaptureMultiplier():148-157
+const T = Math.max(0, Math.min(100, effectiveTariffRate));
+if (isDomesticSplittingForeign) {
+  return 1.0 + (T / 100) * 0.5; // 1.0 → 1.5× (domestic bonus)
+}
+return 1.0 - (T / 100) * 0.5; // 1.0 → 0.5× (foreign penalty)
+```
+
+| Tariff Rate | Domestic Attacker | Foreign Attacker |
+| ----------- | ----------------- | ---------------- |
+| 0%          | 1.0×              | 1.0×             |
+| 25%         | 1.125×            | 0.875×           |
+| 50%         | 1.25×             | 0.75×            |
+| 100%        | 1.5×              | 0.5×             |
+
+**Effect:** Domestic corps gain market share as foreign competitors are priced out.
+
+## Enactment
+
+Tariffs are enacted via legislation:
+
+```typescript
+// applyTariffProvision():164-189
+const filter = {
+  countryId,
+  scopeType: provision.scopeType,
+  targetSectorType: provision.targetSectorType ?? null,
+  targetOriginCountryId: provision.targetOriginCountryId ?? null,
+  targetCorporationId: provision.targetCorporationId
+    ? new ObjectId(String(provision.targetCorporationId))
+    : null,
+};
+
+await db.collection<Tariff>("tariffs").updateOne(
+  filter,
+  {
+    $set: { rate: provision.rate, sourceBillId, updatedAt: now },
+    $setOnInsert: { createdAt: now },
+  },
+  { upsert: true }
+);
+```
+
+## Collections
+
+### `tariffs`
+
+| Field                   | Type      | Description                                               |
+| ----------------------- | --------- | --------------------------------------------------------- |
+| `_id`                   | ObjectId  | Document ID                                               |
+| `countryId`             | CountryId | Country imposing tariff                                   |
+| `scopeType`             | string    | `economy_wide`, `sector`, `origin_country`, `corporation` |
+| `targetSectorType`      | string?   | For sector scope                                          |
+| `targetOriginCountryId` | string?   | For origin_country scope                                  |
+| `targetCorporationId`   | ObjectId? | For corporation scope                                     |
+| `rate`                  | number    | Tariff rate (0-100)                                       |
+| `sourceBillId`          | ObjectId  | Enacting legislation                                      |
+| `createdAt`             | Date      | Creation timestamp                                        |
+| `updatedAt`             | Date      | Last update                                               |
+
+## Key Files
+
+| File                                    | Purpose                                   |
+| --------------------------------------- | ----------------------------------------- |
+| `src/lib/tariffs/tariffEffects.ts`      | All tariff effect calculations            |
+| `src/lib/budget/fiscalYear.ts`          | Tariff rate application in budget context |
+| `src/app/api/bills/[id]/enact/route.ts` | Tariff provision enactment                |
+
+## Related Documentation
+
+- [[Commodities]] — Commodity pricing, blend weights, margin modifiers
+- [[Subsidies]] — Domestic industry support (counterpart to tariffs)
+- [[Legislation System]] — Bill enactment process

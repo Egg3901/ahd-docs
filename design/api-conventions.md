@@ -1,0 +1,48 @@
+# API Conventions
+
+Standard patterns for API routes in A House Divided.
+
+## Admin Routes
+
+- **Auth:** Use `requireAdmin()` from `@/lib/api/requireAdmin` at the start of handlers.
+- **Status code:** Return 403 (Forbidden) when the user is not an admin.
+- **Pattern:**
+  ```typescript
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+  const { admin } = auth; // when you need admin.userId, admin.username, etc.
+  ```
+
+## Error Handling
+
+- **Pattern:** Wrap the handler body in `try`/`catch` and call `handleRouteError(error)` from `@/lib/api/errors` in the `catch` block. There is no `withRouteError` wrapper; each route writes its own try/catch.
+  ```typescript
+  export async function GET(request: Request) {
+    try {
+      // ... handler body
+    } catch (error) {
+      return handleRouteError(error);
+    }
+  }
+  ```
+- **Expected errors:** Throw `ApiError` (or its helpers `badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict`, `internalError`) from `@/lib/api/errors` for 4xx/5xx. `handleRouteError` recognizes `ApiError` and returns its `status`/JSON body directly.
+- **Uncaught errors:** Anything that isn't an `ApiError` is tagged, sent to Sentry via `Sentry.captureException` and `alertOps`, logged, and returned as a generic 500 (`internalError().toJson()`).
+
+## Cron Routes
+
+- **Auth:** Use `requireCron(request)` from `@/lib/api/requireCron`.
+- **Header:** `Authorization: Bearer ${CRON_SECRET}`
+- **Status code:** Return 401 when cron auth fails.
+
+## Status Codes
+
+| Code | Use case                                     |
+| ---- | -------------------------------------------- |
+| 401  | Not authenticated (no valid token)           |
+| 403  | Authenticated but forbidden (e.g. not admin) |
+| 404  | Resource not found                           |
+| 429  | Rate limited                                 |
+
+## Cron vs Admin
+
+Some routes (e.g. `/api/elections/snapshot`) allow both cron and admin auth. Check cron first with `requireCron(request)`; if false, fall back to `requireAdmin()`.

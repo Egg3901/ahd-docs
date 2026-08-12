@@ -1,0 +1,419 @@
+import { marked } from "marked";
+import fs from "node:fs";
+import path from "node:path";
+import { execSync } from "node:child_process";
+
+const SRC = process.env.DOCS_SRC || new URL("..", import.meta.url).pathname;
+const GAME = process.env.GAME_REPO || "../AHDGame";
+const OUT = process.env.DOCS_OUT || "/srv/lakeside-docs";
+const LOGO_SRC = `${GAME}/public/ahd-logo.png`;
+const WIKI_JSON = "/tmp/wiki-pages.json";
+
+// ---------- source: wiki seed (from the game repo) ----------
+try {
+  execSync(
+    `node -e "const {register}=require('tsx/cjs/api');register();const {WIKI_SEED_PAGES}=require('./src/lib/seeds/wiki/pages');require('fs').writeFileSync('${WIKI_JSON}',JSON.stringify(WIKI_SEED_PAGES.map(p=>({slug:p.slug,title:p.title,description:p.description,category:p.category,content:p.content}))))"`,
+    { cwd: GAME, stdio: "pipe" },
+  );
+} catch (e) {
+  if (!fs.existsSync(WIKI_JSON)) throw new Error("wiki export failed and no cached JSON: " + e.message);
+  console.warn("wiki export failed, using cached JSON");
+}
+const WIKI_PAGES = JSON.parse(fs.readFileSync(WIKI_JSON, "utf8"));
+
+// ---------- grouping ----------
+const WIKI_CATEGORY_LABELS = {
+  "getting-started": "Getting Started", elections: "Elections", legislatures: "Legislatures",
+  parties: "Parties", countries: "Countries", military: "Military & Conflict",
+  economy: "Economy", advanced: "Advanced", resources: "Resources",
+  commodities: "Commodities", iterations: "Iterations",
+};
+const WIKI_CATEGORY_ORDER = ["getting-started", "elections", "legislatures", "parties",
+  "economy", "commodities", "military", "countries", "advanced", "resources", "iterations"];
+
+const DESIGN_GROUPS = [
+  ["Getting Started & Strategy", ["getting-started", "player-progression", "stats-actions", "meta-strategy", "min-maxing", "primary-general-tactics", "campaign-strategy", "party-building", "relocation"]],
+  ["Elections & Campaigns", ["elections", "election-engine", "granular-electorate-as-shipped", "campaign-manager", "canvassing", "fundraising-ads", "demographics", "demographics-targeting", "archetype-approvals", "political-system-reg-support", "snap-elections", "vacancy-handling", "japan-elections", "uk-elections", "demographic-election-audit", "demographic-election-implementation-audit"]],
+  ["Legislature & Parties", ["bills-legislation", "policy-system", "player-policies", "congress-leadership", "congress-speaker", "caucuses", "party-whips", "parties", "party-influence", "party-slate", "coalitions", "legislation-system-completion-audit"]],
+  ["Government & Executive", ["cabinet", "uk-cabinet", "parliamentary-government", "ruling-party-confidence", "uk-pm-no-confidence", "uk-devolution-policy", "uk-jp-devolved-executives", "government-approval", "state-level-power", "one-party-states-as-shipped"]],
+  ["Economy & Finance", ["economic-systems", "capacity-economy-as-shipped", "monetary-system-as-shipped", "corporations", "stock-market", "corporate-bond-defaults", "sovereign-bonds", "imf-corporate-bailout", "commodities", "commodity-pricing-v2", "currency-exchange", "price-indexing-and-repricing", "national-budget", "budget-calculations", "subsidies", "tariffs", "labour", "resources", "formula-deep-dive"]],
+  ["Countries", ["china", "japan", "united-kingdom"]],
+  ["World & Simulation", ["crisis-system", "national-metrics", "npp-system", "npp-opponents", "core-systems", "turn-processing", "conflict-system-as-shipped"]],
+  ["Platform", ["technical-architecture", "api-conventions", "api-middleware", "mail", "wiki", "wiki-system", "achievements", "achievements-service", "map-services", "loading-states", "moderator-accounts", "roadmap"]],
+];
+const ENGINEERING_GROUPS = [
+  ["Architecture", ["repo-operating-map", "architecture-boundaries", "turn-processor-as-shipped", "type-and-schema-contracts", "seed-bootstrap-call-graph", "shadow-ledger", "performance-hotspots"]],
+  ["Conventions", ["best-practices", "naming-and-organization", "comment-standards", "domain-reuse-guidelines", "shared-utility-guidelines", "ui-reuse-guidelines", "mongodb-access-guidelines", "api-route-checklist"]],
+  ["Design System", ["design-system", "design-system-components", "design-system-themes"]],
+  ["Workflow & Testing", ["developer-workflow", "test-architecture-and-gaps"]],
+];
+const API_GROUPS = [["Public API", ["public-v1", "client-integration"]]];
+
+const EXCLUDE = new Set(["engineering/ai-development-workflow.md", "engineering/ai-skills-roadmap.md", "design/README.md"]);
+const SCRUB = [
+  [/For full session-by-session build history[^\n]*\n/g, ""],
+  [/ The authoritative rules for code and git live in \[`claude\.md`\][^\n]*?root\./g, ""],
+  [/For \*\*AI-specific\*\* investigation[^.]*\. /g, ""],
+  [/`?\.design-bundle[\w./-]*`?/g, "the original design brief"],
+  [/`?docs\/plans[\w./-]*`?/g, "the design archive"],
+];
+
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const slugOf = f => f.replace(/\.md$/, "");
+const anchor = t => t.toLowerCase().replace(/<[^>]+>/g, "").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-");
+const titleOf = (md, fallback) => {
+  const m = md.match(/^#\s+(.+)$/m);
+  return (m ? m[1] : fallback).replace(/[*`]/g, "").trim() || fallback;
+};
+const firstPara = md => {
+  const body = md.replace(/^#\s+.+$/m, "").trim();
+  const m = body.match(/^(?![#>\-|*`\d])([^\n]{40,})$/m);
+  if (!m) return "";
+  let t = m[1].replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`]/g, "");
+  return t.length > 150 ? t.slice(0, 147).replace(/\s+\S*$/, "") + "…" : t;
+};
+
+// ---------- assemble page list ----------
+// page: {id, kind:'wiki'|'doc', section, group, file?, slug, title, desc, md, href}
+const pages = [];
+
+for (const cat of WIKI_CATEGORY_ORDER) {
+  for (const w of WIKI_PAGES.filter(p => p.category === cat).sort((a, b) => a.title.localeCompare(b.title))) {
+    pages.push({
+      id: `w:${w.slug}`, kind: "wiki", section: "wiki",
+      group: WIKI_CATEGORY_LABELS[cat] ?? cat, slug: w.slug,
+      title: w.title, desc: w.description || "", md: w.content,
+      href: `/wiki/${w.slug}.html`,
+    });
+  }
+}
+
+const DOC_SECTIONS = [
+  { dir: "design", label: "Game Design", groups: DESIGN_GROUPS },
+  { dir: "engineering", label: "Engineering", groups: ENGINEERING_GROUPS },
+  { dir: "api", label: "API", groups: API_GROUPS },
+];
+for (const s of DOC_SECTIONS) {
+  const groupOf = f => {
+    const sl = slugOf(f);
+    for (const [g, list] of s.groups) if (list.includes(sl)) return g;
+    return "Other";
+  };
+  for (const f of fs.readdirSync(path.join(SRC, s.dir)).sort()) {
+    if (!f.endsWith(".md") || EXCLUDE.has(`${s.dir}/${f}`)) continue;
+    let md = fs.readFileSync(path.join(SRC, s.dir, f), "utf8");
+    for (const [re, rep] of SCRUB) md = md.replace(re, rep);
+    const fb = slugOf(f).replace(/-/g, " ");
+    pages.push({
+      id: `d:${s.dir}/${f}`, kind: "doc", section: s.dir,
+      group: groupOf(f), slug: slugOf(f), file: f,
+      title: titleOf(md, fb.charAt(0).toUpperCase() + fb.slice(1)),
+      desc: firstPara(md), md,
+      href: `/${s.dir}/${slugOf(f)}.html`,
+    });
+  }
+}
+
+// ---------- cross-reference graph ----------
+const byWikiSlug = new Map(pages.filter(p => p.kind === "wiki").map(p => [p.slug, p]));
+const byDocFile = new Map(pages.filter(p => p.kind === "doc").map(p => [p.file, p]));
+const byTitle = pages
+  .filter(p => p.title.length >= 8 && p.title.trim().includes(" "))
+  .map(p => ({ p, re: new RegExp(`\\b${p.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") }));
+
+const outRefs = new Map(pages.map(p => [p.id, new Set()]));
+for (const p of pages) {
+  const add = t => { if (t && t.id !== p.id) outRefs.get(p.id).add(t.id); };
+  for (const m of p.md.matchAll(/\/wiki\/([\w-]+)/g)) add(byWikiSlug.get(m[1]));
+  for (const m of p.md.matchAll(/([\w-]+)\.md\b/g)) add(byDocFile.get(m[1] + ".md"));
+  for (const { p: q, re } of byTitle) if (q.id !== p.id && re.test(p.md)) add(q);
+}
+const inRefs = new Map(pages.map(p => [p.id, new Set()]));
+for (const [from, tos] of outRefs) for (const to of tos) inRefs.get(to).add(from);
+const byId = new Map(pages.map(p => [p.id, p]));
+
+// ---------- theme ----------
+const css = `
+:root{
+  --navy:#0f2d5c;--navy-2:#123a75;--crimson:#b31942;
+  --bg:#f7f8fb;--panel:#ffffff;--ink:#1a2333;--mut:#5b6b84;--line:#e3e8f1;
+  --code-bg:#f1f4f9;--acc:#0f2d5c;--acc-link:#1355b4;--sidebar:#fcfdfe;
+  --shadow:0 1px 2px rgba(15,45,92,.06),0 8px 24px -18px rgba(15,45,92,.25);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0d1524;--panel:#131e33;--ink:#e7edf7;--mut:#93a5c1;--line:#22314d;
+  --code-bg:#1a2740;--acc:#7fb2f0;--acc-link:#7fb2f0;--sidebar:#101a2d;--crimson:#e8506f;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -18px rgba(0,0,0,.6);
+}}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;font:15.5px/1.7 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:var(--acc-link);text-decoration:none}a:hover{text-decoration:underline}
+
+header.top{display:flex;align-items:center;gap:.7rem;padding:.55rem 1.2rem;border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(10px)}
+header.top img{width:34px;height:34px;border-radius:50%}
+header.top .name{font-weight:700;font-size:1rem;color:var(--ink);letter-spacing:-.01em;white-space:nowrap}
+header.top .name small{display:block;font-size:.68rem;font-weight:600;color:var(--crimson);letter-spacing:.14em;text-transform:uppercase;line-height:1.1}
+header.top .links{margin-left:auto;display:flex;gap:1.1rem;font-size:.86rem;font-weight:500}
+#menu-btn{display:none;margin-left:.2rem;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:.3rem .6rem;font-size:1rem;cursor:pointer}
+
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);max-width:1500px;margin:0 auto}
+.layout.with-toc{grid-template-columns:300px minmax(0,1fr) 220px}
+
+nav.side{background:var(--sidebar);border-right:1px solid var(--line);padding:1rem .9rem 2rem;
+  position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto;scrollbar-width:thin}
+nav.side input{width:100%;padding:.5rem .75rem;margin-bottom:.9rem;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel);color:var(--ink);font-size:.86rem;outline:none}
+nav.side input:focus{border-color:var(--acc-link)}
+nav.side details.sec{margin-bottom:.4rem;border-radius:9px}
+nav.side details.sec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:.45rem;
+  font-size:.74rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);padding:.5rem .55rem;border-radius:8px;user-select:none}
+nav.side details.sec>summary:hover{background:var(--code-bg)}
+nav.side details.sec>summary::before{content:"";width:0;height:0;border-left:5px solid var(--crimson);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+nav.side details.sec[open]>summary::before{transform:rotate(90deg)}
+nav.side summary .n{margin-left:auto;font-weight:600;color:var(--mut);font-size:.7rem}
+nav.side .grp{margin:.5rem 0 .2rem;padding:0 .55rem .1rem 1rem;font-size:.67rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--mut)}
+nav.side a{display:block;color:var(--ink);font-size:.86rem;padding:.22rem .6rem .22rem 1.35rem;border-radius:7px;
+  border-left:2px solid transparent;margin:.04rem 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav.side a:hover{background:var(--code-bg);text-decoration:none}
+nav.side a.on{color:var(--crimson);font-weight:600;border-left-color:var(--crimson);background:color-mix(in srgb,var(--crimson) 7%,transparent)}
+nav.side .miss{display:none}
+
+main{padding:2.4rem 3.2rem 3rem;min-width:0}
+main .crumb{font-size:.78rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--crimson);margin-bottom:.4rem}
+main .crumb .sep{color:var(--mut);margin:0 .35rem}
+main h1{font-size:2.05rem;line-height:1.2;letter-spacing:-.02em;margin:.1rem 0 1rem;color:var(--ink)}
+main h2{font-size:1.35rem;letter-spacing:-.01em;margin:2.4rem 0 .8rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}
+main h3{font-size:1.08rem;margin:1.8rem 0 .6rem}
+main h2 a.anchor,main h3 a.anchor{color:var(--mut);opacity:0;margin-left:.4rem;font-weight:400}
+main h2:hover a.anchor,main h3:hover a.anchor{opacity:1}
+main p,main li{color:color-mix(in srgb,var(--ink) 92%,var(--mut))}
+main li{margin:.25rem 0}
+code{background:var(--code-bg);border:1px solid var(--line);border-radius:5px;padding:.08em .35em;font-size:.85em;font-family:ui-monospace,"Cascadia Code",Menlo,monospace}
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:.95rem 1.1rem;overflow-x:auto;line-height:1.55}
+pre code{border:0;background:none;padding:0;font-size:.83rem}
+table{border-collapse:collapse;display:block;overflow-x:auto;max-width:100%;margin:1rem 0}
+th,td{border:1px solid var(--line);padding:.45rem .75rem;font-size:.87rem;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+blockquote{margin:1.1rem 0;padding:.55rem 1.1rem;border-left:3px solid var(--crimson);background:var(--panel);border-radius:0 10px 10px 0;color:var(--mut);box-shadow:var(--shadow)}
+blockquote p{margin:.3rem 0}
+img{max-width:100%;border-radius:8px}
+hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
+
+aside.toc{padding:2.6rem 1.1rem 2rem 0;font-size:.82rem;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
+aside.toc .t{font-weight:700;font-size:.68rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);margin-bottom:.5rem}
+aside.toc a{display:block;color:var(--mut);padding:.18rem 0 .18rem .7rem;border-left:2px solid var(--line);line-height:1.4}
+aside.toc a:hover{color:var(--acc-link);text-decoration:none}
+aside.toc a.on{color:var(--crimson);border-left-color:var(--crimson);font-weight:600}
+
+.xrefs{margin-top:3rem;border-top:1px solid var(--line);padding-top:1.4rem}
+.xrefs h2{border:0;margin:.2rem 0 .8rem;font-size:1.05rem}
+.xrefs .cols{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+.xrefs .col .t{font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin-bottom:.5rem}
+.xrefs a.chip{display:flex;align-items:baseline;gap:.5rem;padding:.34rem .6rem;border:1px solid var(--line);border-radius:9px;
+  margin-bottom:.4rem;background:var(--panel);color:var(--ink);font-size:.85rem;box-shadow:var(--shadow)}
+.xrefs a.chip:hover{border-color:var(--acc-link);text-decoration:none}
+.xrefs a.chip .k{font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0}
+.xrefs a.chip .k.wiki{color:#199e70}.xrefs a.chip .k.doc{color:var(--acc-link)}
+@media(max-width:700px){.xrefs .cols{grid-template-columns:1fr}}
+
+.pager{display:flex;gap:1rem;margin-top:2rem}
+.pager a{flex:1;border:1px solid var(--line);border-radius:12px;padding:.7rem 1rem;background:var(--panel);box-shadow:var(--shadow)}
+.pager a:hover{border-color:var(--acc-link);text-decoration:none}
+.pager .lbl{font-size:.72rem;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}
+.pager .nt{font-weight:600;color:var(--ink);font-size:.9rem}
+.pager a.next{text-align:right}
+
+.hero{padding:3.2rem 0 2rem;display:flex;align-items:center;gap:2rem}
+.hero img{width:112px;height:112px;border-radius:50%;box-shadow:var(--shadow)}
+.hero h1{font-size:2.4rem;margin:0 0 .5rem}
+.hero p{max-width:58ch;margin:0;color:var(--mut);font-size:1.03rem}
+.hero .cta{margin-top:1.1rem;display:flex;gap:.7rem;flex-wrap:wrap}
+.hero .cta a{border-radius:9px;padding:.5rem 1rem;font-weight:600;font-size:.9rem;border:1px solid var(--line)}
+.hero .cta a.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.hero .cta a.primary:hover{background:var(--navy-2);text-decoration:none}
+.hero .cta a.ghost{background:var(--panel);color:var(--ink)}
+.hero .cta a.ghost:hover{border-color:var(--acc-link);text-decoration:none}
+
+.home-sec{margin-top:1.6rem}
+.home-sec>h2{font-size:1.3rem;margin:1.6rem 0 .2rem}
+.home-sec .blurb{color:var(--mut);margin:.1rem 0 1rem}
+.gwrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.9rem}
+.gcard{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:1rem 1.1rem;box-shadow:var(--shadow)}
+.gcard b{display:block;color:var(--acc);font-size:.95rem;margin-bottom:.45rem}
+.gcard a{display:inline-block;font-size:.82rem;color:var(--mut);margin:.12rem .5rem .12rem 0}
+.gcard a:hover{color:var(--acc-link)}
+.gcard .more{color:var(--crimson);font-weight:600}
+
+footer{color:var(--mut);font-size:.82rem;padding:2.4rem 0 .6rem;border-top:1px solid var(--line);margin-top:3.2rem;display:flex;gap:1.4rem;flex-wrap:wrap}
+
+@media(max-width:1160px){.layout.with-toc{grid-template-columns:300px minmax(0,1fr)}aside.toc{display:none}}
+@media(max-width:860px){
+  .layout,.layout.with-toc{grid-template-columns:1fr}
+  #menu-btn{display:block}
+  nav.side{position:fixed;inset:52px auto 0 0;width:min(330px,86vw);z-index:15;transform:translateX(-102%);transition:transform .2s;box-shadow:var(--shadow)}
+  body.nav-open nav.side{transform:none}
+  main{padding:1.6rem 1.2rem}
+  .hero{flex-direction:column;text-align:center;padding-top:2rem}.hero .cta{justify-content:center}
+  header.top .links a:not(.keep){display:none}
+}
+`;
+
+const js = `
+const q=document.getElementById('filter');
+if(q){q.addEventListener('input',()=>{const v=q.value.trim().toLowerCase();
+  document.querySelectorAll('nav.side a[data-t]').forEach(a=>{a.classList.toggle('miss',v&&!a.dataset.t.includes(v))});
+  document.querySelectorAll('nav.side .grp').forEach(g=>{
+    let el=g.nextElementSibling,any=false;
+    while(el&&el.tagName==='A'){if(!el.classList.contains('miss'))any=true;el=el.nextElementSibling}
+    g.classList.toggle('miss',v&&!any)});
+  document.querySelectorAll('nav.side details').forEach(d=>{if(v)d.open=true});});}
+const mb=document.getElementById('menu-btn');
+if(mb)mb.addEventListener('click',()=>document.body.classList.toggle('nav-open'));
+const on=document.querySelector('nav.side a.on');if(on)on.scrollIntoView({block:'center'});
+const heads=[...document.querySelectorAll('main h2[id],main h3[id]')];
+const tocLinks=new Map([...document.querySelectorAll('aside.toc a')].map(a=>[a.getAttribute('href').slice(1),a]));
+if(heads.length&&tocLinks.size){
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+    tocLinks.forEach(a=>a.classList.remove('on'));
+    const a=tocLinks.get(e.target.id);if(a)a.classList.add('on');}})},{rootMargin:'-10% 0px -80% 0px'});
+  heads.forEach(h=>io.observe(h));}
+`;
+
+// ---------- nav ----------
+const NAV_SECTIONS = [
+  { key: "wiki", label: "Player Wiki" },
+  { key: "design", label: "Game Design" },
+  { key: "engineering", label: "Engineering" },
+  { key: "api", label: "API" },
+];
+const groupOrder = sec => {
+  if (sec === "wiki") return WIKI_CATEGORY_ORDER.map(c => WIKI_CATEGORY_LABELS[c]);
+  const g = { design: DESIGN_GROUPS, engineering: ENGINEERING_GROUPS, api: API_GROUPS }[sec].map(x => x[0]);
+  return [...g, "Other"];
+};
+const navHtml = activeHref => NAV_SECTIONS.map(s => {
+  const secPages = pages.filter(p => p.section === s.key);
+  const open = secPages.some(p => p.href === activeHref) || !activeHref ? " open" : "";
+  const inner = groupOrder(s.key).map(g => {
+    const gp = secPages.filter(p => p.group === g);
+    if (!gp.length) return "";
+    return `<div class="grp">${esc(g)}</div>` + gp.map(p =>
+      `<a href="${p.href}"${p.href === activeHref ? ' class="on"' : ""} data-t="${esc(p.title.toLowerCase())}">${esc(p.title)}</a>`).join("");
+  }).join("");
+  return `<details class="sec"${open}><summary>${s.label} <span class="n">${secPages.length}</span></summary>${inner}</details>`;
+}).join("");
+
+const shell = ({ title, body, activeHref, toc, desc }) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)} · A House Divided Docs</title>
+<meta name="description" content="${esc(desc || "Player wiki, design, and engineering documentation for A House Divided.")}">
+<meta property="og:title" content="${esc(title)} · A House Divided Docs">
+<meta property="og:image" content="https://docs.lakesidegames.net/ahd-logo.png">
+<link rel="icon" href="/ahd-logo.png"><style>${css}</style></head><body>
+<header class="top">
+  <button id="menu-btn" aria-label="Menu">☰</button>
+  <a href="/" style="display:flex;align-items:center;gap:.7rem;text-decoration:none"><img src="/ahd-logo.png" alt="A House Divided">
+  <span class="name">A House Divided<small>Documentation</small></span></a>
+  <span class="links">
+    <a class="keep" href="https://www.ahousedividedgame.com">Play</a>
+    <a class="keep" href="https://github.com/Egg3901/AHDGame">GitHub</a>
+    <a href="https://www.ahousedividedgame.com/changelog">Changelog</a>
+  </span>
+</header>
+<div class="layout${toc ? " with-toc" : ""}">
+<nav class="side"><input id="filter" type="search" placeholder="Filter all pages…" autocomplete="off">${navHtml(activeHref)}</nav>
+<main>${body}
+<footer><span>© Lakeside Games</span><a href="https://github.com/Egg3901/AHDGame">Source on GitHub</a><a href="https://www.ahousedividedgame.com">ahousedividedgame.com</a></footer>
+</main>
+${toc || ""}</div><script>${js}</script></body></html>`;
+
+// ---------- render ----------
+fs.rmSync(OUT, { recursive: true, force: true });
+fs.mkdirSync(OUT, { recursive: true });
+fs.copyFileSync(LOGO_SRC, path.join(OUT, "ahd-logo.png"));
+
+marked.use({
+  renderer: {
+    heading(text, level) {
+      if (level === 1) return "";
+      const id = anchor(text);
+      return `<h${level} id="${id}">${text}<a class="anchor" href="#${id}">#</a></h${level}>`;
+    },
+  },
+});
+
+const secLabel = p => p.kind === "wiki" ? "Player Wiki" : DOC_SECTIONS.find(s => s.dir === p.section)?.label ?? p.section;
+const chip = id => {
+  const t = byId.get(id);
+  return `<a class="chip" href="${t.href}"><span class="k ${t.kind}">${t.kind === "wiki" ? "wiki" : "docs"}</span>${esc(t.title)}</a>`;
+};
+const xrefsHtml = p => {
+  const outs = [...outRefs.get(p.id)].slice(0, 12);
+  const ins = [...inRefs.get(p.id)].slice(0, 12);
+  if (!outs.length && !ins.length) return "";
+  return `<div class="xrefs"><h2>Connected pages</h2><div class="cols">
+    <div class="col"><div class="t">References →</div>${outs.map(chip).join("") || '<span style="color:var(--mut);font-size:.85rem">None</span>'}</div>
+    <div class="col"><div class="t">← Referenced by</div>${ins.map(chip).join("") || '<span style="color:var(--mut);font-size:.85rem">None</span>'}</div>
+  </div></div>`;
+};
+
+for (let i = 0; i < pages.length; i++) {
+  const p = pages[i];
+  let html = marked.parse(p.md);
+  html = html
+    .replace(/href="\/wiki\/([\w-]+)"/g, (m, s) => byWikiSlug.has(s) ? `href="/wiki/${s}.html"` : `href="https://www.ahousedividedgame.com/wiki/${s}"`)
+    .replace(/href="(\.\/)?([\w-]+)\.md(#[\w-]*)?"/g, (m, _d, name, h) =>
+      byDocFile.has(name + ".md") ? `href="${byDocFile.get(name + ".md").href}${h || ""}"` : m)
+    .replace(/href="\.\.\/(design|engineering|api)\/([\w-]+)\.md(#[\w-]*)?"/g, 'href="/$1/$2.html$3"');
+  const h2s = [...p.md.matchAll(/^##\s+(.+)$/gm)].map(m => m[1].replace(/[*`]/g, ""));
+  const toc = h2s.length >= 2
+    ? `<aside class="toc"><div class="t">On this page</div>${h2s.map(t => `<a href="#${anchor(t)}">${esc(t)}</a>`).join("")}</aside>`
+    : null;
+  const sameSec = pages.filter(q => q.section === p.section);
+  const idx = sameSec.indexOf(p);
+  const prev = sameSec[idx - 1], next = sameSec[idx + 1];
+  const pager = `<div class="pager">${
+    prev ? `<a href="${prev.href}"><div class="lbl">Previous</div><div class="nt">${esc(prev.title)}</div></a>` : "<span style='flex:1'></span>"}${
+    next ? `<a class="next" href="${next.href}"><div class="lbl">Next</div><div class="nt">${esc(next.title)}</div></a>` : "<span style='flex:1'></span>"}</div>`;
+  const body = `<div class="crumb">${esc(secLabel(p))}<span class="sep">/</span>${esc(p.group)}</div><h1>${esc(p.title)}</h1>${html}${xrefsHtml(p)}${pager}`;
+  const outPath = path.join(OUT, p.kind === "wiki" ? `wiki/${p.slug}.html` : `${p.section}/${p.slug}.html`);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, shell({ title: p.title, body, activeHref: p.href, toc, desc: p.desc }));
+}
+
+// ---------- homepage ----------
+const homeSec = (key, label, blurb) => {
+  const secPages = pages.filter(p => p.section === key);
+  const cards = groupOrder(key).map(g => {
+    const gp = secPages.filter(p => p.group === g);
+    if (!gp.length) return "";
+    const shown = gp.slice(0, 6);
+    return `<div class="gcard"><b>${esc(g)}</b>${shown.map(p => `<a href="${p.href}">${esc(p.title)}</a>`).join("")}${
+      gp.length > shown.length ? `<a class="more" href="${gp[0].href}">+${gp.length - shown.length} more</a>` : ""}</div>`;
+  }).join("");
+  return `<div class="home-sec"><h2>${label}</h2><p class="blurb">${blurb}</p><div class="gwrap">${cards}</div></div>`;
+};
+const home = `
+<div class="hero"><img src="/ahd-logo.png" alt="A House Divided logo">
+<div><h1>A House Divided Docs</h1>
+<p>Everything about the multiplayer political and economic simulation, in one place: the player wiki, the design docs behind every mechanic, and the engineering guides for contributors.</p>
+<div class="cta"><a class="primary" href="https://www.ahousedividedgame.com">Play the game</a>
+<a class="ghost" href="https://github.com/Egg3901/AHDGame">Source on GitHub</a>
+<a class="ghost" href="/api/public-v1.html">Public API</a></div></div></div>
+${homeSec("wiki", "Player Wiki", "How to play: the same guides that ship inside the game, from your first character to advanced strategy.")}
+${homeSec("design", "Game Design", "How every system works under the hood: elections, legislation, parties, the economy, and the world.")}
+${homeSec("engineering", "Engineering", "Architecture, conventions, and contribution guides for the codebase.")}
+${homeSec("api", "API", "The public REST API and client integration.")}`;
+fs.writeFileSync(path.join(OUT, "index.html"), shell({ title: "Home", body: home, activeHref: "" }));
+
+// ---------- sitemap + robots ----------
+const BASE = "https://docs.lakesidegames.net";
+fs.writeFileSync(path.join(OUT, "sitemap.xml"),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+  [`${BASE}/`, ...pages.map(p => BASE + p.href)].map(u => `<url><loc>${u}</loc></url>`).join("\n") +
+  `\n</urlset>\n`);
+fs.writeFileSync(path.join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${BASE}/sitemap.xml\n`);
+
+const edges = [...outRefs.values()].reduce((n, s) => n + s.size, 0);
+console.log(`built ${pages.length} pages (${pages.filter(p => p.kind === "wiki").length} wiki, ${pages.filter(p => p.kind === "doc").length} docs), ${edges} cross-reference edges -> ${OUT}`);

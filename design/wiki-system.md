@@ -1,0 +1,260 @@
+# Wiki System
+
+## Overview
+
+The Wiki System provides in-game documentation and strategy guides. Design documents from `docs/design/` are synced to the `wikiPages` collection for player access.
+
+**Location:** `src/lib/wiki/`
+
+**Key files:**
+
+- `getWikiPageData.ts` - Fetch wiki page metadata for display
+- `loadContent.ts` - Load markdown content and transform wikilinks
+- `searchIndex.ts` - Build unified search index (pages, politicians, seats, parties, leadership)
+- `syncPriorSubmissions.ts` - Sync design docs to wikiPages collection
+- `seatData.ts` - Derive seat slugs and titles from states collection
+- `partyData.ts` - Fetch party data for wiki pages
+- `leadershipData.ts` - Fetch congressional leadership data
+- `playerPages.ts` - Player character profile data for wiki
+- `redirects.ts` - Legacy slug → canonical path mappings
+- `componentRegistry.ts` - Custom markdown component registry
+- `categories.ts` - Wiki page categories
+- `learningPaths.ts` - Curated learning path definitions
+
+## Wiki Page Configuration
+
+Pages are configured in `WIKI_SEED_PAGES` array (`src/lib/seeds/wiki/pages.ts`), aggregated from category files in `src/lib/seeds/wiki/pages/*.ts`:
+
+```typescript
+export const WIKI_SEED_PAGES: readonly WikiSeedPage[] = [
+  ...gettingStartedPages,
+  ...electionsPages,
+  ...legislaturesPages,
+  ...partiesPages,
+  ...countriesPages,
+  ...economyPages,
+  ...advancedPages,
+  ...resourcesPages,
+  ...commoditiesPages,
+];
+```
+
+Each `WikiSeedPage` (`src/lib/seeds/wiki/types.ts`) defines:
+
+- `slug` — URL identifier
+- `title`, `description`, `content` — Display data
+- `category` — Primary category (also used as first tag)
+- `featured` — Highlighted on wiki home
+- `difficulty`, `contentType`, `estimatedReadTime` — Metadata
+- `countryId` — Optional country scoping
+- `private` — Admin-only page
+
+### Categories
+
+Pages are organized into categories:
+
+| Category          | Purpose                        |
+| ----------------- | ------------------------------ |
+| `getting-started` | New player guides              |
+| `elections`       | Election mechanics and history |
+| `congress`        | Legislative system             |
+| `parties`         | Party mechanics                |
+| `npps`            | NPP system guides              |
+| `states`          | State-level mechanics          |
+| `strategy`        | Advanced strategy guides       |
+| `reference`       | Technical reference docs       |
+
+### Featured Pages
+
+Pages with `featured: true` are highlighted on the wiki home page:
+
+- `getting-started` - Core systems overview
+- `core-systems` - Turn structure, actions
+- `elections` - Election browser
+
+### Special Routes
+
+Some slugs use custom UI instead of markdown rendering. These special live routes are handled by dedicated page components and cannot be overridden by markdown files:
+
+- `/wiki/elections` — Election browser
+- `/wiki/roadmap` — Game roadmap
+- `/wiki/paths/*` — Learning paths
+- `/wiki/party/[id]` — Party profile pages
+- `/wiki/seat/[slug]` — Seat/office pages
+- `/wiki/leadership/[role]` — Congressional leadership roles
+
+## Sync System
+
+### `syncWikiPagesFromDesignDocs(db, adminUserId, options?)`
+
+**Purpose:** Sync markdown files from `docs/design/` to `wikiPages` collection.
+
+**Parameters:**
+
+- `db` - Database connection
+- `adminUserId` - Admin performing sync (recorded in edit history)
+- `options.slugs` - Optional: sync specific slugs only
+- `options.force` - Optional: overwrite unpublished pages
+
+**Returns:**
+
+```typescript
+interface WikiDesignSyncResult {
+  inserted: string[]; // Newly created pages
+  updated: string[]; // Updated pages
+  skipped: WikiDesignSyncSkipped[]; // Skipped pages
+}
+```
+
+**Sync Logic:**
+
+1. Filter to overrideable slugs (excludes special routes)
+2. For each configured page:
+   - Read markdown from `docs/design/{slug}.md`
+   - Skip if file not found
+   - Skip if existing page status is not "published" (unless `force: true`)
+   - Insert or update wikiPages document
+
+**Edit History:**
+
+Each sync adds an entry to `editHistory`:
+
+```typescript
+{
+  userId: adminUserId,
+  timestamp: now,
+  action: "created" | "edited",
+  note: "Imported from docs/design (admin sync)" | "Synced from docs/design/{file}",
+}
+```
+
+### Markdown Reading
+
+```typescript
+export async function readWikiDesignFileMarkdown(slug: string): Promise<string | null> {
+  const fileName = getWikiDesignFileBaseName(slug);
+  // Read file content, return null if not found
+}
+```
+
+**File naming:** `{slug}.md` in `docs/design/` directory.
+
+## Wiki Page Schema
+
+```typescript
+interface WikiPage {
+  _id: ObjectId;
+  slug: string; // Unique identifier
+  title: string;
+  description: string;
+  content: string; // Markdown content
+  status: "draft" | "pending_review" | "published" | "archived";
+  submittedBy: ObjectId; // User who created/edited
+  tags: string[];
+  featured: boolean;
+  isAutoGenerated: boolean;
+  editHistory: EditHistoryEntry[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface EditHistoryEntry {
+  userId: ObjectId;
+  timestamp: Date;
+  action: "created" | "edited" | "approved" | "rejected" | "archived";
+  note?: string;
+}
+```
+
+## Auto-Update Triggers
+
+The wiki can auto-update on game events:
+
+### Election Results
+
+When elections resolve, wiki pages can be updated with new results.
+
+### Leadership Changes
+
+When party leadership or government leadership changes, relevant pages update.
+
+## Learning Paths
+
+Wiki pages can be organized into learning paths for new players:
+
+1. **Getting Started Path:**
+   - `getting-started` → `core-systems` → `player-progression` → `stats-actions`
+
+2. **Elections Path:**
+   - `election-mechanics` → `campaign-strategy` → `demographics-targeting` → `fundraising-ads`
+
+3. **Strategy Path:**
+   - `state-level-power` → `party-building` → `meta-strategy` → `min-maxing`
+
+## Integration Points
+
+### API Routes
+
+Wiki pages are served via API:
+
+```typescript
+GET / api / wiki / { slug };
+```
+
+### Server Components
+
+Wiki data is fetched in server components:
+
+```typescript
+const pageData = await getWikiPageData(slug);
+```
+
+### Admin Panel
+
+Admins can trigger syncs from the admin panel.
+
+## Design Doc Sources
+
+The wiki pulls from `docs/design/` which contains:
+
+- **Mechanics docs:** How game systems work
+- **Reference docs:** Data tables, formulas
+- **Strategy guides:** Player tips and tactics
+
+**Excluded from wiki:**
+
+- the design archive - Implementation plans
+- `docs/audits/` - Code audits
+- Engineering docs - Technical architecture
+
+## Content Guidelines
+
+### Featured Pages
+
+Featured pages should:
+
+- Be high-quality and well-maintained
+- Cover core mechanics
+- Be accessible to new players
+
+### Categories
+
+Choose the most specific category:
+
+- Use `getting-started` for new player essentials
+- Use `reference` for data tables and formulas
+- Use `strategy` for advanced tactics
+
+### Tags
+
+Tags enable cross-category discovery:
+
+- `elections`, `campaigns`, `npps`, `parties`
+- `economy`, `budget`, `bonds`
+- `congress`, `legislation`, `bills`
+
+## Related Systems
+
+- **Design Docs:** `docs/design/` - Source markdown files
+- **Wiki API:** `src/app/api/wiki/` - Wiki route handlers
+- **Admin Tools:** `src/app/admin/` - Sync triggers

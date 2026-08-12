@@ -1,0 +1,394 @@
+# Congress Speaker System
+
+## Overview
+
+The Congress Speaker System manages Speaker of the House elections in the US Congress. The Speaker is elected by House members, with voting restricted to the majority party.
+
+**Location:** `src/lib/congress/speaker/`
+
+**Key files:**
+
+- `actions.ts` - Action handlers (declare, withdraw, vote, start, reset, force_end)
+- `resolveSpeakerElection.ts` - Election resolution logic
+- `responseBuilder.ts` - Response formatting
+- `vacateSpeakerIfLostSeat.ts` - Auto-vacate logic when Speaker loses seat
+- `types.ts` - Type definitions
+
+## Election Rules
+
+### Eligibility
+
+**To run for Speaker:**
+
+1. Must be a sitting House member
+2. Must be from the majority party
+
+**To vote for Speaker:**
+
+1. Must be a sitting House member
+2. Must be from the majority party
+
+### Election Timing
+
+- **Duration:** 12 hours from start
+- **End condition:** Time expires OR admin force-ends
+- **Resolution:** Plurality wins (most votes, no majority required)
+
+### NPP Voting
+
+NPPs in the majority party automatically vote for the incumbent Speaker if running, otherwise follow party leadership preferences.
+
+```typescript
+// src/lib/turn/npp/speakerVoting.ts
+export async function recalculateNPPSpeakerVotes(): Promise<void> {
+  // NPPs vote for incumbent if running, otherwise party leadership choice
+}
+```
+
+## Action Handlers
+
+### `start_election`
+
+**Authorization:** Admin only
+
+**Behavior:**
+
+1. Check no active election exists
+2. Clear failed nominations
+3. Create new 12-hour election window
+4. Auto-nominate incumbent Speaker if eligible (has seat, majority party)
+5. Trigger NPP vote recalculation
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Speaker election started. Voting ends in 12 hours. Only the majority party may run and vote. Plurality wins."
+}
+```
+
+### `reset_election`
+
+**Authorization:** Admin only
+
+**Behavior:**
+
+1. Clear all active nominations to "failed"
+2. Close current election
+3. Allows starting fresh election
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Speaker election reset. You can start a new 12-hour election."
+}
+```
+
+### `force_end`
+
+**Authorization:** Admin only
+
+**Behavior:**
+
+1. Immediately resolve current election
+2. Install winner or assign to NPP
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Speaker election ended. Winner or NPP assignee is set."
+}
+```
+
+### `declare`
+
+**Authorization:** House member from majority party
+
+**Checks:**
+
+1. Election is in voting phase
+2. Character is from majority party
+3. No existing candidacy (self or NPP)
+4. Not running for other leadership position (House/Senate)
+
+**Cost:** None
+
+**Effects:**
+
+1. Create SpeakerNomination record
+2. Trigger achievement check (`speaker_candidate`)
+3. Recalculate NPP votes
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "{name} has declared for Speaker. Voting ends {endTime}. Top vote-getter wins.",
+  "status": 201
+}
+```
+
+### `withdraw`
+
+**Authorization:** House member with active candidacy
+
+**Checks:**
+
+1. Election is in voting phase
+2. Has active candidacy
+3. Has ≥3 political influence
+
+**Cost:** 3 political influence
+
+**Effects:**
+
+1. Deduct 3 NPI from character
+2. Log influence history
+3. Set candidacy status to "failed"
+4. Recalculate NPP votes
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Candidacy withdrawn. 3 NPI deducted."
+}
+```
+
+### `vote`
+
+**Authorization:** House member from majority party
+
+**Checks:**
+
+1. Election is in voting phase
+2. Character is from majority party
+3. Valid nomination ID
+
+**Behavior:**
+
+- Vote is changeable (can switch candidates)
+- Previous vote is automatically removed
+- Only one active vote per member
+
+**Effects:**
+
+1. Remove previous vote (if any)
+2. Add vote to new nomination
+3. Increment votesFor counter
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Vote recorded for {candidateName}. Top vote-getter when the window closes wins."
+}
+```
+
+## Election Resolution
+
+### `resolveSpeakerElection()`
+
+Called when election ends (time expiry or admin force-end):
+
+```typescript
+export async function resolveSpeakerElection(
+  db: Db,
+  partyMap: Map<string, PoliticalParty>,
+  forceEnd: boolean
+): Promise<boolean> {
+  // 1. Find active election
+  const election = await db
+    .collection<SpeakerElection>("speakerElections")
+    .findOne({ _id: "current" });
+  if (!election || election.status !== "voting") return false;
+
+  // 2. Find winner (plurality)
+  const nominations = await db
+    .collection<SpeakerNomination>("speakerNominations")
+    .find({ status: { $in: ["open", "voting"] } })
+    .sort({ votesFor: -1 })
+    .toArray();
+
+  if (nominations.length === 0) {
+    // No candidates - assign to NPP
+    await assignNPPSpeaker(db, partyMap);
+  } else {
+    // Winner is top vote-getter
+    const winner = nominations[0];
+    await installSpeaker(db, winner.nomineeId, winner.nomineeName, winner.nomineeParty);
+  }
+
+  // 3. Close election
+  await db
+    .collection<SpeakerElection>("speakerElections")
+    .updateOne({ _id: "current" }, { $set: { status: "closed", updatedAt: new Date() } });
+
+  return true;
+}
+```
+
+### Tie Breaking
+
+Ties are broken by:
+
+1. First to reach the vote total (earlier `updatedAt`)
+2. If still tied, NPP assignment
+
+## Auto-Vacate Logic
+
+### `vacateSpeakerIfLostSeat()`
+
+Called during election resolution phase:
+
+```typescript
+export async function vacateSpeakerIfLostSeat(): Promise<void> {
+  const db = await getDb();
+
+  const speaker = await db
+    .collection<CongressLeader>("congressLeaders")
+    .findOne({ role: "speaker_of_the_house" });
+  if (!speaker) return;
+
+  // Check if speaker still has House seat
+  const hasSeat = await db.collection<ElectedOfficial>("electedOfficials").findOne({
+    officeType: "house",
+    $or: [{ characterId: speaker.characterId }, { nppId: speaker.characterId }],
+  });
+
+  if (!hasSeat) {
+    // Remove speaker
+    await db
+      .collection<CongressLeader>("congressLeaders")
+      .deleteOne({ role: "speaker_of_the_house" });
+
+    // Log career history
+    await logCareerHistory(speaker.characterId, "vacated", "speaker_of_the_house");
+  }
+}
+```
+
+**Trigger:** Runs in Group 7 (Election Resolution) after general elections resolve.
+
+## Data Model
+
+### Collections
+
+| Collection           | Purpose                       |
+| -------------------- | ----------------------------- |
+| `speakerElections`   | Current election state        |
+| `speakerNominations` | Candidacies and votes         |
+| `congressLeaders`    | Installed Speaker             |
+| `electedOfficials`   | House membership verification |
+| `characters`         | NPI deduction, career history |
+| `influenceHistory`   | NPI spending log              |
+
+### Document Types
+
+```typescript
+interface SpeakerElection {
+  _id: "current"; // Singleton document
+  status: "voting" | "closed";
+  startedAt: Date;
+  endsAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface SpeakerNomination {
+  _id: ObjectId;
+  nomineeId: ObjectId;
+  nomineeName: string;
+  nomineeParty: string;
+  nomineeState?: string;
+  nominatedById: ObjectId;
+  nominatedByName: string;
+  status: "open" | "voting" | "withdrawn" | "failed" | "elected";
+  votesFor: number;
+  votesAgainst: number;
+  votes: Record<string, "for" | "against">; // characterId -> vote
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface CongressLeader {
+  _id: ObjectId;
+  role: "speaker_of_the_house";
+  characterId: ObjectId;
+  characterName: string;
+  party: string;
+  state: string;
+  electedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Vote Structure
+
+Votes are stored as a map on the nomination document:
+
+```typescript
+votes: {
+  "characterId1": "for",
+  "characterId2": "for",
+  // ...
+}
+```
+
+**Vote changing:** When a member votes for a different candidate:
+
+1. Previous vote is `$unset` from old nomination
+2. New vote is `$set` on new nomination
+3. `votesFor` counters are adjusted atomically
+
+## NPP Vote Recalculation
+
+NPP votes are recalculated when:
+
+1. New candidate declares
+2. Candidate withdraws
+3. Election starts (incumbent auto-nomination)
+
+```typescript
+await recalculateNPPSpeakerVotes();
+```
+
+**NPP voting logic:**
+
+- Vote for incumbent if running
+- Otherwise vote for party leadership's choice
+- Based on NPP's home state and party alignment
+
+## Integration with Turn Processing
+
+Speaker-related phases in turn processing:
+
+| Phase                       | Group            | Purpose                                                         |
+| --------------------------- | ---------------- | --------------------------------------------------------------- |
+| Speaker election resolution | 4 (NPP behavior) | Shared leadership upkeep helpers; no live NPP speaker vote pass |
+| Election resolution         | 7                | Vacate speaker if lost seat                                     |
+
+## Error Responses
+
+| Status | Condition                                                |
+| ------ | -------------------------------------------------------- |
+| 400    | Invalid action, missing character, invalid nomination ID |
+| 403    | Not House member, not majority party, insufficient NPI   |
+| 404    | Candidacy not found, no active election                  |
+| 409    | Election already running, already running for office     |
+
+## Related Systems
+
+- **House Composition:** `src/lib/congress/houseComposition.ts` - Majority party calculation
+- **NPP Behavior:** `src/lib/turn/npp/` - NPP bill voting, election entry, and current player-only leadership stance
+- **Congress Leadership:** `docs/design/congress-leadership.md` - Leadership elections
+- **Election Resolution:** `src/lib/turn/election/` - General election resolution
