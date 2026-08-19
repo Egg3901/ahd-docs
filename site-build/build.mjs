@@ -171,9 +171,14 @@ header.top .links{margin-left:auto;display:flex;gap:1.1rem;font-size:.86rem;font
 
 nav.side{background:var(--sidebar);border-right:1px solid var(--line);padding:1rem .9rem 2rem;
   position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto;scrollbar-width:thin}
-nav.side input{width:100%;padding:.5rem .75rem;margin-bottom:.9rem;border:1px solid var(--line);border-radius:8px;
-  background:var(--panel);color:var(--ink);font-size:.86rem;outline:none}
-nav.side input:focus{border-color:var(--acc-link)}
+.hsearch{position:relative;flex:1;max-width:540px;margin:0 .4rem}
+.hsearch input{width:100%;padding:.5rem .8rem .5rem 2.1rem;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);color:var(--ink);font-size:.9rem;outline:none;transition:border-color .15s,box-shadow .15s}
+.hsearch input:focus{border-color:var(--acc-link);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc-link) 18%,transparent)}
+.hsearch .ico{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--mut);pointer-events:none;font-size:.95rem}
+.hsearch .kbd{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);color:var(--mut);font-size:.68rem;
+  border:1px solid var(--line);border-radius:5px;padding:.05rem .35rem;pointer-events:none}
+@media(max-width:640px){.hsearch .kbd{display:none}}
 nav.side details.sec{margin-bottom:.4rem;border-radius:9px}
 nav.side details.sec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:.45rem;
   font-size:.74rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);padding:.5rem .55rem;border-radius:8px;user-select:none}
@@ -187,20 +192,35 @@ nav.side a{display:block;color:var(--ink);font-size:.86rem;padding:.22rem .6rem 
 nav.side a:hover{background:var(--code-bg);text-decoration:none}
 nav.side a.on{color:var(--crimson);font-weight:600;border-left-color:var(--crimson);background:color-mix(in srgb,var(--crimson) 7%,transparent)}
 nav.side .miss{display:none}
-#search-results{display:none;position:absolute;left:.9rem;right:.9rem;top:2.9rem;z-index:30;
-  background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:72vh;overflow-y:auto}
-#search-results.open{display:block}
-a.sr{display:flex;gap:.55rem;padding:.5rem .7rem;border-bottom:1px solid var(--line);color:var(--ink);align-items:flex-start}
+#hs-panel{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:40;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:72vh;overflow-y:auto}
+#hs-panel.open{display:block}
+a.sr{display:flex;gap:.6rem;padding:.55rem .8rem;border-bottom:1px solid var(--line);color:var(--ink);align-items:flex-start}
 a.sr:last-child{border-bottom:0}
-a.sr:hover{background:var(--code-bg);text-decoration:none}
-.sr-b{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.14rem .4rem;border-radius:5px;
-  white-space:nowrap;background:var(--code-bg);color:var(--mut);margin-top:.1rem}
+a.sr:hover,a.sr.act{background:var(--code-bg);text-decoration:none}
+.sr-b{font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.14rem .4rem;border-radius:5px;
+  white-space:nowrap;background:var(--code-bg);color:var(--mut);margin-top:.15rem;flex-shrink:0}
 .sr-b.wiki{color:#199e70}.sr-b.doc{color:var(--acc-link)}
 .sr-tx{display:flex;flex-direction:column;min-width:0}
-.sr-tx b{font-size:.85rem;font-weight:600;white-space:normal}
+.sr-tx b{font-size:.86rem;font-weight:600;white-space:normal}
 .sr-tx b i{font-weight:400;color:var(--mut);font-style:normal}
-.sr-d{font-size:.75rem;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sr-note,.sr-empty{padding:.7rem .8rem;color:var(--mut);font-size:.8rem}
+.sr-tx mark,.sr-d mark{background:color-mix(in srgb,var(--crimson) 24%,transparent);color:inherit;border-radius:3px;padding:0 .1em}
+.sr-d{font-size:.76rem;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:.1rem}
+.hs-foot,.hs-note,.hs-empty{padding:.6rem .85rem;color:var(--mut);font-size:.78rem}
+.hs-foot{border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--panel);cursor:pointer;font-weight:600;color:var(--acc-link)}
+.hs-foot:hover{background:var(--code-bg)}
+.results-wrap{max-width:840px;margin:0 auto}
+.results-head h1{font-size:1.75rem;margin:.2rem 0 .35rem}
+.results-head .meta{color:var(--mut);font-size:.9rem}
+.results-search{position:relative;margin:1rem 0 1.5rem}
+.results-search input{width:100%;padding:.7rem 1rem .7rem 2.5rem;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);color:var(--ink);font-size:1.02rem;outline:none}
+.results-search input:focus{border-color:var(--acc-link);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc-link) 18%,transparent)}
+.results-search .ico{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:var(--mut)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;vertical-align:middle;margin-left:.5rem}
+.seg button{border:0;background:var(--panel);color:var(--mut);font:inherit;font-size:.78rem;padding:.28rem .7rem;cursor:pointer}
+.seg button.on{background:var(--crimson);color:#fff}
+.rlist a.sr{border:1px solid var(--line);border-radius:11px;margin-bottom:.6rem;box-shadow:var(--shadow);padding:.75rem .95rem}
 
 main{padding:2.4rem 3.2rem 3rem;min-width:0}
 main .crumb{font-size:.78rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--crimson);margin-bottom:.4rem}
@@ -295,74 +315,130 @@ if(heads.length&&tocLinks.size){
   heads.forEach(h=>io.observe(h));}
 `;
 
-// Client-side semantic search: instant lexical results, re-ranked by the bge
-// embedder once it lazy-loads (first search only; browser-cached after).
+// Client search: always-on lexical (exact-phrase + all-terms ranking), plus an
+// optional semantic re-rank once the bge embedder lazy-loads. Powers the header
+// dropdown (5 quick hits + "see all") and the full /search results page.
 const searchJs = String.raw`
 (function(){
-  var box=document.getElementById('filter'); if(!box) return;
-  box.placeholder='Search docs…';
-  var panel=document.createElement('div'); panel.id='search-results';
-  box.parentNode.appendChild(panel);
-  var INDEX=null, VECS=null, extractor=null, modelState='cold', DIM=384, timer=null;
+  var INDEX=null,VECS=null,extractor=null,modelState='cold',DIM=384,idxP=null;
   function esc(s){return (s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function reEsc(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,'\\$&');}
   function b64ToI8(b){var bin=atob(b),a=new Int8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=(bin.charCodeAt(i)<<24)>>24;return a;}
-  function loadIndex(){
-    if(INDEX) return Promise.resolve();
-    return fetch('/search-index.json').then(function(r){return r.json();}).then(function(j){
-      INDEX=j.items; VECS=INDEX.map(function(it){return b64ToI8(it.v);});
-    });
-  }
+  function toks(q){return q.toLowerCase().replace(/"/g,' ').split(/[^a-z0-9]+/).filter(Boolean);}
+  function loadIndex(){ if(idxP) return idxP;
+    idxP=fetch('/search-index.json').then(function(r){return r.json();}).then(function(j){
+      INDEX=j.items; VECS=INDEX.map(function(it){return b64ToI8(it.v);}); return INDEX; });
+    return idxP; }
   function lexical(q){
-    var terms=q.toLowerCase().split(/\s+/).filter(Boolean);
-    var out=[];
+    var raw=q.toLowerCase().trim(), quoted=raw.length>1&&raw.charAt(0)==='"'&&raw.charAt(raw.length-1)==='"';
+    var phrase=quoted?raw.slice(1,-1).trim():raw, terms=toks(phrase), out=[];
     for(var i=0;i<INDEX.length;i++){
-      var it=INDEX[i], hay=(it.t+' '+it.hd+' '+it.d).toLowerCase(), sc=0;
-      for(var k=0;k<terms.length;k++){ if(hay.indexOf(terms[k])>=0)
-        sc+=(it.t.toLowerCase().indexOf(terms[k])>=0?3:0)+(it.hd.toLowerCase().indexOf(terms[k])>=0?2:0)+1; }
-      if(sc>0) out.push({i:i,sc:sc});
+      var it=INDEX[i],t=it.t.toLowerCase(),hd=(it.hd||'').toLowerCase(),tx=it.tx||(it.d||'').toLowerCase(),sc=0,all=terms.length>0;
+      if(phrase.length>1){ if(t.indexOf(phrase)>=0)sc+=40; if(hd.indexOf(phrase)>=0)sc+=24; if(tx.indexOf(phrase)>=0)sc+=14; }
+      for(var k=0;k<terms.length;k++){ var tm=terms[k],hit=0;
+        if(t.indexOf(tm)>=0){sc+=6;hit=1;} if(hd.indexOf(tm)>=0){sc+=4;hit=1;} if(tx.indexOf(tm)>=0){sc+=2;hit=1;}
+        if(!hit)all=false; }
+      if(all)sc+=5;
+      if(quoted){ var hasPhrase=t.indexOf(phrase)>=0||hd.indexOf(phrase)>=0||tx.indexOf(phrase)>=0; if(!hasPhrase)sc=0; }
+      if(sc>0)out.push({i:i,sc:sc});
     }
     return out.sort(function(a,b){return b.sc-a.sc;});
   }
-  function ensureModel(){
-    if(modelState!=='cold') return;
-    modelState='loading';
-    import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2').then(function(T){
+  function ensureModel(){ if(modelState!=='cold')return; modelState='loading';
+    import('/vendor/transformers.min.js').then(function(T){
       T.env.allowRemoteModels=false; T.env.localModelPath='/models/';
-      try{T.env.backends.onnx.wasm.numThreads=1;}catch(e){}
+      try{T.env.backends.onnx.wasm.wasmPaths='/vendor/ort/';T.env.backends.onnx.wasm.numThreads=1;}catch(e){}
       return T.pipeline('feature-extraction','Xenova/bge-small-en-v1.5',{quantized:true});
-    }).then(function(ex){ extractor=ex; modelState='ready'; if(box.value.trim()) run(box.value); })
-      .catch(function(e){ modelState='failed'; console.warn('semantic model unavailable, lexical only',e); });
+    }).then(function(ex){extractor=ex;modelState='ready';document.dispatchEvent(new Event('docsearch:model'));})
+      .catch(function(e){modelState='failed';console.warn('semantic unavailable, lexical only',e);});
   }
   function semantic(q){
     return extractor('Represent this sentence for searching relevant passages: '+q,{pooling:'mean',normalize:true})
-      .then(function(out){
-        var qv=out.data, scored=[];
-        for(var i=0;i<INDEX.length;i++){ var v=VECS[i],d=0; for(var k=0;k<DIM;k++) d+=qv[k]*(v[k]/127); scored.push({i:i,sc:d}); }
-        return scored.sort(function(a,b){return b.sc-a.sc;});
+      .then(function(out){var qv=out.data,s=[];for(var i=0;i<INDEX.length;i++){var v=VECS[i],d=0;for(var k=0;k<DIM;k++)d+=qv[k]*(v[k]/127);s.push({i:i,sc:d});}return s;});
+  }
+  // exact=true -> lexical only (phrase). otherwise blend semantic + lexical when the model is ready.
+  function search(q,exact){
+    q=q.trim(); if(!q)return Promise.resolve([]);
+    var forceExact=exact||(q.length>1&&q.charAt(0)==='"');
+    return loadIndex().then(function(){
+      var lex=lexical(q);
+      if(forceExact||modelState!=='ready')return lex.map(function(r){return r.i;});
+      return semantic(q).then(function(sem){
+        var boost={}; for(var n=0;n<Math.min(lex.length,60);n++)boost[lex[n].i]=Math.min(lex[n].sc/40,1.2);
+        var m=sem.map(function(r){return {i:r.i,sc:r.sc+(boost[r.i]||0)};});
+        m.sort(function(a,b){return b.sc-a.sc;});
+        return m.map(function(r){return r.i;});
       });
-  }
-  function render(list){
-    if(!list.length){ panel.innerHTML='<div class="sr-empty">No matches</div>'; panel.classList.add('open'); return; }
-    var seen={}, rows=[];
-    for(var n=0;n<list.length&&rows.length<14;n++){ var it=INDEX[list[n].i], key=it.h+it.a; if(seen[key])continue; seen[key]=1; rows.push(it); }
-    var note = modelState==='loading' ? '<div class="sr-note">Loading semantic search… showing keyword matches</div>' : '';
-    panel.innerHTML=note+rows.map(function(it){
-      var href=it.h+(it.a?('#'+it.a):'');
-      return '<a class="sr" href="'+href+'"><span class="sr-b '+it.k+'">'+esc(it.s)+'</span><span class="sr-tx"><b>'+esc(it.t)+(it.hd?(' <i>› '+esc(it.hd)+'</i>'):'')+'</b><span class="sr-d">'+esc(it.d)+'</span></span></a>';
-    }).join('');
-    panel.classList.add('open');
-  }
-  function run(q){
-    q=q.trim(); if(!q){ panel.classList.remove('open'); return; }
-    loadIndex().then(function(){
-      if(modelState==='ready') return semantic(q).then(render);
-      render(lexical(q));
     });
   }
-  box.addEventListener('focus',function(){ loadIndex(); ensureModel(); });
-  box.addEventListener('input',function(){ clearTimeout(timer); timer=setTimeout(function(){run(box.value);},130); });
-  box.addEventListener('keydown',function(e){ if(e.key==='Escape'){panel.classList.remove('open');box.blur();} });
-  document.addEventListener('click',function(e){ if(!panel.contains(e.target)&&e.target!==box) panel.classList.remove('open'); });
+  function dedupe(ids,limit){ var seen={},rows=[]; for(var n=0;n<ids.length&&rows.length<limit;n++){var it=INDEX[ids[n]],key=it.h+it.a;if(seen[key])continue;seen[key]=1;rows.push(it);} return rows; }
+  function hl(text,q){ var e=esc(text),ts=toks(q); if(!ts.length)return e;
+    try{return e.replace(new RegExp('('+ts.map(reEsc).join('|')+')','ig'),'<mark>$1</mark>');}catch(_){return e;} }
+  function href(it){return it.h+(it.a?('#'+it.a):'');}
+  function row(it,q){ return '<a class="sr" href="'+href(it)+'"><span class="sr-b '+it.k+'">'+esc(it.s)+
+    '</span><span class="sr-tx"><b>'+hl(it.t,q)+(it.hd?(' <i>› '+hl(it.hd,q)+'</i>'):'')+
+    '</b><span class="sr-d">'+hl(it.d,q)+'</span></span></a>'; }
+  function goResults(q){ if(q.trim())location.href='/search.html?q='+encodeURIComponent(q.trim()); }
+
+  // ---- header dropdown ----
+  var bar=document.querySelector('.hsearch input.docsearch-input');
+  if(bar){
+    var panel=document.createElement('div'); panel.id='hs-panel'; bar.parentNode.appendChild(panel);
+    var lastIds=[], seq=0, act=-1;
+    function close(){panel.classList.remove('open');act=-1;}
+    function draw(){
+      var rows=dedupe(lastIds,5);
+      if(!rows.length){panel.innerHTML='<div class="hs-empty">No matches for “'+esc(bar.value)+'”</div>';panel.classList.add('open');return;}
+      var note=modelState==='loading'?'<div class="hs-note">Loading smart search… showing keyword matches</div>':'';
+      panel.innerHTML=note+rows.map(function(it){return row(it,bar.value);}).join('')+
+        '<div class="hs-foot" data-all="1">See all results for “'+esc(bar.value.trim())+'” →</div>';
+      panel.classList.add('open');act=-1;
+    }
+    function run(){ var q=bar.value; if(!q.trim()){close();return;} var my=++seq;
+      search(q).then(function(ids){ if(my!==seq)return; lastIds=ids; draw(); }); }
+    var t=null;
+    bar.addEventListener('focus',function(){loadIndex();ensureModel();});
+    bar.addEventListener('input',function(){clearTimeout(t);t=setTimeout(run,110);});
+    document.addEventListener('docsearch:model',function(){ if(bar.value.trim()&&panel.classList.contains('open'))run(); });
+    bar.addEventListener('keydown',function(e){
+      var links=panel.querySelectorAll('a.sr');
+      if(e.key==='Enter'){ if(act>=0&&links[act]){location.href=links[act].getAttribute('href');}else{goResults(bar.value);} e.preventDefault(); }
+      else if(e.key==='ArrowDown'){act=Math.min(act+1,links.length-1);paint(links);e.preventDefault();}
+      else if(e.key==='ArrowUp'){act=Math.max(act-1,-1);paint(links);e.preventDefault();}
+      else if(e.key==='Escape'){close();bar.blur();}
+    });
+    function paint(links){for(var i=0;i<links.length;i++)links[i].classList.toggle('act',i===act);}
+    panel.addEventListener('mousedown',function(e){var f=e.target.closest('.hs-foot');if(f){goResults(bar.value);e.preventDefault();}});
+    document.addEventListener('click',function(e){if(!panel.contains(e.target)&&e.target!==bar)close();});
+  }
+
+  // ---- results page ----
+  var pageInput=document.querySelector('input.docsearch-input[data-mode="page"]');
+  if(pageInput){
+    var list=document.getElementById('results-list'), meta=document.getElementById('results-meta');
+    var params=new URLSearchParams(location.search), q0=params.get('q')||''; pageInput.value=q0;
+    var exactMode=false, pseq=0;
+    function drawPage(){ var q=pageInput.value; if(!q.trim()){list.innerHTML='';meta.textContent='Type to search the docs.';return;}
+      var my=++pseq; meta.textContent='Searching…';
+      search(q,exactMode).then(function(ids){ if(my!==pseq)return;
+        var rows=dedupe(ids,80);
+        meta.innerHTML=rows.length?('<b>'+rows.length+'</b> result'+(rows.length===1?'':'s')+' for “'+esc(q.trim())+'”'+(modelState==='loading'&&!exactMode?' &middot; loading smart ranking…':'')):'No results for “'+esc(q.trim())+'”';
+        list.innerHTML=rows.map(function(it){return row(it,q);}).join('');
+      });
+    }
+    var pt=null;
+    pageInput.addEventListener('input',function(){clearTimeout(pt);pt=setTimeout(function(){
+      var u=new URL(location.href);u.searchParams.set('q',pageInput.value);history.replaceState(null,'',u);drawPage();
+    },140);});
+    pageInput.addEventListener('keydown',function(e){if(e.key==='Enter')e.preventDefault();});
+    var seg=document.getElementById('mode-seg');
+    if(seg)seg.addEventListener('click',function(e){var b=e.target.closest('button[data-mode]');if(!b)return;
+      exactMode=b.getAttribute('data-mode')==='exact';
+      seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); drawPage();});
+    loadIndex().then(function(){ if(!exactMode)ensureModel(); drawPage(); });
+    document.addEventListener('docsearch:model',function(){ if(!exactMode)drawPage(); });
+    pageInput.focus();
+  }
 })();
 `;
 
@@ -401,14 +477,15 @@ const shell = ({ title, body, activeHref, toc, desc }) => `<!doctype html><html 
   <button id="menu-btn" aria-label="Menu">☰</button>
   <a href="/" style="display:flex;align-items:center;gap:.7rem;text-decoration:none"><img src="/ahd-logo.png" alt="A House Divided">
   <span class="name">A House Divided<small>Documentation</small></span></a>
-  <span class="links">
-    <a class="keep" href="https://www.ahousedividedgame.com">Play</a>
-    <a class="keep" href="https://github.com/Egg3901/AHDGame">GitHub</a>
-    <a href="https://www.ahousedividedgame.com/changelog">Changelog</a>
-  </span>
+  <div class="hsearch">
+    <span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+    <input class="docsearch-input" type="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" aria-label="Search documentation">
+    <span class="kbd">↵</span>
+  </div>
+  <span class="links"><a href="https://www.ahousedividedgame.com/changelog">Changelog</a></span>
 </header>
 <div class="layout${toc ? " with-toc" : ""}">
-<nav class="side"><input id="filter" type="search" placeholder="Search docs…" autocomplete="off">${navHtml(activeHref)}</nav>
+<nav class="side">${navHtml(activeHref)}</nav>
 <main>${body}
 <footer><span>© Lakeside Games</span><a href="https://github.com/Egg3901/AHDGame">Source on GitHub</a><a href="https://www.ahousedividedgame.com">ahousedividedgame.com</a></footer>
 </main>
@@ -518,7 +595,9 @@ for (let i = 0; i < idxItems.length; i += BATCH) {
     items.push({
       h: p.href, a: c.anchorId, k: p.kind === "wiki" ? "wiki" : "doc",
       s: secLabel(p), t: p.title, hd: c.heading,
-      d: (c.body || p.desc || "").slice(0, 160), v: quant(vec),
+      d: (c.body || p.desc || "").slice(0, 200),
+      tx: `${p.title} ${c.heading} ${c.body}`.toLowerCase().slice(0, 620),
+      v: quant(vec),
     });
   }
 }
@@ -530,7 +609,15 @@ fs.mkdirSync(path.join(modelOut, "onnx"), { recursive: true });
 for (const rel of ["config.json", "tokenizer.json", "tokenizer_config.json", "onnx/model_quantized.onnx"]) {
   fs.copyFileSync(path.join(XENOVA_CACHE, MODEL_ID, rel), path.join(modelOut, rel));
 }
-console.log(`search index: ${items.length} chunks -> search-index.json; model vendored -> models/${MODEL_ID}`);
+// Vendor transformers.js + onnxruntime-web wasm so the browser runtime is fully
+// self-hosted (no CDN). Browser downloads only the one wasm variant it needs.
+const NM = new URL("./node_modules", import.meta.url).pathname;
+const vendorOut = path.join(OUT, "vendor");
+fs.mkdirSync(path.join(vendorOut, "ort"), { recursive: true });
+fs.copyFileSync(path.join(NM, "@xenova/transformers/dist/transformers.min.js"), path.join(vendorOut, "transformers.min.js"));
+const ORT_DIST = path.join(NM, "onnxruntime-web/dist");
+for (const f of fs.readdirSync(ORT_DIST)) if (f.endsWith(".wasm")) fs.copyFileSync(path.join(ORT_DIST, f), path.join(vendorOut, "ort", f));
+console.log(`search index: ${items.length} chunks -> search-index.json; model + runtime vendored (self-hosted)`);
 
 // ---------- homepage ----------
 const homeSec = (key, label, blurb) => {
@@ -556,6 +643,18 @@ ${homeSec("design", "Game Design", "How every system works under the hood: elect
 ${homeSec("engineering", "Engineering", "Architecture, conventions, and contribution guides for the codebase.")}
 ${homeSec("api", "API", "The public REST API and client integration.")}`;
 fs.writeFileSync(path.join(OUT, "index.html"), shell({ title: "Home", body: home, activeHref: "" }));
+
+// ---------- search results page ----------
+const searchPage = `<div class="results-wrap">
+<div class="results-head"><h1>Search<span class="seg" id="mode-seg"><button data-mode="smart" class="on">Smart</button><button data-mode="exact">Exact</button></span></h1></div>
+<div class="results-search">
+  <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+  <input class="docsearch-input" data-mode="page" type="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" aria-label="Search documentation">
+</div>
+<div id="results-meta" style="color:var(--mut);font-size:.9rem;margin:.2rem 0 1.1rem"></div>
+<div class="rlist" id="results-list"></div>
+</div>`;
+fs.writeFileSync(path.join(OUT, "search.html"), shell({ title: "Search", body: searchPage, activeHref: "", desc: "Search the A House Divided documentation and player wiki." }));
 
 // ---------- sitemap + robots ----------
 const BASE = "https://docs.lakesidegames.net";
