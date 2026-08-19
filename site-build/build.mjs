@@ -327,7 +327,7 @@ const searchJs = String.raw`
   function toks(q){return q.toLowerCase().replace(/"/g,' ').split(/[^a-z0-9]+/).filter(Boolean);}
   function loadIndex(){ if(idxP) return idxP;
     idxP=fetch('/search-index.json').then(function(r){return r.json();}).then(function(j){
-      INDEX=j.items; VECS=INDEX.map(function(it){return b64ToI8(it.v);}); return INDEX; });
+      INDEX=j.items; VECS=(INDEX[0]&&INDEX[0].v)?INDEX.map(function(it){return b64ToI8(it.v);}):null; return INDEX; });
     return idxP; }
   function lexical(q){
     var raw=q.toLowerCase().trim(), quoted=raw.length>1&&raw.charAt(0)==='"'&&raw.charAt(raw.length-1)==='"';
@@ -356,20 +356,11 @@ const searchJs = String.raw`
     return extractor('Represent this sentence for searching relevant passages: '+q,{pooling:'mean',normalize:true})
       .then(function(out){var qv=out.data,s=[];for(var i=0;i<INDEX.length;i++){var v=VECS[i],d=0;for(var k=0;k<DIM;k++)d+=qv[k]*(v[k]/127);s.push({i:i,sc:d});}return s;});
   }
-  // exact=true -> lexical only (phrase). otherwise blend semantic + lexical when the model is ready.
+  // Lexical relevance ranking. exact=true forces whole-query phrase matching.
   function search(q,exact){
     q=q.trim(); if(!q)return Promise.resolve([]);
-    var forceExact=exact||(q.length>1&&q.charAt(0)==='"');
-    return loadIndex().then(function(){
-      var lex=lexical(q);
-      if(forceExact||modelState!=='ready')return lex.map(function(r){return r.i;});
-      return semantic(q).then(function(sem){
-        var boost={}; for(var n=0;n<Math.min(lex.length,60);n++)boost[lex[n].i]=Math.min(lex[n].sc/40,1.2);
-        var m=sem.map(function(r){return {i:r.i,sc:r.sc+(boost[r.i]||0)};});
-        m.sort(function(a,b){return b.sc-a.sc;});
-        return m.map(function(r){return r.i;});
-      });
-    });
+    var qq=exact&&!(q.length>1&&q.charAt(0)==='"')?'"'+q+'"':q;
+    return loadIndex().then(function(){ return lexical(qq).map(function(r){return r.i;}); });
   }
   function dedupe(ids,limit){ var seen={},rows=[]; for(var n=0;n<ids.length&&rows.length<limit;n++){var it=INDEX[ids[n]],key=it.h+it.a;if(seen[key])continue;seen[key]=1;rows.push(it);} return rows; }
   function hl(text,q){ var e=esc(text),ts=toks(q); if(!ts.length)return e;
@@ -389,17 +380,15 @@ const searchJs = String.raw`
     function draw(){
       var rows=dedupe(lastIds,5);
       if(!rows.length){panel.innerHTML='<div class="hs-empty">No matches for “'+esc(bar.value)+'”</div>';panel.classList.add('open');return;}
-      var note=modelState==='loading'?'<div class="hs-note">Loading smart search… showing keyword matches</div>':'';
-      panel.innerHTML=note+rows.map(function(it){return row(it,bar.value);}).join('')+
+      panel.innerHTML=rows.map(function(it){return row(it,bar.value);}).join('')+
         '<div class="hs-foot" data-all="1">See all results for “'+esc(bar.value.trim())+'” →</div>';
       panel.classList.add('open');act=-1;
     }
     function run(){ var q=bar.value; if(!q.trim()){close();return;} var my=++seq;
       search(q).then(function(ids){ if(my!==seq)return; lastIds=ids; draw(); }); }
     var t=null;
-    bar.addEventListener('focus',function(){loadIndex();ensureModel();});
+    bar.addEventListener('focus',function(){loadIndex();});
     bar.addEventListener('input',function(){clearTimeout(t);t=setTimeout(run,110);});
-    document.addEventListener('docsearch:model',function(){ if(bar.value.trim()&&panel.classList.contains('open'))run(); });
     bar.addEventListener('keydown',function(e){
       var links=panel.querySelectorAll('a.sr');
       if(e.key==='Enter'){ if(act>=0&&links[act]){location.href=links[act].getAttribute('href');}else{goResults(bar.value);} e.preventDefault(); }
@@ -422,7 +411,7 @@ const searchJs = String.raw`
       var my=++pseq; meta.textContent='Searching…';
       search(q,exactMode).then(function(ids){ if(my!==pseq)return;
         var rows=dedupe(ids,80);
-        meta.innerHTML=rows.length?('<b>'+rows.length+'</b> result'+(rows.length===1?'':'s')+' for “'+esc(q.trim())+'”'+(modelState==='loading'&&!exactMode?' &middot; loading smart ranking…':'')):'No results for “'+esc(q.trim())+'”';
+        meta.innerHTML=rows.length?('<b>'+rows.length+'</b> result'+(rows.length===1?'':'s')+' for “'+esc(q.trim())+'”'):'No results for “'+esc(q.trim())+'”';
         list.innerHTML=rows.map(function(it){return row(it,q);}).join('');
       });
     }
@@ -435,8 +424,7 @@ const searchJs = String.raw`
     if(seg)seg.addEventListener('click',function(e){var b=e.target.closest('button[data-mode]');if(!b)return;
       exactMode=b.getAttribute('data-mode')==='exact';
       seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); drawPage();});
-    loadIndex().then(function(){ if(!exactMode)ensureModel(); drawPage(); });
-    document.addEventListener('docsearch:model',function(){ if(!exactMode)drawPage(); });
+    loadIndex().then(function(){ drawPage(); });
     pageInput.focus();
   }
 })();
@@ -581,43 +569,40 @@ for (const p of pages) {
   }
 }
 
-console.log(`embedding ${idxItems.length} chunks with ${MODEL_ID}…`);
-const extractor = await pipeline("feature-extraction", MODEL_ID, { quantized: true });
-const quant = f => { const b = Buffer.allocUnsafe(f.length); for (let i = 0; i < f.length; i++) { let v = Math.round(f[i] * 127); b[i] = (v > 127 ? 127 : v < -127 ? -127 : v) & 0xff; } return b.toString("base64"); };
-const BATCH = 32;
-const items = [];
-for (let i = 0; i < idxItems.length; i += BATCH) {
-  const batch = idxItems.slice(i, i + BATCH);
-  const out = await extractor(batch.map(b => b.text), { pooling: "mean", normalize: true });
-  for (let j = 0; j < batch.length; j++) {
-    const { p, c } = batch[j];
-    const vec = out.data.slice(j * 384, (j + 1) * 384);
-    items.push({
-      h: p.href, a: c.anchorId, k: p.kind === "wiki" ? "wiki" : "doc",
-      s: secLabel(p), t: p.title, hd: c.heading,
-      d: (c.body || p.desc || "").slice(0, 200),
-      tx: `${p.title} ${c.heading} ${c.body}`.toLowerCase().slice(0, 620),
-      v: quant(vec),
-    });
+// Semantic (in-browser embedding) is currently OFF: the 34MB client model was
+// unreliable/slow in-browser. Lexical relevance + exact-phrase is the live engine.
+// Flip SEMANTIC=true to re-enable embeddings (also re-enable the client model path).
+const SEMANTIC = false;
+let items;
+if (SEMANTIC) {
+  console.log(`embedding ${idxItems.length} chunks with ${MODEL_ID}…`);
+  const extractor = await pipeline("feature-extraction", MODEL_ID, { quantized: true });
+  const quant = f => { const b = Buffer.allocUnsafe(f.length); for (let i = 0; i < f.length; i++) { let v = Math.round(f[i] * 127); b[i] = (v > 127 ? 127 : v < -127 ? -127 : v) & 0xff; } return b.toString("base64"); };
+  const BATCH = 32;
+  items = [];
+  for (let i = 0; i < idxItems.length; i += BATCH) {
+    const batch = idxItems.slice(i, i + BATCH);
+    const out = await extractor(batch.map(b => b.text), { pooling: "mean", normalize: true });
+    for (let j = 0; j < batch.length; j++) {
+      const { p, c } = batch[j];
+      const vec = out.data.slice(j * 384, (j + 1) * 384);
+      items.push({ h: p.href, a: c.anchorId, k: p.kind === "wiki" ? "wiki" : "doc", s: secLabel(p), t: p.title, hd: c.heading, d: (c.body || p.desc || "").slice(0, 200), tx: `${p.title} ${c.heading} ${c.body}`.toLowerCase().slice(0, 620), v: quant(vec) });
+    }
   }
+  const modelOut = path.join(OUT, "models", MODEL_ID);
+  fs.mkdirSync(path.join(modelOut, "onnx"), { recursive: true });
+  for (const rel of ["config.json", "tokenizer.json", "tokenizer_config.json", "onnx/model_quantized.onnx"]) fs.copyFileSync(path.join(XENOVA_CACHE, MODEL_ID, rel), path.join(modelOut, rel));
+  const NM = new URL("./node_modules", import.meta.url).pathname;
+  const vendorOut = path.join(OUT, "vendor");
+  fs.mkdirSync(path.join(vendorOut, "ort"), { recursive: true });
+  fs.copyFileSync(path.join(NM, "@xenova/transformers/dist/transformers.min.js"), path.join(vendorOut, "transformers.min.js"));
+  const ORT_DIST = path.join(NM, "onnxruntime-web/dist");
+  for (const f of fs.readdirSync(ORT_DIST)) if (f.endsWith(".wasm")) fs.copyFileSync(path.join(ORT_DIST, f), path.join(vendorOut, "ort", f));
+} else {
+  items = idxItems.map(({ p, c }) => ({ h: p.href, a: c.anchorId, k: p.kind === "wiki" ? "wiki" : "doc", s: secLabel(p), t: p.title, hd: c.heading, d: (c.body || p.desc || "").slice(0, 200), tx: `${p.title} ${c.heading} ${c.body}`.toLowerCase().slice(0, 620) }));
 }
-fs.writeFileSync(path.join(OUT, "search-index.json"), JSON.stringify({ model: MODEL_ID, dim: 384, items }));
-
-// Vendor the model files so the browser embeds queries with zero external deps.
-const modelOut = path.join(OUT, "models", MODEL_ID);
-fs.mkdirSync(path.join(modelOut, "onnx"), { recursive: true });
-for (const rel of ["config.json", "tokenizer.json", "tokenizer_config.json", "onnx/model_quantized.onnx"]) {
-  fs.copyFileSync(path.join(XENOVA_CACHE, MODEL_ID, rel), path.join(modelOut, rel));
-}
-// Vendor transformers.js + onnxruntime-web wasm so the browser runtime is fully
-// self-hosted (no CDN). Browser downloads only the one wasm variant it needs.
-const NM = new URL("./node_modules", import.meta.url).pathname;
-const vendorOut = path.join(OUT, "vendor");
-fs.mkdirSync(path.join(vendorOut, "ort"), { recursive: true });
-fs.copyFileSync(path.join(NM, "@xenova/transformers/dist/transformers.min.js"), path.join(vendorOut, "transformers.min.js"));
-const ORT_DIST = path.join(NM, "onnxruntime-web/dist");
-for (const f of fs.readdirSync(ORT_DIST)) if (f.endsWith(".wasm")) fs.copyFileSync(path.join(ORT_DIST, f), path.join(vendorOut, "ort", f));
-console.log(`search index: ${items.length} chunks -> search-index.json; model + runtime vendored (self-hosted)`);
+fs.writeFileSync(path.join(OUT, "search-index.json"), JSON.stringify({ dim: 384, semantic: SEMANTIC, items }));
+console.log(`search index: ${items.length} chunks -> search-index.json (semantic=${SEMANTIC})`);
 
 // ---------- homepage ----------
 const homeSec = (key, label, blurb) => {
