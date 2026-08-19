@@ -8,7 +8,7 @@ The corporation system lets players found and manage businesses that operate acr
 - **Starting capital:** $1,000,000 liquid capital
 - **CEO shares:** 10,000,000 shares at $0.10 initial price
 - **Requirement:** One corporation per character
-- **Starting marketing strength:** 10 (`marketingStrength` — used for market capture; grows further from marketing spend each turn)
+- **Starting marketing strength:** 10 (`marketingStrength`, used for market capture; grows further from marketing spend each turn)
 
 Players choose from 17 sector types:
 
@@ -37,7 +37,7 @@ Players choose from 17 sector types:
 Corporations expand into state markets by acquiring sectors. Each state's total sector market size is derived from its GDP:
 
 ```
-stateMarketPerSector = stateGDP (millions) x 100 / 15 sectors
+stateMarketPerSector = stateGDP (millions) x 100 / 17 sectors
 ```
 
 - **Expansion cost:** $100,000 base per new state sector
@@ -50,9 +50,9 @@ stateMarketPerSector = stateGDP (millions) x 100 / 15 sectors
 Unowned market share can be captured via "splits":
 
 - **Cash cost:** 5% of unowned sector revenue (`SPLIT_COST_FRACTION`)
-- **MS cost:** Escalates with each split — 1 MS, then 2, 4, 8, 16... (formula: `2^splitEscalation`)
+- **MS cost:** Escalates with each split, 1 MS, then 2, 4, 8, 16... (formula: `2^splitEscalation`)
 - **Escalation decay:** Each turn, escalation level decreases by 1 (cost halves). After reaching 4 MS cost, next turn it's 2, then 1.
-- **Base capture:** 2% of unowned sector at 0 marketing strength (`SPLIT_BASE_CAPTURE_FRACTION`)
+- **Base capture:** 5% of unowned sector at 0 marketing strength (`SPLIT_BASE_CAPTURE_FRACTION`)
 - **Marketing bonus:** Additional capture scales with `marketingStrength / 100` (`MS_CAPTURE_DIVISOR`)
 
 The escalation prevents spam-splitting while the decay ensures the cost resets over time. Players must balance split frequency against MS reserves.
@@ -91,17 +91,17 @@ Every turn (24 turns per game-day), each corporation is processed:
 For each sector:
 
 1. **Revenue growth:** `newRevenue = revenue × (1 + growthRate / TURNS_PER_DAY / 100)`
-2. **Growth cost:** `calculateDailyGrowthCost(newRevenue, perTurnGrowthRate, primeRate)` — scales with prime rate
+2. **Growth cost:** `calculateDailyGrowthCost(newRevenue, perTurnGrowthRate, primeRate)`, scales with prime rate
 3. **Profit margin modifiers:** 15+ additive modifiers (unemployment, grid, corruption, commodities, tariffs, subsidies, etc.)
-4. **Effective margin:** `min(100, baseMargin + totalModifier)` — can go negative (loss-making)
+4. **Effective margin:** `min(100, baseMargin + totalModifier)`, can go negative (loss-making)
 5. **Maintenance:** `hourlyRevenue × (1 - effectiveMargin / 100)`
-6. **Sector NPV:** `yearlyProfit / 0.25` (25% discount rate) — for balance sheet valuation
+6. **Sector NPV:** `yearlyProfit / 0.15` (15% discount rate, `NPV_ANNUAL_DISCOUNT_RATE`), for balance sheet valuation
 
 ### Corporate Tax
 
 **Entry point:** `src/lib/turn/corporation/sectorCalculations.ts` (per-sector apportionment loop)
 
-Each jurisdiction sets two independent corporate tax rates — a **domestic rate** (applied to corps headquartered in the same country as the sector) and a **foreign rate** (applied to corps headquartered elsewhere). Rates are selected per-sector:
+Each jurisdiction sets two independent corporate tax rates, a **domestic rate** (applied to corps headquartered in the same country as the sector) and a **foreign rate** (applied to corps headquartered elsewhere). Rates are selected per-sector:
 
 ```typescript
 const isDomestic = corp.countryId === sector.countryId;
@@ -117,7 +117,7 @@ const stateRate = isDomestic
 - **Classification:** `isDomestic = corp.countryId === sector.countryId`. A US-HQ corp with a UK sector pays the UK **foreign** rate on that sector's profits; a UK-HQ corp with a UK sector pays the UK **domestic** rate. State tier follows the same rule (country-level match, not state-level).
 - **Foreign is all-or-nothing:** there is no country-targeting lever. Each country sets one foreign rate, applied symmetrically to every non-domestic corp operating there.
 - **Bond coupon income** is taxed at the corp's home-country **domestic** rate (always domestic from the corp's perspective). State tier never taxes bond interest.
-- **Losses:** No tax credits — unprofitable sectors pay $0 regardless of classification. Loss-making corps with all-negative sectors pay 0 in both tiers.
+- **Losses:** No tax credits, unprofitable sectors pay $0 regardless of classification. Loss-making corps with all-negative sectors pay 0 in both tiers.
 
 Rates are stored on `federalBudget.taxRates.{domestic,foreign}CorporateTax` and `stateBudgets.taxRates.{domestic,foreign}CorporateTax`, populated by the `*_domestic_corporate_tax_rate` and `*_foreign_corporate_tax_rate` legislation bills per country. See the design archive for the political-economy rationale and stance distribution.
 
@@ -152,7 +152,7 @@ hourlyDividendPayout = afterTaxIncome × (dividendRate / 100)
 income = incomePreDividends - corporateTaxOwed - hourlyDividendPayout
 ```
 
-7. **Split escalation decay:** `splitEscalation = max(0, splitEscalation - 1)` — cost halves each turn
+7. **Split escalation decay:** `splitEscalation = max(0, splitEscalation - 1)`, cost halves each turn
 
 Growth rate adjustments cost `revenue x 0.05` per 1% change. Downsizing refunds the same amount.
 
@@ -162,7 +162,7 @@ The CEO can configure a daily salary paid from the corporation's liquid capital 
 
 - **DB field:** `Corporation.ceoSalary?: number` (daily dollar amount)
 - **Payment:** Deducted from liquid capital each turn; added to the CEO's personal `cashOnHand`
-- **No minimum or maximum** — CEO sets the amount freely
+- **No minimum, but a maximum cap:** salary cannot exceed `CEO_SALARY_MAX_REVENUE_MULTIPLE` (1.25×) of the corporation's total daily gross sector revenue; bond proceeds and coupon income are excluded from that revenue figure, so issuing bonds can never raise the ceiling. At zero gross revenue the cap is $0.
 - **Effect on share price:** High salaries drain liquid capital and reduce balance sheet value, which depresses share price over time
 
 ### Marketing Budget & Marketing Strength (implemented)
@@ -176,17 +176,17 @@ baseGrowth = 1 MS (if any spend)
 scaledGrowth = 0.65 × ln(1 + budget / 100,000)
 ```
 
-Both values apply diminishing returns once MS exceeds 100 — growth slows significantly above that threshold. The formula prevents unlimited MS accumulation through raw spending.
+Both values apply diminishing returns once MS exceeds 100, growth slows significantly above that threshold. The formula prevents unlimited MS accumulation through raw spending.
 
 - **Starting MS:** 10
-- **Effective range:** 0–200+ (higher MS gives meaningfully more capture per split beyond ~100)
+- **Effective range:** 0-200+ (higher MS gives meaningfully more capture per split beyond ~100)
 - **Budget is a daily dollar cost** deducted from liquid capital each turn (spread across turns)
 
 Function: `calcMarketingGrowth(dailyBudget, currentStrength)` in `src/lib/constants/corporations.ts`
 
 ### R&D Budget & Innovation (implemented)
 
-R&D spending accumulates an **R&D Score** that drives periodic breakthroughs — one-off revenue boosts to a random sector, plus permanent state resource capacity growth for extraction corps. The system mirrors the marketing/logistics pattern for budget handling, score accumulation, and UI surface.
+R&D spending accumulates an **R&D Score** that drives periodic breakthroughs, one-off revenue boosts to a random sector, plus permanent state resource capacity growth for extraction corps. The system mirrors the marketing/logistics pattern for budget handling, score accumulation, and UI surface.
 
 **Score accumulation per turn:**
 
@@ -198,7 +198,7 @@ newScore = max(0, (1 − decay) × oldScore + (baseGain + scaledGain) × diminis
 ```
 
 - **Starting score:** 0
-- **Decay:** 3%/turn (slower than logistics 5% — accumulated R&D degrades more slowly than physical infrastructure)
+- **Decay:** 3%/turn (slower than logistics 5%, accumulated R&D degrades more slowly than physical infrastructure)
 - **Diminishing returns** above score 100 mirror marketing
 - **Budget is a daily dollar cost** deducted from liquid capital each turn via the same `costsBeforeCeo` pipeline as marketing and logistics
 - **Budget counts against the 150% overhead cap** (`marketing + logistics + R&D + CEO salary ≤ 1.5 × daily revenue`)
@@ -213,45 +213,44 @@ Each corporation rolls once every `RD_INNOVATION_INTERVAL` turns. Innovation pro
 probability = min(1, rdScore / 200)
 ```
 
-At score 200 every 6-turn window produces a breakthrough; at 100 one in two windows; at 0 none. When a breakthrough fires, one **random sector** owned by the corporation is selected:
+At score 200 every 6-turn window produces a breakthrough; at 100 one in two windows; at 0 none. rdScore only governs how often a breakthrough fires, the magnitude is a separate uniform random roll, not interpolated from score (an earlier score-interpolated version made high-rdScore corps a guaranteed cap-hit, making R&D strictly dominant over Growth). When a breakthrough fires, one sector owned by the corporation is selected (for extraction corps, the sector closest to its capacity limit; otherwise random):
 
-- **Regular corps:** `1% + scoreFraction × 9%` revenue boost (floor 1%, max 10% at score 200)
-- **Extraction corps:** `1% + scoreFraction × 4%` revenue boost (floor 1%, max 5% at score 200), _plus_ permanent state resource capacity growth
+- **Regular corps:** uniform roll in `[RD_REGULAR_BOOST_MIN, RD_REGULAR_BOOST_MAX]` = 2%-10% revenue boost
+- **Extraction corps:** uniform roll in `[RD_EXTRACTION_BOOST_MIN, RD_EXTRACTION_BOOST_MAX]` = 1%-10% revenue boost, _plus_ permanent state resource capacity growth
 
-Boosts are `$inc`'d directly on the sector's revenue in corp-local currency — no FX conversion in the boost path. The breakthrough also fires a `rd_breakthrough` notification to the CEO's user.
+Boosts are `$inc`'d directly on the sector's revenue in corp-local currency, no FX conversion in the boost path. The breakthrough also fires a `rd_breakthrough` notification to the CEO's user.
 
 **Extraction state capacity growth:**
 
-Each extraction breakthrough increases the sector's state resource capacity. Total increase scales with rdScore (`rdScore × 50`), split across every extractable resource in the **sector's active strategy supply map**, weighted by each resource's supply rate:
+Each extraction breakthrough increases, for every extractable resource in the **sector's active strategy supply map**, the state's capacity for that resource independently, each resource gets its own uniform random roll of `RD_CAPACITY_BOOST_MIN_PCT` to `RD_CAPACITY_BOOST_MAX_PCT` (1%-15%) of that resource's *current* state capacity:
 
 ```
-totalIncrease = rdScore × RD_CAPACITY_BOOST_PER_SCORE_POINT  (= 10,000 at score 200)
-per-resource share = supply_rate / Σ strategy_extractable_supply_rates
+per-resource increase = currentCapacity[resource] × uniformRoll(0.01, 0.15)
 ```
 
-So the `oil_gas` strategy (oil 0.4, natural_gas 0.2) splits the boost ~67%/33% between oil and natural gas. `iron_mining` funnels 100% into iron. The `standard` diversified strategy spreads the boost across every resource it produces.
+So the `oil_gas` strategy (produces oil and natural_gas) rolls an independent 1-15% increase for oil and a separate independent 1-15% increase for natural gas, the resources are not splitting a shared pool. States without an existing `stateResourceCapacity` document, or a resource whose current capacity is 0, are skipped.
 
-**Capacity policy (permanent discovery):** capacity is unbounded and has no decay. R&D literally unlocks new deposits — once added, the capacity stays. This contradicts the "fixed capacity per turn" framing in `docs/design/resources.md`; see that doc's note on R&D-driven capacity growth.
+**Capacity policy (permanent discovery):** capacity is unbounded and has no decay. R&D literally unlocks new deposits, once added, the capacity stays. This contradicts the "fixed capacity per turn" framing in `docs/design/resources.md`; see that doc's note on R&D-driven capacity growth.
 
-States without a `stateResourceCapacity` document are "uncapped" (legacy/pre-migration) and are skipped by the capacity boost — no auto-insertion mid-turn.
+States without a `stateResourceCapacity` document are "uncapped" (legacy/pre-migration) and are skipped by the capacity boost, no auto-insertion mid-turn.
 
 **Turn phase:** runs as `Phase 3b` of `processCorporationTurn` (`src/lib/turn/corporation/rdInnovation.ts`), immediately after the base sector writes so the `$inc` composes with the turn's revenue update.
 
 **Key files:**
 
-- `src/lib/turn/corporation/rdInnovation.ts` — innovation phase
-- `src/lib/constants/corporations.ts` — `RD_*` constants, `calcRdGrowth`, `calcRdScoreAfterTurn`
-- `src/lib/corporations/strengthProjection.ts` — net-change projection for the corp page header
-- `src/lib/api/schemas/corporations.ts` — settings validation (`rdBudget`)
-- `src/components/corporation/ceo/CeoBudgetSubtab.tsx` — CEO budget slider + projection readout
+- `src/lib/turn/corporation/rdInnovation.ts`, innovation phase
+- `src/lib/constants/corporations.ts`, `RD_*` constants, `calcRdGrowth`, `calcRdScoreAfterTurn`
+- `src/lib/corporations/strengthProjection.ts`, net-change projection for the corp page header
+- `src/lib/api/schemas/corporations.ts`, settings validation (`rdBudget`)
+- `src/components/corporation/ceo/CeoBudgetSubtab.tsx`, CEO budget slider + projection readout
 
 ### Production Policy (implemented)
 
-Each sector has a **production policy level** — a continuous numeric scale from **-25 to +25** (not discrete modes). The CEO sets a **target** via the sector settings panel; the active level trends toward the target at 1 unit per turn.
+Each sector has a **production policy level**, a continuous numeric scale from **-25 to +25** (not discrete modes). The CEO sets a **target** via the sector settings panel; the active level trends toward the target at 1 unit per turn.
 
-- **Positive values (up to +25):** Higher output volume, lower margins — grows revenue faster ("Aggressive")
+- **Positive values (up to +25):** Higher output volume, lower margins, grows revenue faster ("Aggressive")
 - **Zero:** Balanced default ("Normal")
-- **Negative values (down to -25):** Lower output, higher margins — preserves profitability ("Conservative")
+- **Negative values (down to -25):** Lower output, higher margins, preserves profitability ("Conservative")
 
 The UI displays these as Aggressive / Normal / Conservative labels, but the underlying mechanic is the continuous scale. Revenue and margin multipliers are applied via `getRevenueMultiplier(policyLevel)`.
 
@@ -277,10 +276,10 @@ Formula: `updateCorporateDrivenGdpGrowth(db)` in `src/lib/turn/corporateGdpGrowt
 
 ### Power Grid Reliability -> Profit Margin (implemented)
 
-Gated effect: no impact when grid uptime is above 95%. Below 95%, linear penalty scaling to -4% at 85% or lower. Affects ALL sectors — every business needs electricity.
+Gated effect: no impact when grid uptime is above 95%. Below 95%, linear penalty scaling to -4% at 85% or lower. Affects ALL sectors, every business needs electricity.
 
 - **Above 95%:** 0% modifier (grid is reliable enough)
-- **85–95%:** Linear scale from 0% to -4%
+- **85-95%:** Linear scale from 0% to -4%
 - **Below 85%:** Capped at -4%
 
 Formula: `getGridReliabilityMarginModifier(reliability)` in `src/lib/constants/corporations.ts`
@@ -306,7 +305,7 @@ A single source of truth function `computeAllMarginModifiers()` in `src/lib/cons
 | Power Grid        | -4%              | All                                                                                          | Gate 95%, floor 85%                     |
 | Corruption        | -3%              | All                                                                                          | Linear to index 100                     |
 | Inflation         | +2% to -8%       | All (country-wide)                                                                           | Bonus below 2% target; penalty above    |
-| Debt-to-GDP       | -15% cap         | All (country-wide)                                                                           | Penalty starts at 50% D/GDP             |
+| Debt-to-GDP       | -5% cap          | All (country-wide)                                                                           | Penalty starts at 50% D/GDP             |
 | Deficit-to-GDP    | +5% max          | All (country-wide)                                                                           | Stimulative bonus: +0.5% per 1% deficit |
 | Workforce Skill   | ±4%              | Technology, Healthcare, Manufacturing, Defense                                               | Pivot at skill index 50                 |
 | Crime Rate        | -5%              | Retail, Real Estate, Entertainment                                                           | 1500→3500 per 100k                      |
@@ -343,8 +342,8 @@ Function: `getInflationMarginModifier(inflationRate)` in `src/lib/constants/corp
 High sovereign debt crowds out private investment, raising borrowing costs and reducing confidence. Applies to all sectors at country level.
 
 - **Below 50% D/GDP:** No modifier
-- **50%–100% D/GDP:** Linear penalty, -0.5% per 10 percentage points of debt
-- **Above 100% D/GDP:** -2.5% base + additional -1% per 10 pp over 100%, **capped at -15%**
+- **50%-100% D/GDP:** Linear penalty, -0.5% per 10 percentage points of debt
+- **Above 100% D/GDP:** -2.5% base + additional -1% per 10 pp over 100%, **capped at -5%** (`DEBT_TO_GDP_MAX_PENALTY`; loosened from an earlier -15% floor because the modifier is a feedback loop, lower margins cut corporate tax, which widens the deficit and raises debt further, and -15% was pinning most firms at the floor permanently)
 
 Function: `getDebtToGdpMarginModifier()` in `src/lib/constants/corporations.ts`
 
@@ -429,8 +428,8 @@ modifier = K × Σ(rate_i × ln(demand_i / supply_i))
 
 Where `K = COMMODITY_LOG_K = 40` (`src/lib/constants/commodities.ts`).
 
-**Buyers (input costs):** Modifier is negated — shortage raises costs, oversupply lowers them.
-**Sellers (output demand):** Modifier is positive — shortage boosts margins, oversupply compresses them.
+**Buyers (input costs):** Modifier is negated, shortage raises costs, oversupply lowers them.
+**Sellers (output demand):** Modifier is positive, shortage boosts margins, oversupply compresses them.
 
 Reference values (single commodity, rate = 1.0):
 
@@ -450,14 +449,14 @@ Formula: `computeCommodityMarginModifier()` and `computeCommoditySurplusBonus()`
 
 ### Key Files
 
-- `src/lib/constants/commodities.ts` — All commodity constants, supply/demand maps, pricing, and margin modifier functions
-- `src/lib/turn/commodityPriceTurn.ts` — Per-turn price calculation and history snapshots
-- `src/app/commodity/[type]/page.tsx` — Commodity detail page with price chart
-- `src/app/api/commodities/` — Commodity API routes
+- `src/lib/constants/commodities.ts`, All commodity constants, supply/demand maps, pricing, and margin modifier functions
+- `src/lib/turn/commodityPriceTurn.ts`, Per-turn price calculation and history snapshots
+- `src/app/commodity/[type]/page.tsx`, Commodity detail page with price chart
+- `src/app/api/commodities/`, Commodity API routes
 
 ## Operating Strategies (implemented)
 
-Each sector type has 3–4 operating strategies that alter its commodity supply and demand rates. Every sector defaults to "Standard" but can be switched by the CEO.
+Each sector type has 3-4 operating strategies that alter its commodity supply and demand rates. Every sector defaults to "Standard" but can be switched by the CEO.
 
 ### Switching
 
@@ -475,9 +474,9 @@ The strategy switch confirmation panel shows:
 
 ### Key Files
 
-- `src/lib/constants/sectorStrategies.ts` — All strategy definitions, transition/cooldown constants, effective rate interpolation
-- `src/app/api/corporations/[id]/sectors/[sectorId]/strategy/route.ts` — Strategy change API (CEO only)
-- `src/components/corporation/StrategyChangeConfirm.tsx` — Confirmation panel with margin estimates
+- `src/lib/constants/sectorStrategies.ts`, All strategy definitions, transition/cooldown constants, effective rate interpolation
+- `src/app/api/corporations/[id]/sectors/[sectorId]/strategy/route.ts`, Strategy change API (CEO only)
+- `src/components/corporation/StrategyChangeConfirm.tsx`, Confirmation panel with margin estimates
 
 ## Shares & Dividends
 
@@ -511,7 +510,7 @@ Public corporations use `corporationVotes` for governance changes, HQ relocation
 
 ### Dividends
 
-- **Rate:** 0–100% of pre-dividend income, set by CEO
+- **Rate:** 0-100% of pre-dividend income, set by CEO
 - **Cooldown:** 24-hour change cooldown (`dividendRateChangedAt`)
 - **Distribution:** Paid pro-rata to all shareholders each turn
 - **Source:** Deducted from corporate income before liquid capital update
@@ -551,7 +550,7 @@ const newSharePrice = 0.15 * prevPrice + 0.6 * balanceSheetPrice + 0.25 * income
 | `SHARE_PRICE_PE_MULTIPLE`   | 6     | P/E multiple for income valuation    |
 | `INCOME_PRICE_CAP_MULTIPLE` | 4     | Income price capped at 4× book value |
 | `MIN_SHARE_PRICE`           | $0.01 | Hard floor on share price            |
-| `NPV_ANNUAL_DISCOUNT_RATE`  | 0.25  | 25% discount rate for sector NPV     |
+| `NPV_ANNUAL_DISCOUNT_RATE`  | 0.15  | 15% discount rate for sector NPV     |
 
 **Momentum:** 15% of previous price prevents volatile swings
 
@@ -559,7 +558,7 @@ const newSharePrice = 0.15 * prevPrice + 0.6 * balanceSheetPrice + 0.25 * income
 
 ### Collections
 
-- **`shareOrders`** — Limit order documents (type, price, shares, escrow, status)
+- **`shareOrders`**, Limit order documents (type, price, shares, escrow, status)
 
 ## Bonds
 
@@ -569,14 +568,14 @@ Corporations can issue bonds to raise capital. Bonds are fixed-income debt instr
 
 - **Minimum issuance:** $100,000
 - **Maximum:** Total debt cannot exceed 2× equity
-- **Maturity options:** 48 turns (1yr), 96 turns (2yr), 240 turns (5yr)
-- **Coupon rate:** Automatically set from credit rating + central bank prime rate
+- **Maturity options:** 48 turns (1yr), 96 turns (2yr), 240 turns (5yr), 336 turns (7yr)
+- **Coupon rate:** `primeRate + creditRatingSpread + CORPORATE_BOND_SPREAD_PREMIUM (1.0pp) + termPremium`. Term premium by maturity: 48/96 turns = 0, 240 turns = +1.0pp, 336 turns = +1.75pp.
 - **Cooldown:** `BOND_ISSUANCE_COOLDOWN_TURNS` between issuances
 - **Unit size:** $1,000 face value per unit (`BOND_UNIT_FACE_VALUE`)
 
 ### Credit Rating
 
-Composite score (0–100) from four components:
+Composite score (0-100) from four components:
 
 - Debt-to-equity ratio
 - Interest coverage ratio
@@ -595,26 +594,26 @@ Rating determines the credit spread added to the prime rate for the coupon.
 ### Distressed Debt Trading
 
 - **Defaulted bonds can be bought** by any player or corporation on the open market
-- **CEO self-buy blocked** — CEOs cannot buy their own corporation's defaulted bonds (prevents self-dealing exploit)
-- **CEO buyback at face value** — CEOs can retire defaulted bond units from the public float at full face value ($1,000/unit) via the "Retire Debt" panel on the bond detail page, allowing gradual debt reduction
-- **Auto-maturity** — Bonds automatically mature when all units (public float + holders) are fully retired
+- **CEO self-buy blocked**, CEOs cannot buy their own corporation's defaulted bonds (prevents self-dealing exploit)
+- **CEO buyback at face value**, CEOs can retire defaulted bond units from the public float at full face value ($1,000/unit) via the "Retire Debt" panel on the bond detail page, allowing gradual debt reduction
+- **Auto-maturity**, Bonds automatically mature when all units (public float + holders) are fully retired
 
 ### Bond Holdings
 
-The bonds API returns `holdings` — bonds the corporation owns in other companies, with issuer names, units, market values.
+The bonds API returns `holdings`, bonds the corporation owns in other companies, with issuer names, units, market values.
 
 ### Collections
 
-- **`bonds`** — Bond documents (corporationId, couponRate, maturityTurn, marketPrice, holders[], publicFloat)
-- **`bondHistory`** — Per-turn snapshots (marketPrice, totalInterestPaid)
+- **`bonds`**, Bond documents (corporationId, couponRate, maturityTurn, marketPrice, holders[], publicFloat)
+- **`bondHistory`**, Per-turn snapshots (marketPrice, totalInterestPaid)
 
 ### Key Files
 
-- `src/lib/db/types/bond.ts` — `Bond`, `BondHolder`, `CorporateCreditRating` interfaces
-- `src/lib/constants/bonds.ts` — Credit scoring, coupon rate calculation
-- `src/app/api/bonds/` — Bond CRUD and trading routes
-- `src/app/api/corporations/[id]/bonds/route.ts` — Issuance and holdings
-- `src/app/bond/[id]/page.tsx` — Bond detail page with buy panel
+- `src/lib/db/types/bond.ts`, `Bond`, `BondHolder`, `CorporateCreditRating` interfaces
+- `src/lib/constants/bonds.ts`, Credit scoring, coupon rate calculation
+- `src/app/api/bonds/`, Bond CRUD and trading routes
+- `src/app/api/corporations/[id]/bonds/route.ts`, Issuance and holdings
+- `src/app/bond/[id]/page.tsx`, Bond detail page with buy panel
 
 ## National Corporations
 
@@ -637,14 +636,14 @@ The UK has an NHS-style public healthcare corporation seeded at game setup. Heal
 Governments can issue sovereign debt instruments, extending the corporate bond system to national-level finance.
 
 - **Issuance:** Sovereign bonds are issued via admin routes with debt-driven demand mechanics
-- **Demand:** Bond demand scales with national debt levels — higher debt increases demand for sovereign instruments
+- **Demand:** Bond demand scales with national debt levels, higher debt increases demand for sovereign instruments
 - **Display:** Sovereign bonds appear on country stock exchange pages alongside corporate bonds
 - **Admin testing:** A test issuance route (`/api/admin/sovereign-debt/`) allows admins to create sovereign bond instruments for testing
 
 ### Key Files
 
-- `src/app/api/admin/sovereign-debt/` — Sovereign debt test issuance route
-- `src/app/api/bonds/` — Shared bond trading infrastructure (corporate + sovereign)
+- `src/app/api/admin/sovereign-debt/`, Sovereign debt test issuance route
+- `src/app/api/bonds/`, Shared bond trading infrastructure (corporate + sovereign)
 
 ## Sector Production Modes
 
@@ -653,8 +652,8 @@ Sectors can operate in one of three production modes, configurable by the CEO:
 | Mode             | Effect                                                       |
 | ---------------- | ------------------------------------------------------------ |
 | **Normal**       | Default balanced operation                                   |
-| **Aggressive**   | Higher output volume, lower margins — grow revenue faster    |
-| **Conservative** | Lower output volume, higher margins — preserve profitability |
+| **Aggressive**   | Higher output volume, lower margins, grow revenue faster    |
+| **Conservative** | Lower output volume, higher margins, preserve profitability |
 
 Mode changes are subject to a transition cooldown. Cooldown timer starts at transition initiation and displays countdown badges on sector cards showing time remaining until the switch completes.
 
@@ -664,26 +663,26 @@ CEOs can relocate corporate headquarters to another state or region (including i
 
 - **Cost:** 7% of market capitalization in-country; **14% (2×)** for cross-country moves. Payable from corp Liquid Capital or a 7-year bond (subject to bond cooldown + 2× equity leverage cap).
 - **Country update:** Cross-country moves update `corporation.countryId` alongside `headquartersState`.
-- **CEO residency:** If the CEO's `homeState` does not match the new HQ state after the move, the corporation's `ceoVacant` is set to `true` and `ceoId` / `userId` are unset — shareholders can then elect a new CEO who lives there. The UI warns the player before submission; the action is not blocked.
+- **CEO residency:** If the CEO's `homeState` does not match the new HQ state after the move, the corporation's `ceoVacant` is set to `true` and `ceoId` / `userId` are unset, shareholders can then elect a new CEO who lives there. The UI warns the player before submission; the action is not blocked.
 
-Players who are CEOs can also combine their own relocation with a corp HQ move via the region-page "Relocate here" button (see [[Relocation]] — "Combined character + corporation relocation"). In that flow the CEO role is preserved because the character ends up at the new HQ.
+Players who are CEOs can also combine their own relocation with a corp HQ move via the region-page "Relocate here" button (see [[Relocation]], "Combined character + corporation relocation"). In that flow the CEO role is preserved because the character ends up at the new HQ.
 
 ### Treasury and sector revenue on cross-country relocation
 
 When a cross-country HQ move crosses a currency boundary (e.g. UK → JP), the corp's treasury and sector economics convert from the source currency to the destination currency at the spot FX rate at time of submission:
 
 - **Corp fields rescaled:** `liquidCapital`, `sharePrice`, `marketingBudget`, `logisticsBudget`, `ceoSalary`. `liquidCurrencyCode` updates to the new country's currency.
-- **All sectors owned by the corp:** `revenue` and `currentGrowthCost` rescaled by the same factor. Sector country-of-operation (`sector.countryId`) does not change — it's decoupled from the owner's HQ country.
-- **Conversion math:** `LOCAL_new = LOCAL_old × (toRate / fromRate)`. Anchor-preserving — total ₳ value unchanged by the conversion itself.
+- **All sectors owned by the corp:** `revenue` and `currentGrowthCost` rescaled by the same factor. Sector country-of-operation (`sector.countryId`) does not change, it's decoupled from the owner's HQ country.
+- **Conversion math:** `LOCAL_new = LOCAL_old × (toRate / fromRate)`. Anchor-preserving, total ₳ value unchanged by the conversion itself.
 - **No FX fee / spread.** The 14% market-cap cross-country relocation cost is the economic friction; adding an FX haircut would double-penalize.
 
 **What does NOT convert:**
 
-- **Existing bonds** (see below — denomination fixed at issuance).
-- **Historical rows** (`corporationHistory`, `marketCapHistory`, `corporationPortfolioHistory`) — each row stamped with its own `currencyCode` at write time, so mixed-currency rows across the conversion moment chart correctly.
-- **Character wallets** — multi-currency by design.
-- **Same-country moves** (e.g. CA → NY, both USD) — no-op.
-- **Moves to a country with the same currency as the corp's current** (e.g. US corp → CA, both USD) — no-op.
+- **Existing bonds** (see below, denomination fixed at issuance).
+- **Historical rows** (`corporationHistory`, `marketCapHistory`, `corporationPortfolioHistory`), each row stamped with its own `currencyCode` at write time, so mixed-currency rows across the conversion moment chart correctly.
+- **Character wallets**, multi-currency by design.
+- **Same-country moves** (e.g. CA → NY, both USD), no-op.
+- **Moves to a country with the same currency as the corp's current** (e.g. US corp → CA, both USD), no-op.
 
 **Open share orders + listings cancelled on conversion.** Escrow amounts are denominated in the old currency; the cancel-refund helpers read the corp's current `liquidCurrencyCode` to interpret them, so the conversion must happen AFTER cancellation. Escrow refunds route through the standard share-order / share-listing cancel paths (buyers get their money back in their own native currency). The player is responsible for re-placing orders in the new currency after the move.
 
@@ -699,7 +698,7 @@ All three HQ-move paths converge on the same converter:
 
 ### Bond denomination on relocation
 
-Bonds retain their original `currencyCode` on any relocation — player-initiated (same-country only) **and** admin-initiated cross-country HQ moves via `PATCH /api/admin/corporations/[id]/hq`. A JPY-denominated corporate bond pays JPY coupons and returns JPY face value at maturity for its entire life, regardless of subsequent HQ moves. This matches real-world bond contracts (denomination fixed at issuance) and keeps `bond.totalIssued`, coupon cash-flows, and market price fluctuations all denominated in the single currency the bond was issued in.
+Bonds retain their original `currencyCode` on any relocation, player-initiated (same-country only) **and** admin-initiated cross-country HQ moves via `PATCH /api/admin/corporations/[id]/hq`. A JPY-denominated corporate bond pays JPY coupons and returns JPY face value at maturity for its entire life, regardless of subsequent HQ moves. This matches real-world bond contracts (denomination fixed at issuance) and keeps `bond.totalIssued`, coupon cash-flows, and market price fluctuations all denominated in the single currency the bond was issued in.
 
 Concretely, post-Task-18B `bond.currencyCode` is the canonical FX key for every bond cash-flow path: turn-processing coupon payouts, maturity face-value payouts, issuer deductions, buy/sell/buyback routes, portfolio valuations, credit scoring, and net-worth aggregation. Code paths must resolve a bond's currency from `bond.currencyCode` (falling back to `COUNTRY_CURRENCY_MAP[bond.countryId]` only for pre-migration rows) and never from the issuing corp's current `countryId`.
 
@@ -716,7 +715,7 @@ CEOs can broadcast a formatted message to all current shareholders as system not
 
 - **Founding:** Corporation HQ is set to the founder's `homeState`
 - **Acceptance gate:** Character must have `homeState === corporation.headquartersState` to accept a CEO offer (returns 400 otherwise)
-- **Character relocation auto-resign:** If a character relocates without the combined character+corp flow, the corporation's `ceoVacant` is set to `true` and `ceoId` / `userId` are unset — regardless of whether the country changed.
+- **Character relocation auto-resign:** If a character relocates without the combined character+corp flow, the corporation's `ceoVacant` is set to `true` and `ceoId` / `userId` are unset, regardless of whether the country changed.
 - **Combined character+corp relocation:** If the player uses the region-page "Relocate & Move Corporation" option, both move together and the CEO role is preserved (`performRelocation` is called with `skipCeoResignForCorpId`).
 - **HQ-side auto-vacate:** When the HQ moves via the CEO Office and the CEO does not reside at the new HQ state, the CEO seat is auto-vacated.
 - **UI warnings:** RelocateButton shows the full effects list on region-page confirm; the CEO Office flow shows an amber warning when the destination differs from the CEO's home state.
@@ -737,8 +736,8 @@ Admin-facing sector cards include +/- buttons for manual growth rate adjustment.
 
 Corporations are listed on country-specific exchanges:
 
-- **NYSE** (`/stockmarket/us`) — US-headquartered corporations
-- **FTSE** (`/stockmarket/uk`) — UK-headquartered corporations
+- **NYSE** (`/stockmarket/us`), US-headquartered corporations
+- **FTSE** (`/stockmarket/uk`), UK-headquartered corporations
 
 Exchange pages display: market cap, share price, total revenue, income, CEO info, sector type, and headquarters. Price history is visualized with **OHLC candlestick charts** showing open, high, low, and close prices per period.
 
@@ -746,9 +745,9 @@ Exchange pages display: market cap, share price, total revenue, income, CEO info
 
 API routes supporting Discord bot queries:
 
-- `GET /api/discord-bot/corporation?name=` — Look up a corporation by name
-- `GET /api/discord-bot/sectors?state=&type=` — Query sectors by state and/or type
-- `GET /api/discord-bot/stock-chart` — Market-wide or per-corporation price history chart data (optional corporation and country filters)
+- `GET /api/discord-bot/corporation?name=`, Look up a corporation by name
+- `GET /api/discord-bot/sectors?state=&type=`, Query sectors by state and/or type
+- `GET /api/discord-bot/stock-chart`, Market-wide or per-corporation price history chart data (optional corporation and country filters)
 
 ## Currency storage (v0.2.6)
 
@@ -761,12 +760,12 @@ Every corp-economic money field is stored in the corp's `liquidCurrencyCode`. Cr
 | Corporate bond face value / coupon / `totalIssued`                                             | `bond.currencyCode` (stamped at issuance from issuing corp's `liquidCurrencyCode`)     |
 | Tax bases written from corp turn (`corporateProfits`, `taxableSales`)                          | country's currency (corp turn accumulates in ₳ then multiplies by country FX at write) |
 | Cross-corp aggregates (global GDP, global market cap, commodity demand)                        | computed in ₳; displayed via wallet preference                                         |
-| `sharePriceFormula` intermediate                                                               | ₳ (anchor) — converted to corp-local at persistence boundary                           |
+| `sharePriceFormula` intermediate                                                               | ₳ (anchor), converted to corp-local at persistence boundary                           |
 | `corporationHistory`, `marketCapHistory`, `corporationPortfolioHistory` money columns          | corp's `liquidCurrencyCode` at time of write (`currencyCode` stamped on each row)      |
 
 **History backfill (option 3):** the v0.2.6 migration rescales every existing history row at **today's** FX rate so charts stay visually continuous across the migration moment. Historical FX accuracy is intentionally sacrificed.
 
-**Migration scripts** (idempotent via `migrationsRun` markers — run in order):
+**Migration scripts** (idempotent via `migrationsRun` markers, run in order):
 
 - `scripts/migrations/corpEconomyToLocalCurrency.ts`
 - `scripts/migrations/bondCurrencyStamp.ts`
@@ -775,19 +774,19 @@ See `scripts/migrations/README.md` for the dry-run checklist.
 
 ## Collections
 
-- **`corporations`** — Corporation documents (name, type, CEO, capital, shares, marketing)
-- **`corporateSectors`** — Individual sector instances (corp, state, growth rate, revenue, margin, workers)
+- **`corporations`**, Corporation documents (name, type, CEO, capital, shares, marketing)
+- **`corporateSectors`**, Individual sector instances (corp, state, growth rate, revenue, margin, workers)
 
 ## Key Files
 
-- `src/lib/constants/corporations.ts` — All constants, sector types, modifier functions, and `computeAllMarginModifiers()` (single source of truth)
-- `src/lib/db/types/corporation.ts` — TypeScript interfaces (`Corporation`, `CorporateSector`, `Shareholder`)
-- `src/lib/turn/corporationTurn.ts` — Per-turn processing (revenue, costs, marketing, CEO salary)
-- `src/lib/turn/corporateGdpGrowth.ts` — State GDP growth from corporate activity
-- `src/app/api/corporations/` — CRUD API routes
-- `src/app/stockmarket/[country]/page.tsx` — Stock exchange listing UI
-- `src/app/corporations/page.tsx` — Corporation listing/founding UI
-- `src/lib/db/types/bond.ts` — Bond type definitions
-- `src/lib/constants/bonds.ts` — Credit rating and coupon rate logic
-- `src/app/api/character/relocate/route.ts` — CEO auto-resign on relocation
-- `src/app/api/corporations/[id]/ceo/accept/route.ts` — CEO residence gate
+- `src/lib/constants/corporations.ts`, All constants, sector types, modifier functions, and `computeAllMarginModifiers()` (single source of truth)
+- `src/lib/db/types/corporation.ts`, TypeScript interfaces (`Corporation`, `CorporateSector`, `Shareholder`)
+- `src/lib/turn/corporationTurn.ts`, Per-turn processing (revenue, costs, marketing, CEO salary)
+- `src/lib/turn/corporateGdpGrowth.ts`, State GDP growth from corporate activity
+- `src/app/api/corporations/`, CRUD API routes
+- `src/app/stockmarket/[country]/page.tsx`, Stock exchange listing UI
+- `src/app/corporations/page.tsx`, Corporation listing/founding UI
+- `src/lib/db/types/bond.ts`, Bond type definitions
+- `src/lib/constants/bonds.ts`, Credit rating and coupon rate logic
+- `src/app/api/character/relocate/route.ts`, CEO auto-resign on relocation
+- `src/app/api/corporations/[id]/ceo/accept/route.ts`, CEO residence gate

@@ -1,8 +1,12 @@
 # Archetype Approvals System
 
+> **DEPRECATED, legacy behavior, not the live model.** The 12-archetype voter system this document was written to design is dead as an independent electorate model. Per project doctrine, archetypes have no plan B, no independent display, and no independent targets. In the shipped code, `archetypeApprovals` and the archetype id itself now function purely as a **bucket-keyed compatibility shim**: `src/lib/demographics/archetypeBucketMap.ts` projects each archetype-keyed value onto 2-3 Layer-1 census buckets (weights summing to 1.0) so legacy-authored effects (character/NPP approvals, legislation `demographicEffects`, Address favorability, GOTV modifiers) still land on the **granular Layer-1 electorate**, which is the actual vote path for every country (see [Granular Electorate (as shipped)](./granular-electorate-as-shipped.md)). There is no independent archetype vote-share logic left anywhere in the engine. The schema-change and gap-analysis content below describes the historical design that shipped the `archetypeApprovals` field; read it as a record of that legacy system, not as current architecture guidance.
+
 ## Overview
 
 This document describes the system for tracking voter archetype approvals for politicians (both player characters and NPPs), integrating with legislation votes, displaying in polls, and implementing approval decay over time.
+
+**This describes the legacy archetype-approval system as originally shipped.** The archetype id is retained today only as a bucket-projection key (see the deprecation notice above); nothing below should be read as a description of the current live vote model.
 
 ## Current State Analysis
 
@@ -255,7 +259,7 @@ async function applyArchetypeApprovalChanges(
 const APPROVAL_DECAY_RATE = 0.005; // 0.5% decay toward neutral per turn
 
 export async function processApprovalDecay(db: Db): Promise<void> {
-  // Process characters — use bulk operations for efficiency
+  // Process characters, use bulk operations for efficiency
   const characters = await db
     .collection("characters")
     .find({
@@ -509,7 +513,7 @@ The poll system (`src/lib/actions/pollCalculations.ts`) already shows per-group 
 | `weightedPotential`          | Final vote potential (appeal × reach × approval × partyOrg) |
 | `economicLean`, `socialLean` | Group's political lean                                      |
 
-**Gap**: No per-archetype approval shown — only global favorability applied uniformly.
+**Gap**: No per-archetype approval shown, only global favorability applied uniformly.
 
 ### Proposed Poll Updates
 
@@ -751,9 +755,9 @@ async function processMembershipDrift(
 
 1. ~~**State-specific baselines**: Should different states have different baseline approvals?~~ **RESOLVED**: Start with uniform 0 baseline; state-specific can be added later as refinement.
 
-2. **Cross-archetype effects**: Should some legislation affect archetype membership directly? (e.g., pro-union laws increase union*trades population) — \_Deferred for future update*
+2. **Cross-archetype effects**: Should some legislation affect archetype membership directly? (e.g., pro-union laws increase union*trades population), \_Deferred for future update*
 
-3. **Campaign modifiers**: How should campaign actions (rallies, ads) interact with archetype approvals? — _Deferred for future update_
+3. **Campaign modifiers**: How should campaign actions (rallies, ads) interact with archetype approvals?, _Deferred for future update_
 
 4. ~~**Visibility thresholds**: Should archetypes with <1% population be hidden in polls?~~ **RESOLVED**: No, all archetypes should be visible.
 
@@ -770,5 +774,5 @@ All core phases implemented:
 - Phase 3: Vote recording (voteImpacts.ts updated)
 - Phase 4: Decay processing (archetypeApprovalDecay.ts, integrated into turnSystem.ts)
 - Phase 5: Poll integration (pollCalculations.ts updated with effective favorability)
-- Phase 6: 2020 baselines — _Using uniform 0 baseline; party-specific can be added later_
+- Phase 6: 2020 baselines, _Using uniform 0 baseline; party-specific can be added later_
 - Phase 7: Election integration (electionEngine.ts updated with per-archetype effective favorability)

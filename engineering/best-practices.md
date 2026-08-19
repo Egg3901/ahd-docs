@@ -1,12 +1,12 @@
 # Best Practices
 
-Recurring patterns, anti-patterns, and guidance distilled from auditing the A House Divided codebase. Every recommendation is grounded in actual code — not generic dogma.
+Recurring patterns, anti-patterns, and guidance distilled from auditing the A House Divided codebase. Every recommendation is grounded in actual code, not generic dogma.
 
 ---
 
 ## 1. API Route Hygiene
 
-### Always use `require*` helpers — never `getAuthUser()` in route handlers
+### Always use `require*` helpers, never `getAuthUser()` in route handlers
 
 **Why:** `getAuthUser()` returns `null` on failure; a manual `if (!user)` check silently skips the structured error response that `requireAuth()` provides. More importantly, `requireAdmin()` does a DB-authoritative admin check while `getAuthUser().isAdmin` trusts a potentially stale JWT claim.
 
@@ -17,7 +17,7 @@ Recurring patterns, anti-patterns, and guidance distilled from auditing the A Ho
 const auth = await requireAuth();
 if (!auth.ok) return auth.response;
 
-// ❌ Wrong — bypasses structured error handling
+// ❌ Wrong, bypasses structured error handling
 const user = await getAuthUser();
 if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 ```
@@ -28,13 +28,13 @@ if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
 **Why:** Custom parsers (manual type assertions, ad-hoc `.parse()` objects) produce inconsistent error messages and miss edge cases. `parseJsonBody` handles malformed JSON, Zod validation failures, and returns structured `{ error, status }`.
 
-**Anti-pattern found:** `src/app/api/whitehouse/bills/[id]/action/route.ts` had a hand-rolled `actionSchema.parse()` with `request.json().catch(() => ({}))` — silently converting malformed JSON into an empty object instead of returning 400.
+**Anti-pattern found:** `src/app/api/whitehouse/bills/[id]/action/route.ts` had a hand-rolled `actionSchema.parse()` with `request.json().catch(() => ({}))`, silently converting malformed JSON into an empty object instead of returning 400.
 
 ### Wrap the entire handler in `try/catch` with `handleRouteError`
 
 **Why:** If `requireAdmin()` or `getDb()` throws _before_ the inner try-catch, the route returns an unformatted 500 with no Sentry capture.
 
-**Anti-pattern found:** `src/app/api/admin/cabinet-nominations/route.ts` GET handler had `requireAdmin()` outside the try-catch block.
+**Anti-pattern found:** `src/app/api/admin/country/[code]/cabinet-nominations/route.ts` GET handler had `requireAdmin()` outside the try-catch block.
 
 ---
 
@@ -63,7 +63,7 @@ const updates: Record<string, unknown> = {};
 **Pattern:**
 
 ```ts
-// ✅ Clear reassignment — TypeScript tracks the type
+// ✅ Clear reassignment, TypeScript tracks the type
 for (let bill of expiredBills) {
   const fresh = await db.collection<Bill>("bills").findOne({ _id: bill._id });
   if (fresh) bill = fresh;
@@ -78,7 +78,7 @@ for (const bill of expiredBills) {
 }
 ```
 
-**Reference:** `src/lib/billLifecycle.ts` — three instances in origin-chamber, other-chamber, and veto-override loops.
+**Reference:** `src/lib/billLifecycle.ts`, three instances in origin-chamber, other-chamber, and veto-override loops.
 
 ---
 
@@ -88,11 +88,11 @@ for (const bill of expiredBills) {
 
 The codebase generally does this well. Good examples:
 
-- `src/lib/turn/campaignTurn.ts` — parallel `Promise.all` for characters and NPPs
-- `src/lib/turn/corporationTurn.ts` — seven collections fetched in parallel
-- `src/lib/demographicEffects.ts` — pre-builds maps, single `bulkWrite` at end
+- `src/lib/turn/campaignTurn.ts`, parallel `Promise.all` for characters and NPPs
+- `src/lib/turn/corporationTurn.ts`, seven collections fetched in parallel
+- `src/lib/demographicEffects.ts`, pre-builds maps, single `bulkWrite` at end
 
-**Watch for:** `getActivePoliciesForState()` called per-state inside a loop (`src/lib/turn/policyEffects.ts`). If the caller iterates states, this becomes N+1. Prefer fetching all policies once and filtering in-memory.
+**Watch for:** `getActivePoliciesForState()` called per-state inside a loop (`src/lib/policyEffects.ts`). If the caller iterates states, this becomes N+1. Prefer fetching all policies once and filtering in-memory.
 
 ### Guard division-by-zero in threshold calculations
 
@@ -100,23 +100,23 @@ The codebase generally does this well. Good examples:
 
 ```ts
 if (memberCount === 0) {
-  // No members — vote cannot pass
+  // No members, vote cannot pass
   continue;
 }
 const threshold = Math.ceil((2 / 3) * memberCount);
 ```
 
-**Reference:** `src/lib/billLifecycle.ts` veto-override logic (lines ~419–420).
+**Reference:** `src/lib/billLifecycle.ts` veto-override logic (lines ~419-420).
 
 ---
 
 ## 4. Turn Processing
 
-### Phase isolation is load-bearing — do not bypass `runPhase()`
+### Phase isolation is load-bearing, do not bypass `runPhase()`
 
 Every turn phase is wrapped in `runPhase()` which catches errors, logs to Sentry, and appends to `warnings` without halting subsequent phases. Adding a phase outside this wrapper risks crashing the entire turn on a single failure.
 
-**Reference:** `src/lib/turnSystem.ts` `runPhase()` function.
+**Reference:** `runPhase()` in `src/simulation/phases/turnPhaseRegistry.ts`.
 
 ### Group 7 ordering is strictly sequential
 
@@ -155,9 +155,9 @@ The `@/lib/api/errors` module provides `badRequest()`, `notFound()`, `forbidden(
 
 ## 6. UI Patterns
 
-### Use `useAsyncData` for client-side data fetching
+### Use `useAbortableEffectFetch` for client-side data fetching
 
-The `src/hooks/useAsyncData.ts` hook handles AbortController cleanup, error state, and refetch. Pages that reinvent the fetch-loading-error pattern inline should migrate to it.
+The `src/hooks/useAbortableEffectFetch.ts` hook handles AbortController cleanup, error state, and refetch. Pages that reinvent the fetch-loading-error pattern inline should migrate to it.
 
 ### Centralize auto-refresh intervals
 

@@ -9,8 +9,8 @@ This document complements `CLAUDE.md` (in the a-house-divided app repo) database
 
 ## Collection access: two supported patterns
 
-1. **Typed collection helpers** in `src/lib/db/collections/` — preferred when a helper already exists or you are touching a hot path that should stay consistent (e.g. `getUsersCollection`, `getCharactersCollection`, `getGameStateCollection`, `getPartyBudgetCollection`).
-2. **Direct access** — `db.collection<DocumentType>("collectionName")` is acceptable and common; keep the **generic** correct and the **name** exactly as in existing code (camelCase collection names).
+1. **Typed collection helpers** in `src/lib/db/collections/`, preferred when a helper already exists or you are touching a hot path that should stay consistent (e.g. `getUsersCollection`, `getCharactersCollection`, `getGameStateCollection`, `getPartyBudgetCollection`).
+2. **Direct access**, `db.collection<DocumentType>("collectionName")` is acceptable and common; keep the **generic** correct and the **name** exactly as in existing code (camelCase collection names).
 
 Do **not** introduce a repository framework or generic ORM layer unless there is a strong, explicit need.
 
@@ -38,9 +38,9 @@ That avoids redundant `getDb()` awaits and keeps a single logical scope for one 
 
 ## Transactions and consistency
 
-- The codebase **does not** currently use `withTransaction` / `ClientSession` in `src/`. Multi-collection updates are **sequential** and can leave partial state if a later step fails.
-- **Code-level:** document ordering where it matters; prefer clear phase boundaries (see turn system) over implicit “transaction-like” assumptions in random routes.
-- **DB-level:** true atomicity across collections requires MongoDB multi-document transactions and appropriate write concern — that is an **operational and design** decision, not something to fake in application code.
+- `src/lib/db/runWithOptionalTransaction.ts` wraps `withTransaction` / `ClientSession` and is used in ~10 files where a caller wants transactional semantics. It attempts a real transaction when the Mongo topology supports it (replica set) and falls back to the sequential implementation otherwise. Production Mongo (Railway "Main DB") is currently a **standalone** instance with no replica set, so `withTransaction` always throws there and money-flow writes run **non-atomic** via the fallback path, this is a known, tracked gap, not a design choice.
+- **Code-level:** document ordering where it matters; prefer clear phase boundaries (see turn system) over implicit “transaction-like” assumptions in random routes. Use `runWithOptionalTransaction` where partial-write risk is high, but do not assume it is atomic in prod today.
+- **DB-level:** true atomicity across collections requires MongoDB multi-document transactions and appropriate write concern on a replica-set-capable deployment, that is an **operational and design** decision, not something to fake in application code.
 
 When adding cross-collection updates, consider: (1) idempotency where possible, (2) admin heal routes for known failure modes, (3) explicit documentation in the relevant design doc under `docs/design/`.
 
@@ -58,8 +58,8 @@ Track those in release notes, run during maintenance windows when appropriate, a
 
 The following are **observations** for index planning; verify with `explain` and production metrics:
 
-- **`characters`:** full scans for `processTurn` load all characters — expected for simulation scale; ensure RAM/query budget is acceptable as player counts grow.
-- **`elections` / `electionVoteTallies` / `electionCandidates`:** queries often filter by `electionId`, `stateId`, `countryId`, status, and time fields — compound indexes should match real filter combinations.
+- **`characters`:** full scans for `processTurn` load all characters, expected for simulation scale; ensure RAM/query budget is acceptable as player counts grow.
+- **`elections` / `electionVoteTallies` / `electionCandidates`:** queries often filter by `electionId`, `stateId`, `countryId`, status, and time fields, compound indexes should match real filter combinations.
 - **`users`:** `_id` lookups for auth are naturally indexed; avoid adding slow patterns (e.g. unindexed email regex) without an index strategy.
 
 ## Testing
@@ -69,6 +69,6 @@ The following are **observations** for index planning; verify with `explain` and
 
 ## Related docs
 
-- [`repo-operating-map.md`](./repo-operating-map.md) — architecture zones and blast radius.
-- [`architecture-boundaries.md`](./architecture-boundaries.md) — layering rules for `src/lib/turn/` and API routes.
+- [`repo-operating-map.md`](./repo-operating-map.md), architecture zones and blast radius.
+- [`architecture-boundaries.md`](./architecture-boundaries.md), layering rules for `src/lib/turn/` and API routes.
 - Design docs under `docs/design/` for simulation invariants (elections, turn order, NPP, etc.).

@@ -45,3 +45,24 @@ Mechanics:
 The turn phase `voteAccumulation` (`accumulateGeneralElectionVotes` in `src/lib/turn/primaryResolution.ts`, group 5 of the turn processor) finds every active election in its general phase (no upper bound on `endTime`, so the final turn's votes are never dropped) and calls into `tallyManagement.ts` per election. There the substrate is built once per state and swapped in for demographics, categories, live turnouts, pool, enriched candidates, and favorability; the turn's vote slice then flows through `distributeVotesByGroupLevelAllocation` or `distributeVotesBySwingFlow` over the units, and the resulting per-candidate votes are added to the persistent `ElectionVoteTally`. Later phases in the same sequential group (`primarySnapshots`, `electionResolution`) resolve races from those accumulated tallies. Presidential races (`presidentialElectionEngine.ts`), primary stagger waves (`primaryStaggerPhase.ts`), and the cached state-lean read (`cachedStateLean.ts`) consume the same substrate, so polls, leans, and votes cannot disagree about who the electorate is.
 
 The demographics tab reads the same units too: `src/lib/demographics/bucketProfile.ts` aggregates per-bucket share, leans, and turnout as share-weighted sums over `unit.bucketWeights`, so what the player sees is a projection of the exact electorate the engine counts, not a parallel archetype table.
+
+## Turn-by-turn population mechanics
+
+Two modules run every turn to keep the underlying population vectors (and the historical baseline they're compared against) internally consistent, independent of the vote-distribution machinery above.
+
+### `cohortFlows.ts`, age×sex population advance
+
+`advanceCohort()` (`src/lib/demographics/cohortFlows.ts`) advances one region's age×sex population vector (`AgeSexVector`) by one turn, in a fixed order:
+
+1. **Continuous aging** (`applyContinuousAging`), runs every turn, not gated on a year boundary: `1/turnsPerYear` of each age cohort graduates up each turn, smoothing the age structure rather than jumping it once a year.
+2. **Mortality** (`applyMortality`), applies a healthcare-modified death rate (`healthcareMortalityModifier`) to the post-aging vector.
+3. **Fertility** (`computeBirths` / `splitNewbornsBySex`), converts the `population.birthRate` index to a TFR via `birthRateIndexToTFR()` (anchored to the preset's `replacementTFR`), computes births from the surviving vector (excluding women in mandatory military service from the childbearing pool when `servingFemaleByAge` is supplied, the conscription interaction), and splits newborns by sex into age-0.
+4. **International migration** (`applyInternationalMigration`), applies the region's allocated share of national net international migrants (can be negative), using a migrant age/sex profile derived from `migrantShareMale`.
+
+All flows are per-cell non-negative except the international-migration step, which can change total headcount. There is no cross-region internal migration yet (tracked as a future phase). The function returns both the advanced vector and a `CohortFlowTallies` summary (`births`, `deaths`, `netMigration`) for turn reporting.
+
+### `checkpointBakedShifts.ts`, de-duplicating era checkpoints against authored history
+
+Era checkpoints (`eraCheckpoints.ts`, see above) model historical realignments as a live per-turn pull. But the era anchor tables they pull toward are themselves authored from real election results, which already contain that history baked in, e.g. Alabama's `race:white` economic lean is authored at −3.0 in 1953 and +2.5 in 1979, and that +5.5 swing IS the Southern Realignment. Interpolating between those anchors as a live baseline while ALSO running the checkpoint's durable overlay would double-count the same historical shift, pinning the state at the ±5 axis edge.
+
+`bakedCheckpointBucketShifts(stateId, axis, year, startingYear, countryId)` computes exactly how much of each checkpoint's `totalShift` real history had already delivered by a given year (`historicalDeliveredFraction()`: 0 before the checkpoint's `historicalWindow` opens, linear inside it, 1 after it closes), summed per `"dim:key"` bucket. That amount is subtracted from the interpolated era baseline so that `interpolated baseline + durable overlay == the authored anchor` at every anchor point, with smooth movement between anchors. This only runs for `startingYear === 1953` worlds (`CHECKPOINT_SEED_YEAR`), the only preset where checkpoints fire at all, any other starting year returns an empty record and the authored anchors are used untouched. The subtraction uses real-world calendar years from `historicalWindow`, not in-world turn counts, so it stays a pure function of the year regardless of how a particular world's SCOTUS docket paced the underlying checkpoint.

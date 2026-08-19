@@ -2,16 +2,16 @@
 
 ## Overview
 
-The Wiki System provides in-game documentation and strategy guides. Design documents from `docs/design/` are synced to the `wikiPages` collection for player access.
+The Wiki System provides in-game documentation and strategy guides. Page content is authored directly as TypeScript objects in `src/lib/seeds/wiki/pages/*.ts` and seeded into the `wikiPages` collection, it is **not** synced live from `docs/design/` markdown files at runtime. (This repo's public `docs/design/` and `docs/wiki/` trees exist for developer/community reference, but there is no game code that reads them into `wikiPages`.)
 
-**Location:** `src/lib/wiki/`
+**Location:** `src/lib/wiki/` (runtime read/search/render), `src/lib/seeds/wiki/` (page content + seeding)
 
 **Key files:**
 
 - `getWikiPageData.ts` - Fetch wiki page metadata for display
 - `loadContent.ts` - Load markdown content and transform wikilinks
 - `searchIndex.ts` - Build unified search index (pages, politicians, seats, parties, leadership)
-- `syncPriorSubmissions.ts` - Sync design docs to wikiPages collection
+- `syncPriorSubmissions.ts` - Renames legacy ObjectId-embedded slugs (`player-{hex}`, `corp-{hex}`, `party-profile-{hex}`) to sequentialId-based slugs; see [Slug Migration](#slug-migration) below
 - `seatData.ts` - Derive seat slugs and titles from states collection
 - `partyData.ts` - Fetch party data for wiki pages
 - `leadershipData.ts` - Fetch congressional leadership data
@@ -41,13 +41,13 @@ export const WIKI_SEED_PAGES: readonly WikiSeedPage[] = [
 
 Each `WikiSeedPage` (`src/lib/seeds/wiki/types.ts`) defines:
 
-- `slug` — URL identifier
-- `title`, `description`, `content` — Display data
-- `category` — Primary category (also used as first tag)
-- `featured` — Highlighted on wiki home
-- `difficulty`, `contentType`, `estimatedReadTime` — Metadata
-- `countryId` — Optional country scoping
-- `private` — Admin-only page
+- `slug`, URL identifier
+- `title`, `description`, `content`, Display data
+- `category`, Primary category (also used as first tag)
+- `featured`, Highlighted on wiki home
+- `difficulty`, `contentType`, `estimatedReadTime`, Metadata
+- `countryId`, Optional country scoping
+- `private`, Admin-only page
 
 ### Categories
 
@@ -76,68 +76,40 @@ Pages with `featured: true` are highlighted on the wiki home page:
 
 Some slugs use custom UI instead of markdown rendering. These special live routes are handled by dedicated page components and cannot be overridden by markdown files:
 
-- `/wiki/elections` — Election browser
-- `/wiki/roadmap` — Game roadmap
-- `/wiki/paths/*` — Learning paths
-- `/wiki/party/[id]` — Party profile pages
-- `/wiki/seat/[slug]` — Seat/office pages
-- `/wiki/leadership/[role]` — Congressional leadership roles
+- `/wiki/elections`, Election browser
+- `/wiki/roadmap`, Game roadmap
+- `/wiki/paths/*`, Learning paths
+- `/wiki/party/[id]`, Party profile pages
+- `/wiki/seat/[slug]`, Seat/office pages
+- `/wiki/leadership/[role]`, Congressional leadership roles
 
-## Sync System
+## Content Seeding
 
-### `syncWikiPagesFromDesignDocs(db, adminUserId, options?)`
+Wiki content lives as TypeScript `WikiSeedPage` objects (not markdown files) under `src/lib/seeds/wiki/pages/*.ts`, aggregated in `WIKI_SEED_PAGES` (`src/lib/seeds/wiki/pages.ts`) and written to `wikiPages` by the seeder (`src/lib/seeds/wiki/seeder.ts`, `index.ts`). Editing a page means editing its `WikiSeedPage` entry and re-seeding, there is no admin-panel "sync from docs/design" action.
 
-**Purpose:** Sync markdown files from `docs/design/` to `wikiPages` collection.
+## Slug Migration
 
-**Parameters:**
+### `syncPriorWikiSubmissions(db, moderatorId)`
 
-- `db` - Database connection
-- `adminUserId` - Admin performing sync (recorded in edit history)
-- `options.slugs` - Optional: sync specific slugs only
-- `options.force` - Optional: overwrite unpublished pages
+**Purpose:** Rename legacy ObjectId-embedded wiki slugs to their current sequentialId-based form (`src/lib/wiki/syncPriorSubmissions.ts`).
+
+**Logic:**
+
+1. Find every `wikiPages` document whose slug matches `player-{hex}`, `corp-{hex}`, or `party-profile-{hex}` (24-hex ObjectId).
+2. Resolve the embedded ObjectId to the live character/corporation/party and look up its `sequentialId`.
+3. Skip (recording a reason) if the entity no longer exists, has no `sequentialId`, or the new slug is already taken.
+4. Otherwise rename the page's slug to the current `playerWikiSlug()` / `corporationWikiSlug()` / `partyWikiSlug()` form.
 
 **Returns:**
 
 ```typescript
-interface WikiDesignSyncResult {
-  inserted: string[]; // Newly created pages
-  updated: string[]; // Updated pages
-  skipped: WikiDesignSyncSkipped[]; // Skipped pages
+interface SyncPriorSubmissionsResult {
+  renamed: SyncPriorRenamed[]; // { oldSlug, newSlug, kind }
+  skipped: SyncPriorSkipped[]; // { oldSlug, reason }
 }
 ```
 
-**Sync Logic:**
-
-1. Filter to overrideable slugs (excludes special routes)
-2. For each configured page:
-   - Read markdown from `docs/design/{slug}.md`
-   - Skip if file not found
-   - Skip if existing page status is not "published" (unless `force: true`)
-   - Insert or update wikiPages document
-
-**Edit History:**
-
-Each sync adds an entry to `editHistory`:
-
-```typescript
-{
-  userId: adminUserId,
-  timestamp: now,
-  action: "created" | "edited",
-  note: "Imported from docs/design (admin sync)" | "Synced from docs/design/{file}",
-}
-```
-
-### Markdown Reading
-
-```typescript
-export async function readWikiDesignFileMarkdown(slug: string): Promise<string | null> {
-  const fileName = getWikiDesignFileBaseName(slug);
-  // Read file content, return null if not found
-}
-```
-
-**File naming:** `{slug}.md` in `docs/design/` directory.
+This is a one-way cleanup pass for stale slugs, not a content-sync mechanism.
 
 ## Wiki Page Schema
 
@@ -211,21 +183,11 @@ const pageData = await getWikiPageData(slug);
 
 ### Admin Panel
 
-Admins can trigger syncs from the admin panel.
+Admins can trigger the legacy-slug rename pass (`syncPriorWikiSubmissions`) and manage page publish status from the admin panel.
 
-## Design Doc Sources
+## Content Authoring
 
-The wiki pulls from `docs/design/` which contains:
-
-- **Mechanics docs:** How game systems work
-- **Reference docs:** Data tables, formulas
-- **Strategy guides:** Player tips and tactics
-
-**Excluded from wiki:**
-
-- the design archive - Implementation plans
-- `docs/audits/` - Code audits
-- Engineering docs - Technical architecture
+Wiki page content is authored as `WikiSeedPage` TypeScript objects, organized by category file under `src/lib/seeds/wiki/pages/` (`gettingStartedPages`, `electionsPages`, `legislaturesPages`, `partiesPages`, `countriesPages`, `economyPages`, `advancedPages`, `resourcesPages`, `commoditiesPages`). `docs/design/` and `docs/wiki/` are separate developer-facing reference trees; changes there do not propagate to the in-game wiki automatically.
 
 ## Content Guidelines
 

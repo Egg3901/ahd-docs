@@ -1,273 +1,104 @@
-# UK Prime Minister No-Confidence Vote
+# Prime Minister No-Confidence Vote
 
 ## Overview
 
-Members of the ruling party/coalition can propose a motion of no confidence in the Prime Minister. Only MPs from the ruling party/coalition vote. If a majority votes "yes" (no confidence), the PM is removed and a new confidence vote is triggered to select a replacement.
+This system is **country-agnostic**, not UK-only. It applies to any parliamentary country whose confidence-vote mechanism is enabled (`assertConfidenceVoteMechanism`), which today covers the UK and other parliamentary head-of-government countries. One-party states (e.g. China) have `confidenceVoteMechanism` disabled and are rejected at the route.
+
+Members of the ruling party can propose a motion of no confidence in the sitting Prime Minister (or equivalent executive title). Any elected lower-chamber member of that country can then vote. If the motion reaches an absolute majority of the whole chamber, the PM is removed and government formation restarts.
+
+**Location:** `src/lib/government/commands/parliamentaryGovernment.ts` (`proposeNoConfidence`, `castNoConfidenceVote`), `src/lib/turn/parliamentaryGovernment.ts` (`resolveParliamentaryNoConfidenceVote`, `noConfidenceMotionCarries`).
+
+**Collection:** `noConfidenceVotes`
 
 ## Triggering a No-Confidence Vote
 
 ### Who Can Propose
 
-Any MP who is a member of the **ruling party or coalition** can propose a no-confidence motion against the current Prime Minister.
+Only a member of the **ruling party** (`canTriggerNoConfidence`, gated on the country's `governmentType`) can propose a motion. The proposer must be an elected member of the country's lower chamber (`getLowerChamberOfficeType(countryId)`).
 
-- **Eligibility:** Must be an elected Commons MP in the same party as the PM
-- **Cost:** [TBD — recommend 5 actions + 10,000 funds to prevent spam]
-- **Cooldown:** One no-confidence vote per PM per 48 turns (1 game year) — prevents repeated harassment
+- **Precondition:** Government must be `formed` with a sitting PM, and no vote already active (`govFormation.activeVoteId !== null` blocks a second motion).
+- **Cooldown:** `NO_CONFIDENCE_COOLDOWN_TURNS = 48` turns since the last vote was proposed against this country (checked against the most recent `noConfidenceVotes` doc for the country, not per-PM).
 
 ### Proposing the Motion
 
-1. Eligible MP clicks "Propose No-Confidence" on UK Government page
-2. Confirmation modal: "Are you sure you want to propose a motion of no confidence in [PM Name]? This will trigger a vote among ruling party MPs."
-3. If confirmed, new `PmNoConfidenceVote` document created with `status: "active"`
-4. Notifications sent to all ruling party/coalition MPs: "A motion of no confidence has been proposed against PM [Name]. Vote now."
+1. Eligible lower-chamber member of the ruling party calls `POST /api/country/[code]/pm/no-confidence`.
+2. A new `noConfidenceVotes` document is created with `status: "active"`, a 24-hour voting window, and the proposer's own vote is **not** auto-recorded (unlike the Speaker vacate-motion filer).
+3. The sitting PM is notified: "{proposer} has proposed a vote of no confidence against you. {chamber} members will vote over the next 24 hours."
 
 ## Voting Process
 
 ### Eligible Voters
 
-Only MPs from the **ruling party or coalition** can vote on the no-confidence motion.
-
-**Example:**
-
-- **Ruling party:** Labour (320 seats)
-- **Coalition partner:** Lib Dem (20 seats)
-- **Eligible voters:** 340 MPs (Labour + Lib Dem)
-- **Not eligible:** Conservative, SNP, other opposition MPs
+**Any elected member of the country's lower chamber can vote.** Voting is not restricted to the ruling party or coalition. Only proposing is restricted to the ruling party.
 
 ### Vote Duration
 
-- **Duration:** 24 hours (24 turns)
-- **Voting window:** Opens immediately when motion is proposed
-- **Resolution:** When 24 hours elapse, vote is tallied and resolved
+- **Duration:** `PM_VOTE_DURATION_HOURS = 24` hours from proposal (`src/lib/constants/governmentFormation.ts`)
+- **Resolution:** Vote can resolve early once the passing threshold is reached, or at window close.
 
 ### Casting Votes
 
-MPs vote "yes" (no confidence) or "no" (confidence) via the UK Government page.
+Votes are cast as `"aye"` (remove PM) or `"nay"` (keep PM) via `POST /api/country/[code]/pm/no-confidence/[voteId]/vote`.
 
-- **Player MPs:** Vote manually via UI (Yes/No buttons)
-- **NPP MPs:** Vote automatically based on favorability toward PM:
-  - Favorability ≥60: 90% vote "no" (support PM)
-  - Favorability 40-59: 50% vote "no"
-  - Favorability <40: 90% vote "yes" (remove PM)
-
-### Vote Visibility
-
-- **Vote counts visible:** Yes/No totals displayed live (e.g., "125 Yes / 180 No / 35 Not Voted")
-- **Individual votes hidden:** Who voted which way is not shown (secret ballot)
+- Player members vote manually.
+- NPP members are auto-voted along party lines as a final pass before resolution (`autoVoteNPPsForNoConfidence`), so benches that were never explicitly whipped still cast a seat-weighted vote. A government whose seats are entirely NPP-held cannot dodge the vote by inaction.
+- Each vote is weighted by the member's `seatsHeld` (multi-seat constituencies), not one member = one vote.
 
 ## Resolution
 
-When the 24-hour voting period ends:
+`resolveParliamentaryNoConfidenceVote` recomputes the tally from the seat-weighted `computeParliamentaryGovernmentTally` (the single source of truth; in-memory counters on the vote doc are reconciled to match) and applies `noConfidenceMotionCarries`:
 
-### If Majority Votes "No" (Confidence Maintained)
+- **Threshold:** an **absolute majority of the whole chamber** (`majorityThreshold`, falling back to `floor(totalSeats / 2) + 1`), not a majority of votes cast. Abstentions and unvoted seats count against the motion by default. The government survives unless "aye" actually clears the chamber majority. This is deliberately different from the legislative cloture rule (3/5 of votes cast).
+- Resolution is claimed atomically (`status: "active" → "passed"/"failed"` conditional write) so a race between the turn processor and an inline API resolve cannot double-resolve the same vote.
 
-- **Threshold:** >50% of ruling party/coalition MPs vote "no"
-- **Result:** PM retains office; no-confidence vote fails
-- **Notifications:** PM receives "You have survived the no-confidence vote"; proposer receives "The motion of no confidence has failed"
-- **Cooldown:** New no-confidence vote cannot be proposed against this PM for 48 turns
+### If the Motion Fails
 
-### If Majority Votes "Yes" (No Confidence)
+- PM retains office.
+- Notifications sent; a new cooldown of 48 turns is stamped from this proposal.
 
-- **Threshold:** >50% of ruling party/coalition MPs vote "yes"
-- **Result:** PM is removed from office immediately
-- **Notifications:** PM receives "You have been removed as Prime Minister by a vote of no confidence"; all MPs notified
-- **Next step:** New confidence vote triggered (same process as post-election PM selection — see [uk-elections.md](./uk-elections.md#prime-minister-selection-confidence-vote))
+### If the Motion Passes
 
-#### After PM Removal
-
-1. `UKGovernment.pmCharacterId` set to `null`
-2. Next-most senior MP from the ruling party is nominated as new PM candidate
-3. Confidence vote triggered among **all Commons MPs** (not just ruling party)
-4. If new candidate wins confidence vote (>326 yes votes), they become PM
-5. If new candidate loses, next candidate nominated, repeat
-6. If all candidates exhausted, government falls (hung parliament or early election — future implementation)
+- `unformGovernmentAndVacatePM` clears the PM, cabinet, and `currentOffice`, and re-arms the government-formation vacancy clock (96 turns).
+- Seats-by-party and governing party are recomputed.
+- The removed PM is notified: "You have been removed as {executive title} by a vote of no confidence ({votesFor} for, {votesAgainst} against)."
+- Government formation restarts from scratch (new PM selection process), not a direct hand-off to a runner-up candidate.
 
 ## Database Schema
 
-### Collection: `pmNoConfidenceVotes`
+### Collection: `noConfidenceVotes`
+
+Fields actually present on the document (from `proposeNoConfidence` / `castNoConfidenceVote`):
 
 ```ts
-interface PmNoConfidenceVote {
+interface NoConfidenceVote {
   _id: ObjectId;
-  proposerId: ObjectId; // Character who proposed the motion
-  pmCharacterId: ObjectId; // PM being challenged
-  pmName: string; // Cached for display
-  rulingParty: string; // Party of PM
-  votesFor: number; // "Yes" (no confidence)
-  votesAgainst: number; // "No" (confidence)
-  mpVotes: Record<string, "yes" | "no">; // characterId -> vote
-  eligibleVoters: ObjectId[]; // List of ruling party/coalition MP characterIds
+  countryId: CountryId;
+  proposedByCharacterId: ObjectId;
+  proposedByName: string;
+  targetPmCharacterId: ObjectId;
+  targetPmName: string;
+  votesFor: number; // seat-weighted "aye" total
+  votesAgainst: number; // seat-weighted "nay" total
+  votes: Record<string, "aye" | "nay">; // characterId -> vote
   status: "active" | "passed" | "failed";
   openedAt: Date;
-  closedAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  closesAt: Date;
+  closesOnTurn: number;
+  closedAt: Date | null;
+  turnProposed: number;
 }
 ```
-
-### Update: `UKGovernment`
-
-Add field to track last no-confidence vote:
-
-```ts
-interface UKGovernment {
-  _id: "current";
-  pmCharacterId: ObjectId | null;
-  rulingParty: string;
-  lastNoConfidenceVoteAt?: Date; // For cooldown tracking
-  // ... existing fields
-}
-```
-
-## Turn Processing
-
-### Phase: Process Active No-Confidence Votes
-
-Each turn, if an active no-confidence vote exists:
-
-1. **Record NPP votes** (if not yet voted) — deterministic based on favorability
-2. **Check if voting period ended** (`now >= openedAt + 24 hours`)
-3. **If ended, resolve:**
-   - Count total votes for/against
-   - Determine outcome (passed/failed)
-   - Update `status` field
-   - If passed: remove PM, trigger new confidence vote
-   - If failed: PM retains office, stamp cooldown
-4. **Send notifications** to all involved MPs
-
-This phase runs in `src/lib/turn/ukGovernment.ts` → `processNoConfidenceVotes()`, called from `processTurn()` in `turnSystem.ts`.
 
 ## API Routes
 
-### POST /api/uk/pm/no-confidence
-
-Propose a new no-confidence motion.
-
-**Auth:** Must be an elected Commons MP in the ruling party/coalition
-
-**Body:** None (PM is implicit — current PM)
-
-**Validation:**
-
-- User is an elected Commons MP
-- User's party matches ruling party or coalition
-- No active no-confidence vote exists
-- Last no-confidence vote was >48 turns ago
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "voteId": "507f1f77bcf86cd799439011"
-}
-```
-
-### POST /api/uk/pm/no-confidence/[id]/vote
-
-Cast a vote on an active no-confidence motion.
-
-**Auth:** Must be an elected Commons MP in the ruling party/coalition
-
-**Body:**
-
-```json
-{
-  "vote": "yes" | "no"
-}
-```
-
-**Validation:**
-
-- User is an eligible voter (in `eligibleVoters` array)
-- Vote is still active (`status: "active"`)
-- User has not already voted
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "votesFor": 125,
-  "votesAgainst": 180
-}
-```
-
-### GET /api/uk/pm/no-confidence/[id]
-
-Get status of a no-confidence vote.
-
-**Auth:** Public (but vote breakdown hidden)
-
-**Response:**
-
-```json
-{
-  "vote": {
-    "_id": "507f1f77bcf86cd799439011",
-    "pmName": "John Smith",
-    "rulingParty": "labour",
-    "votesFor": 125,
-    "votesAgainst": 180,
-    "notVoted": 35,
-    "status": "active",
-    "openedAt": "2026-03-08T12:00:00Z",
-    "closedAt": null,
-    "userVote": "yes" // Only if user is eligible voter and has voted
-  }
-}
-```
-
-## UI Components
-
-### UK Government Page (`/uk/government`)
-
-Add **No-Confidence Panel** below PM info (only visible if ruling party MP):
-
-```
-┌─────────────────────────────────────────┐
-│ Prime Minister: John Smith (Labour)      │
-│ Ruling Party: Labour (320 seats)         │
-│                                           │
-│ [Propose Motion of No Confidence]        │ ← Button (if eligible)
-└─────────────────────────────────────────┘
-```
-
-### Active No-Confidence Vote Panel
-
-If an active vote exists, show above PM info:
-
-```
-┌─────────────────────────────────────────┐
-│ ⚠️ Motion of No Confidence               │
-│                                           │
-│ Target: John Smith (Labour)               │
-│ Proposed by: Sarah Jones                  │
-│                                           │
-│ Current Tally:                            │
-│ ✅ Yes (No Confidence): 125               │
-│ ❌ No (Confidence): 180                   │
-│ ⏳ Not Voted: 35                          │
-│                                           │
-│ Time Remaining: 18 hours                  │
-│                                           │
-│ Your Vote: [Yes] [No]                     │ ← If eligible and not voted
-│ Your Vote: ✅ Yes                         │ ← If already voted
-└─────────────────────────────────────────┘
-```
-
-## Example Scenario
-
-1. **Day 1:** Labour wins Commons election, John Smith becomes PM with 320 seats
-2. **Day 45:** Labour MP Sarah Jones is unhappy with PM's policies; proposes no-confidence motion
-3. **Voting opens:** 340 Labour+LibDem MPs notified; 24-hour voting window
-4. **Player MPs vote:** 50 players cast votes (30 no, 20 yes)
-5. **NPP MPs vote:** 290 NPPs auto-vote based on PM favorability (180 no, 110 yes)
-6. **Day 46 (voting closes):** Final tally: 130 yes, 210 no
-7. **Result:** No-confidence motion fails; John Smith retains office
-8. **Cooldown:** No new motion can be proposed for 48 turns (1 game year)
+| Route                                                          | Method | Access                             | Purpose                    |
+| ---------------------------------------------------------------- | ------ | ----------------------------------- | --------------------------- |
+| `/api/country/[code]/pm/no-confidence`                          | POST   | Ruling-party lower-chamber member  | Propose a motion            |
+| `/api/country/[code]/pm/no-confidence/[voteId]`                 | GET    | Any                                 | Get status of a vote        |
+| `/api/country/[code]/pm/no-confidence/[voteId]/vote`             | POST   | Any lower-chamber member            | Cast a vote (`aye`/`nay`)   |
 
 ## Related Documentation
 
-- [UK Elections](./uk-elections.md) — Commons elections and initial PM selection
-- [Elections](./elections.md) — General election mechanics
+- [Parliamentary Government](./parliamentary-government.md), Government formation and the legislation freeze during pending formation
+- [UK Elections](./uk-elections.md), Commons elections and initial PM selection
+- [Elections](./elections.md), General election mechanics

@@ -8,7 +8,7 @@ National metrics serve two purposes: they power the national metrics page (ranki
 
 ## Metric Categories
 
-There are 10 categories, each with 4–6 constituent metrics.
+There are 10 categories, each with 4-6 constituent metrics.
 
 ### Economic (6 metrics)
 
@@ -16,7 +16,9 @@ There are 10 categories, each with 4–6 constituent metrics.
 
 ### Education (6 metrics)
 
-`highSchoolGradRate`, `collegeEnrollment`, `testPerformance`, `educationSpending`, `literacyRate`, `workforceSkill`
+`highSchoolGradRate`, `universityEnrollment`, `testPerformance`, `educationSpending`, `literacyRate`, `workforceSkill`
+
+The field is `universityEnrollment`, not `collegeEnrollment`, the metric was renamed/merged (#909) into a single higher-education enrolment metric whose model is country-appropriate (HS-grad-driven in the US; GCSE-driven elsewhere). `collegeEnrollment` no longer exists in the schema (`src/lib/metricEngine/registry/education.ts`).
 
 ### Healthcare (6 metrics)
 
@@ -56,18 +58,20 @@ Each metric value is stored as a `StateMetricValue` object: `{ value: number; tr
 
 **State metrics** are the ground truth. Each state has one `stateMetrics` document keyed by its state ID (e.g., `"TX"`, `"CA"`). Policy effects and demographic effects write to these documents directly; the national aggregates are never written to by those systems.
 
-**National aggregates** are population-weighted averages of state metrics. `computeNationalMetrics()` runs each turn after policy and demographic effects, iterating over all states for a given country and computing a weighted average for every metric key. The result is upserted into `stateMetrics` under the national-scope ID (`"federal"` or `"uk_national"`). These documents are excluded from all aggregation computations to avoid circular double-counting — `NATIONAL_SCOPE_IDS` is used as a filter wherever state-only data is needed.
+**National aggregates** are population-weighted averages of state metrics. `computeNationalMetrics()` runs each turn after policy and demographic effects, iterating over all states for a given country and computing a weighted average for every metric key. The result is upserted into `stateMetrics` under the national-scope ID (`"federal"` or `"uk_national"`). These documents are excluded from all aggregation computations to avoid circular double-counting, `NATIONAL_SCOPE_IDS` is used as a filter wherever state-only data is needed.
 
-**Global averages** are computed on-the-fly by `GET /api/national/metrics` when calculating national government approval. All state-only `stateMetrics` documents across all countries are averaged (again excluding national-scope docs), giving a cross-country baseline. The country's national averages are then compared against this global baseline using the same relative formula applied to states vs their national average. This prevents national approval from being structurally anchored near 50%, which would happen if state-relative scores were averaged directly.
+**Global averages** are computed on-the-fly by `GET /api/country/[code]/metrics` when calculating national government approval. All state-only `stateMetrics` documents across all countries are averaged (again excluding national-scope docs), giving a cross-country baseline. The country's national averages are then compared against this global baseline using the same relative formula applied to states vs their national average. This prevents national approval from being structurally anchored near 50%, which would happen if state-relative scores were averaged directly.
 
 ## API Endpoints
 
-### `GET /api/national/metrics`
+**Note:** these routes live under the per-country app-router path `src/app/api/country/[code]/...`, not `/api/national/...`. The country is a path segment (`[code]`), not a query parameter.
 
-The comprehensive metrics endpoint. Query parameters:
+### `GET /api/country/[code]/metrics`
 
-- `country` — `"US"` (default) or `"UK"`
-- `category` — optional filter to a single `MetricCategoryId`
+The comprehensive metrics endpoint (`src/app/api/country/[code]/metrics/route.ts`, backed by `loadNationalMetrics()` in `src/lib/country/nationalMetrics.ts`). Parameters:
+
+- `code`, path segment, any `CountryId` in `COUNTRY_CONFIGS` (not limited to US/UK)
+- `category`, optional query-string filter to a single `MetricCategoryId`
 
 **What it does:**
 
@@ -94,17 +98,17 @@ The comprehensive metrics endpoint. Query parameters:
 
 All values are computed on-the-fly from the current `stateMetrics` documents; nothing is read from the national-scope aggregate docs for this response (the aggregates computed during turn processing are used for history charting, not for this endpoint's per-metric breakdowns).
 
-### `GET /api/national/approval`
+### `GET /api/country/[code]/approval`
 
-A lightweight endpoint optimised for the approval chart widget. Query parameters:
+A lightweight endpoint optimised for the approval chart widget (`src/app/api/country/[code]/approval/route.ts`, backed by `loadNationalApproval()` in `src/lib/country/nationalApproval.ts`). Parameters:
 
-- `country` — `"US"` (default) or `"UK"`
+- `code`, path segment, any `CountryId` in `COUNTRY_CONFIGS`
 
 **What it does:**
 
 1. Fetches state IDs and populations for the country.
 2. Computes `computeNationalAveragesFromMetrics()` over those state metrics.
-3. Calls `calculateStateApproval()` for each state (state vs national average), then `calculateNationalApproval()` — a population-weighted average of state approval scores.
+3. Calls `calculateStateApproval()` for each state (state vs national average), then `calculateNationalApproval()`, a population-weighted average of state approval scores.
 4. Reads the `governmentApprovals` collection for the persisted turn-by-turn `history` array.
 
 **Response shape:**
@@ -116,9 +120,9 @@ A lightweight endpoint optimised for the approval chart widget. Query parameters
 }
 ```
 
-The response is cached at the CDN layer (`Cache-Control: public, max-age=300, stale-while-revalidate=60`).
+The response is served with `Cache-Control: no-store, no-transform`, approval reflects the latest turn snapshot, so it is explicitly kept off any shared/CDN cache, matching the sibling metrics route.
 
-Note: this endpoint calculates approval differently from `/api/national/metrics`. Here, national approval is the population-weighted average of state approvals (each state vs its own national average). The `/api/national/metrics` endpoint uses the country-vs-global-average approach instead. The `/api/national/approval` history reflects whichever method `snapshotApprovalHistory` uses at turn time — see [[Government Approval]] for the approval formula details.
+Note: this endpoint calculates approval differently from `/api/country/[code]/metrics`. Here, national approval is the population-weighted average of state approvals (each state vs its own national average). The `/api/country/[code]/metrics` endpoint uses the country-vs-global-average approach instead. The `/api/country/[code]/approval` history reflects whichever method `snapshotApprovalHistory` uses at turn time, see [[Government Approval]] for the approval formula details.
 
 ## Turn Processing
 
@@ -126,11 +130,11 @@ Metrics are recomputed and snapshotted during the tail of each turn, after all p
 
 | Phase name           | Function                                        | When                                                               |
 | -------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
-| `policyEffects`      | `processStatePolicyEffects`                     | Phase 14 — writes state metric values                              |
-| `demographicEffects` | `processAllStateDemographics`                   | Phase 14 — adjusts state metrics from demographics                 |
-| `nationalMetrics`    | `computeNationalMetrics`                        | Phase 14b — derives national aggregates from updated state metrics |
-| `metricHistory`      | `snapshotMetricHistory`                         | Phase 14a — appends current values to history arrays               |
-| `approvalSnapshot`   | `snapshotApprovalHistory` (US + UK in parallel) | Phase 15a — persists approval rating to `governmentApprovals`      |
+| `policyEffects`      | `processStatePolicyEffects`                     | Phase 14, writes state metric values                              |
+| `demographicEffects` | `processAllStateDemographics`                   | Phase 14, adjusts state metrics from demographics                 |
+| `nationalMetrics`    | `computeNationalMetrics`                        | Phase 14b, derives national aggregates from updated state metrics |
+| `metricHistory`      | `snapshotMetricHistory`                         | Phase 14a, appends current values to history arrays               |
+| `approvalSnapshot`   | `snapshotApprovalHistory` (US + UK in parallel) | Phase 15a, persists approval rating to `governmentApprovals`      |
 
 The metric history cap is 96 entries (2 in-game years). History for national-scope IDs (`"federal"`, `"uk_national"`) is also written to `stateMetricHistory` by `snapshotMetricHistory`, so the national metrics detail page can render turn-by-turn charts using the same code path as state pages.
 
@@ -142,8 +146,8 @@ One document per state (keyed by state ID string, e.g., `"TX"`) plus one per cou
 
 Key fields:
 
-- `_id: string` — state ID or national-scope ID
-- `economic`, `education`, `healthcare`, `infrastructure`, `publicSafety`, `environment`, `social`, `governance`, `population`, `mediaInformation` — category objects, each containing `{ value: number; trend?: number }` per metric
+- `_id: string`, state ID or national-scope ID
+- `economic`, `education`, `healthcare`, `infrastructure`, `publicSafety`, `environment`, `social`, `governance`, `population`, `mediaInformation`, category objects, each containing `{ value: number; trend?: number }` per metric
 - `lastUpdated: Date`
 
 National-scope documents have the same shape as state documents but contain population-weighted averages. They are filtered out of all aggregation queries using `NATIONAL_SCOPE_IDS`.
@@ -156,11 +160,11 @@ Key fields from `GovernmentApproval`:
 
 - `_id: CountryId`
 - `countryId: CountryId`
-- `approvalRating: number` — 0–100
-- `disapprovalRating: number` — 0–100
-- `netApproval: number` — `approvalRating − disapprovalRating`
-- `source: "president_favorability" | "pm_favorability" | "aggregate"` — matches `CountryConfig.approvalSource`
-- `history: Array<{ turn, approval, net }>` — capped at 20 entries (most recent last)
+- `approvalRating: number`, 0-100
+- `disapprovalRating: number`, 0-100
+- `netApproval: number`, `approvalRating − disapprovalRating`
+- `source: "president_favorability" | "pm_favorability" | "aggregate"`, matches `CountryConfig.approvalSource`
+- `history: Array<{ turn, approval, net }>`, capped at 20 entries (most recent last)
 - `updatedAt: Date`
 
 ### `stateMetricHistory` collection
@@ -179,23 +183,23 @@ Read by `getMetricHistory(db, stateId, category, metricId)` for chart rendering.
 
 ## Election Impact
 
-Government approval feeds into the vote accumulation phase of general elections. See [[Government Approval]] for how approval is calculated and used. In brief: each turn, the vote pool for a race is scaled by `(1 + stateApproval/100) × officeStrength`, where `officeStrength` varies by office type (Governor 1.0, House 0.9, Senate 0.8, State Senate 0.85). Higher state approval means more votes allocated per turn; missing metrics default to 50% approval.
+Government approval feeds into the vote accumulation phase of general elections. See [[Government Approval]] for how approval is calculated and used. In brief: each turn, the vote pool for a race is scaled by `(1 + (approvalDecimal − 0.5) × 0.2) × officeStrength` (`tallyManagement.ts`), where `approvalDecimal` is state government approval as a 0-1 fraction and `officeStrength` varies by office type (Governor 1.0, House 0.9, Senate 0.8, State Senate 0.85). Centering on 0.5 approval keeps the multiplier from dominating the pool, the presidential path uses a steeper coefficient (0.5 instead of 0.2) for the same shape. Higher state approval means more votes allocated per turn; missing metrics default to 50% approval.
 
 ## Key Implementation Files
 
-- `src/lib/db/types/stateMetrics.ts` — `StateMetrics` type, `MetricCategoryId` union
-- `src/lib/db/types/governmentApproval.ts` — `GovernmentApproval` type
-- `src/lib/nationalMetrics.ts` — `computeNationalMetrics()` (turn phase)
-- `src/lib/metricHistory.ts` — `snapshotMetricHistory()`, `getMetricHistory()`
-- `src/lib/constants/nationalScope.ts` — `NATIONAL_SCOPE` map, `NATIONAL_SCOPE_IDS` set
-- `src/app/api/national/metrics/route.ts` — comprehensive metrics + approval endpoint
-- `src/app/api/national/approval/route.ts` — lightweight approval + history endpoint
-- `src/lib/utils/governmentApproval.ts` — approval calculation utilities
-- `src/lib/utils/approvalModifiers.ts` — named modifier conditions
+- `src/lib/db/types/stateMetrics.ts`, `StateMetrics` type, `MetricCategoryId` union
+- `src/lib/db/types/governmentApproval.ts`, `GovernmentApproval` type
+- `src/lib/nationalMetrics.ts`, `computeNationalMetrics()` (turn phase)
+- `src/lib/metricHistory.ts`, `snapshotMetricHistory()`, `getMetricHistory()`
+- `src/lib/constants/nationalScope.ts`, `NATIONAL_SCOPE` map, `NATIONAL_SCOPE_IDS` set
+- `src/app/api/country/[code]/metrics/route.ts`, comprehensive metrics + approval endpoint
+- `src/app/api/country/[code]/approval/route.ts`, lightweight approval + history endpoint
+- `src/lib/utils/governmentApproval.ts`, approval calculation utilities
+- `src/lib/utils/approvalModifiers.ts`, named modifier conditions
 
 ## Related pages
 
-- [[Government Approval]] — Formulas and modifiers
-- [[National Budget & Treasury]] — Treasury panels and fiscal display
-- [[Bills & Legislation]] — How laws move metrics
-- [[Election Mechanics]] — Vote pool scaling by approval
+- [[Government Approval]], Formulas and modifiers
+- [[National Budget & Treasury]], Treasury panels and fiscal display
+- [[Bills & Legislation]], How laws move metrics
+- [[Election Mechanics]], Vote pool scaling by approval

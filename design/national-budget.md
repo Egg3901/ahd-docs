@@ -90,7 +90,8 @@ const DEBT_THRESHOLDS = [
   { rating: "A", maxRatio: 1.0, interestRate: 0.035, gdpPenalty: 0.1, trustPenalty: 0 },
   { rating: "BBB", maxRatio: 1.2, interestRate: 0.05, gdpPenalty: 0.2, trustPenalty: 0 },
   { rating: "BB", maxRatio: 1.5, interestRate: 0.07, gdpPenalty: 0.3, trustPenalty: 5 },
-  { rating: "B", maxRatio: Infinity, interestRate: 0.1, gdpPenalty: 0.5, trustPenalty: 10 },
+  { rating: "B", maxRatio: 2.5, interestRate: 0.1, gdpPenalty: 0.5, trustPenalty: 10 },
+  { rating: "CCC", maxRatio: Infinity, interestRate: 0.14, gdpPenalty: 0.7, trustPenalty: 15 },
 ];
 ```
 
@@ -102,7 +103,7 @@ const creditRating = threshold.rating;
 const interestRate = threshold.interestRate;
 ```
 
-**Result:** AAA pays 2%, AA 2.5%, A 3.5%, BBB 5%, BB 7%, and B 10%. The `CreditRating` type also includes `CCC`, but the current threshold table bottoms out at `B`.
+**Result:** AAA pays 2%, AA 2.5%, A 3.5%, BBB 5%, BB 7%, B 10%, and CCC 14%. `B`'s 2.5 ratio ceiling is `EXTREME_DISTRESS_DEBT_TO_GDP` (250% debt/GDP); beyond it the sovereign degrades to `CCC`, the floor the `CreditRating` type supports. No live-prod country is anywhere near this band, it only bites in runaway autonomous-world scenarios.
 
 ### Annual Debt Processing
 
@@ -126,10 +127,10 @@ Fiscal year processing runs at **turn 40** (October in game time: 48 turns = 1 y
 
 ### Growth Sequence
 
-1. **Calculate inflation** — Dynamic Phillips curve model (see below)
-2. **Grow tax bases** — Apply real GDP growth (nominal = real + inflation)
-3. **Update population** — From state demographics aggregation
-4. **Recalculate revenue** — New bases × existing rates
+1. **Calculate inflation**, Dynamic Phillips curve model (see below)
+2. **Grow tax bases**, Apply real GDP growth (nominal = real + inflation)
+3. **Update population**, From state demographics aggregation
+4. **Recalculate revenue**, New bases × existing rates
 
 ```typescript
 // Nominal growth rate = (1 + realGrowth) × (1 + inflation) - 1
@@ -139,7 +140,7 @@ taxBase = taxBase * (1 + nominalGrowth);
 
 ## Inflation Calculation
 
-Inflation is **dynamic** (not static) — calculated from economic conditions:
+Inflation is **dynamic** (not static), calculated from economic conditions:
 
 **Entry point:** `src/lib/budget/inflation.ts` → `calculateCountryInflation()`
 
@@ -166,7 +167,7 @@ Inflation = Target + Demand-Pull + Monetary + Fiscal + Cost-Push
 
 ### Monetary Policy Lag
 
-Rate changes don't affect inflation immediately — they propagate over 12 turns:
+Rate changes don't affect inflation immediately, they propagate over 12 turns:
 
 ```typescript
 // Weight for entry k turns ago = min(1, k / 12)
@@ -256,11 +257,11 @@ See [[Sovereign Bonds]] for full details.
 
 Budget updates are split across turn phases and API/admin recalculation paths:
 
-1. **Corporation turn** — writes corporate tax bases, taxable sales, and related budget inputs as corporate output changes.
-2. **Revenue refresh** — recalculates federal revenue, spending, and surplus after tax bases move.
-3. **Fiscal year boundary** — at turn 40, grows tax bases, processes annual debt, updates grants, writes snapshots, and applies debt penalties.
-4. **Inflation recalculation** — runs after national metrics so central banks and budget-derived indicators stay current.
-5. **Bond and admin flows** — sovereign bond issuance, debt-ceiling actions, and heal/admin routes update budget debt or recalculate budget fields on demand.
+1. **Corporation turn**, writes corporate tax bases, taxable sales, and related budget inputs as corporate output changes.
+2. **Revenue refresh**, recalculates federal revenue, spending, and surplus after tax bases move.
+3. **Fiscal year boundary**, at turn 40, grows tax bases, processes annual debt, updates grants, writes snapshots, and applies debt penalties.
+4. **Inflation recalculation**, runs after national metrics so central banks and budget-derived indicators stay current.
+5. **Bond and admin flows**, sovereign bond issuance, debt-ceiling actions, and heal/admin routes update budget debt or recalculate budget fields on demand.
 
 ## Currency storage (v0.2.6)
 
@@ -270,18 +271,18 @@ Every federal- and state-budget money field is stored in the country's currency.
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Federal budget (`revenue.*`, `spending.*`, `taxBases.*`, `debt.*`, `surplus`, `gdp`)     | country's `currencyCode` (stamped on `federalBudget.currencyCode`)                   |
 | State budget (`revenue.*`, `spending.*`, `taxBases.*`, `balance`, `surplus`, `stateGdp`) | parent country's currency                                                            |
-| `enactedLaws.annualCostUsd`                                                              | country's currency (legacy field name — not USD since v0.2.6)                        |
+| `enactedLaws.annualCostUsd`                                                              | country's currency (legacy field name, not USD since v0.2.6)                        |
 | Sovereign bond face value / coupon / `totalIssued`                                       | `bond.currencyCode` = country's currency (stamped at issuance)                       |
 | `federalBudgetSnapshots.budget.*` history rows                                           | country's currency at time of write (`budget.currencyCode` stamped on each snapshot) |
-| `debtToGdpRatio`                                                                         | dimensionless — not scaled                                                           |
+| `debtToGdpRatio`                                                                         | dimensionless, not scaled                                                           |
 | Cross-country sums                                                                       | computed in ₳ via `sumAsAnchor`; displayed via wallet preference                     |
 
-**Tax-base interop:** the corp turn writes `taxBases.domesticCorporateProfits`, `taxBases.foreignCorporateProfits`, and `taxBases.taxableSales` into the budget after multiplying anchor-denominated operating totals by the country's FX rate, so the budget side always reads country-local even when the source corps span multiple currencies. Domestic vs foreign classification uses `corp.countryId === sector.countryId` — see `docs/design/corporations.md` for the full rate-selection logic.
+**Tax-base interop:** the corp turn writes `taxBases.domesticCorporateProfits`, `taxBases.foreignCorporateProfits`, and `taxBases.taxableSales` into the budget after multiplying anchor-denominated operating totals by the country's FX rate, so the budget side always reads country-local even when the source corps span multiple currencies. Domestic vs foreign classification uses `corp.countryId === sector.countryId`, see `docs/design/corporations.md` for the full rate-selection logic.
 
-**No migration shipped for v0.2.6:** federal and state budgets, historical snapshots (`federalBudgetSnapshots`), and enacted laws were already stored in each country's currency pre-v0.2.6 — seed data writes `currencyCode` from day one (see `src/lib/seeds/reference/budgets.ts`) and budget revenue/spending helpers (`src/lib/budget/revenue.ts`, `spending.ts`) produce country-local values without any ₳ roundtrip. For any stored snapshot missing `budget.currencyCode`, the federal-budget GET route falls back to `resolveCountryCurrencyCode(countryId)` at read time, so no stamp migration is required either.
+**No migration shipped for v0.2.6:** federal and state budgets, historical snapshots (`federalBudgetSnapshots`), and enacted laws were already stored in each country's currency pre-v0.2.6, seed data writes `currencyCode` from day one (see `src/lib/seeds/reference/budgets.ts`) and budget revenue/spending helpers (`src/lib/budget/revenue.ts`, `spending.ts`) produce country-local values without any ₳ roundtrip. For any stored snapshot missing `budget.currencyCode`, the federal-budget GET route falls back to `resolveCountryCurrencyCode(countryId)` at read time, so no stamp migration is required either.
 
 ## Related Documentation
 
-- [[Sovereign Bonds]] — Bond issuance, trading, maturity settlement
-- [[Policy System]] — How enacted laws affect budget categories
-- [[National Metrics]] — GDP, unemployment, inflation aggregation
+- [[Sovereign Bonds]], Bond issuance, trading, maturity settlement
+- [[Policy System]], How enacted laws affect budget categories
+- [[National Metrics]], GDP, unemployment, inflation aggregation

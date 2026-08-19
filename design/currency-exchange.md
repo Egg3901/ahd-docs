@@ -1,26 +1,30 @@
 # Currency Exchange & Multi-Currency System
 
-A dynamic foreign exchange system where each active country uses its native currency (USD, GBP, JPY, EUR), exchange rates float based on macroeconomic conditions and player trading activity, and players can speculate on currency markets.
+A dynamic foreign exchange system where each active country uses its native currency, exchange rates float based on macroeconomic conditions and player trading activity, and players can speculate on currency markets.
 
 ## Overview
 
-- **Internal unit**: All monetary values in the database are denominated in an abstract canonical unit ("reserve credits"). This unit has no in-game visibility — players never see it.
-- **Per-country currencies**: Each country's currency floats independently against the internal unit. USD, GBP, JPY, and EUR rates are driven by each country's own economic indicators, not relative to each other.
+- **Internal unit**: All monetary values in the database are denominated in an abstract canonical unit ("reserve credits"). This unit has no in-game visibility, players never see it.
+- **Per-country currencies**: Each country's currency floats independently against the internal unit. Rates are driven by each country's own economic indicators, not relative to each other.
 - **Player-facing**: Players see and interact exclusively in real currencies. Fund generation, income, and spending all display in the appropriate currency.
 - **Speculation**: Players can trade currencies for profit. Buy cheap yen → buy JP stocks → sell when yen strengthens → convert back to home currency.
-- **No action cost**: Forex trades do not consume player action points. The spread fees provide sufficient friction — players shouldn't have to choose between political actions and financial management.
+- **No action cost**: Forex trades do not consume player action points. The spread fees provide sufficient friction, players shouldn't have to choose between political actions and financial management.
 
 ## Why Not USD-Canonical?
 
 An earlier design considered storing everything in USD and converting at display time. The problem: if US players tank their economy through bad fiscal policy, every other country's internal values shift because the yardstick itself moved. A UK player's fund generation hasn't changed, but their displayed £ amount fluctuates because the USD anchor weakened.
 
-The abstract internal unit solves this — each currency floats independently. US inflation spikes only affect the USD rate; GBP, JPY, and EUR are unaffected unless their own economies deteriorate.
+The abstract internal unit solves this, each currency floats independently. US inflation spikes only affect the USD rate; other currencies are unaffected unless their own economies deteriorate.
 
 ## Exchange Rate Model
 
 ### Country Scope
 
-The forex system covers the currently active country currencies: **US (USD), UK (GBP), JP (JPY), and DE (EUR)**. Canada is present only as a reserved `CurrencyCode` value (`CAD`) for future expansion and is not an active forex country.
+`CurrencyCode` (`src/lib/constants/currencies.ts`) defines 25 currency codes total, one per country ever playable. Of these, `FOREX_ACTIVE_CURRENCIES` lists 18 as active in the forex system: USD, GBP, JPY, EUR, IEP, CNY, BRL, NGN, SUR, DDM, FRF, ITL, ESP, SEK, TRL, GRD, ATS, FIM. The remaining codes (e.g. `CAD`, `HUF`, `PLZ`, `ROL`, `YUD`, `BGL`, `CSK`) are reserved for countries not yet active in forex.
+
+### Absolute Inflation Penalty
+
+`computeMacroTarget()` (`src/lib/currency/rateCalculation.ts`) applies an `absoluteInflationPenalty` on top of the usual baseline-relative deviation terms: any inflation above `ABSOLUTE_INFLATION_DEPRECIATION_THRESHOLD` weakens the currency regardless of that country's own inflation baseline. This closed a carry-trade exploit, currencies with no full economic baseline (or a high one) previously acted as a fixed peg that never depreciated no matter how high inflation ran, making them a free real-yield carry vehicle. The penalty applies universally so high inflation always costs the holder.
 
 ### Internal Unit Calibration
 
@@ -45,12 +49,12 @@ Each country's rate moves toward a target derived from macroeconomic data, measu
 
 **Data sources per country:**
 
-- `primeRate` — `CentralBank.primeRate` (scalar field, updated by chair actions)
-- `inflationRate` — `CentralBank.inflationHistory.at(-1)?.rate` (latest snapshot; no separate scalar to avoid dual source-of-truth)
-- `gdpGrowth` — `CentralBank.gdpGrowthHistory.at(-1)?.rate` (latest snapshot, same reason)
-- `tradeGrowth` — `CentralBank.tradeGrowth` (mirrored from `FederalBudget.economicFactors.tradeGrowth` each turn during national aggregation, before the forex phase runs)
+- `primeRate`, `CentralBank.primeRate` (scalar field, updated by chair actions)
+- `inflationRate`, `CentralBank.inflationHistory.at(-1)?.rate` (latest snapshot; no separate scalar to avoid dual source-of-truth)
+- `gdpGrowth`, `CentralBank.gdpGrowthHistory.at(-1)?.rate` (latest snapshot, same reason)
+- `tradeGrowth`, `CentralBank.tradeGrowth` (mirrored from `FederalBudget.economicFactors.tradeGrowth` each turn during national aggregation, before the forex phase runs)
 
-The forex phase reads only from `centralBanks` — the budget mirror keeps it to one collection read per country.
+The forex phase reads only from `centralBanks`, the budget mirror keeps it to one collection read per country.
 
 ```
 macroTarget = baseRate × (1
@@ -67,7 +71,7 @@ The rate drifts toward the macro target rather than snapping to it:
 newRate = currentRate + (macroTarget - currentRate) × DRIFT_SPEED
 ```
 
-At drift speed 0.05, a rate shock takes roughly one full game year (~48 turns) to converge 90%. This creates multi-month currency trends that give players time to notice, build positions, and exit — matching real-world forex pacing.
+At drift speed 0.05, a rate shock takes roughly one full game year (~48 turns) to converge 90%. This creates multi-month currency trends that give players time to notice, build positions, and exit, matching real-world forex pacing.
 
 #### 2. Player Volume Pressure
 
@@ -85,13 +89,13 @@ Volume pressure is calculated using the total internal-unit value of trades. To 
 
 Volume pressure is weighted by `VOLUME_DIRECTION_WEIGHT = 0.2`, meaning trade volume accounts for 20% of the rate direction while macro fundamentals drive the remaining 80%. This dampens speculative swings while still rewarding well-timed volume.
 
-Volume pressure is capped at ±5% (`VOLUME_PRESSURE_CAP = 0.05`) to prevent extreme rate swings from outsized trades. The cap is a tunable constant — can be loosened as the player base and trade volume grow. The sensitivity constant may also need tuning based on observed trade volumes at launch.
+Volume pressure is capped at ±5% (`VOLUME_PRESSURE_CAP = 0.05`) to prevent extreme rate swings from outsized trades. The cap is a tunable constant, can be loosened as the player base and trade volume grow. The sensitivity constant may also need tuning based on observed trade volumes at launch.
 
-Heavy yen buying pushes the yen rate above fundamentals temporarily. As volume normalizes, macro drift pulls it back — classic overshoot/correction cycle that rewards well-timed speculation.
+Heavy yen buying pushes the yen rate above fundamentals temporarily. As volume normalizes, macro drift pulls it back, classic overshoot/correction cycle that rewards well-timed speculation.
 
 #### 3. Random Noise
 
-Small per-turn jitter (±0.1–0.3%) prevents perfectly predictable rate movement.
+Small per-turn jitter (up to ±0.4%, `RATE_NOISE_MAX = 0.004`) prevents perfectly predictable rate movement.
 
 ### Baseline Economic Values (Fixed)
 
@@ -137,12 +141,13 @@ This provides the programmatic `countryId → currencyCode` mapping needed by th
 
 ### Spread Fee Revenue
 
-Spread fees are split 50/50:
+Spread fees are split roughly 25/25/50 (`src/lib/currency/spreadFees.ts`):
 
-- **50% destroyed** — removed from the economy. Acts as a deflationary sink that counterbalances fund generation and constrains inflation from heavy trading.
-- **50% to the currency's central bank** — deposited across `forexRevenue` and `reserveBalance`.
+- **25% destroyed** (`SPREAD_FEE_DESTROY_RATIO`), removed from the economy. Acts as a deflationary sink that counterbalances fund generation and constrains inflation from heavy trading.
+- **25% to `forexRevenue`** (`SPREAD_FEE_FOREX_REVENUE_RATIO`), the central bank's intervention reserve.
+- **50% to `reserveBalance`** (`SPREAD_FEE_RESERVE_RATIO`), the loan reserve pool.
 
-Of the total spread fee, 40% is counted in `forexRevenue` and 10% seeds `reserveBalance`; flooring is handled in `src/lib/currency/spreadFees.ts`, with the destroyed share absorbing rounding remainder. The split applies to all three tiers (market maker, limit, direct). For direct player-to-player fills, the total spread is split the same way.
+Together, `forexRevenue` + `reserveBalance` make up the central bank's 75% share (`SPREAD_FEE_CENTRAL_BANK_RATIO`). Flooring is handled in `spreadFees.ts`, with the destroyed share absorbing rounding remainder. The split applies to all three tiers (market maker, limit, direct). For direct player-to-player fills, the total spread is split the same way.
 
 ### Turn Processing Placement
 
@@ -154,27 +159,27 @@ The forex phase runs after per-turn inflation recalculation and before central-b
 
 **Existing fields become internal-only:**
 
-- `character.funds` — campaign/political funds in internal units (used by game system calculations)
-- `character.cashOnHand` — personal wealth in internal units (used by game system calculations)
+- `character.funds`, campaign/political funds in internal units (used by game system calculations)
+- `character.cashOnHand`, personal wealth in internal units (used by game system calculations)
 
-**New `currencyBalances` — the player-facing wallet:**
+**New `currencyBalances`, the player-facing wallet:**
 
 ```typescript
 // CurrencyCode is defined in src/lib/constants/currencies.ts.
-// Active runtime currencies: "USD" | "GBP" | "JPY" | "EUR".
-// "CAD" is reserved for future expansion.
-type CurrencyCode = "USD" | "GBP" | "JPY" | "CAD" | "EUR";
+// 18 active runtime currencies (FOREX_ACTIVE_CURRENCIES): "USD" | "GBP" | "JPY" | "EUR" | "IEP" | "CNY" | "BRL" | "NGN" | "SUR" | "DDM" | "FRF" | "ITL" | "ESP" | "SEK" | "TRL" | "GRD" | "ATS" | "FIM".
+// Remaining CurrencyCode values (e.g. "CAD", "HUF", "PLZ") are reserved for countries not yet active in forex.
+type CurrencyCode = "USD" | "GBP" | "JPY" | "EUR" | "IEP" | "CNY" | "BRL" | "NGN" | "SUR" | "DDM" | "FRF" | "ITL" | "ESP" | "SEK" | "TRL" | "GRD" | "ATS" | "FIM" | "CAD" | ...;
 
 currencyBalances: {
-  // Campaign funds — always home currency only. Never holds foreign currency.
+  // Campaign funds, always home currency only. Never holds foreign currency.
   campaign: number;
-  // Personal wealth — multi-currency. Missing keys treated as 0.
-  // Partial allows graceful scaling when future currencies launch — no migration needed.
+  // Personal wealth, multi-currency. Missing keys treated as 0.
+  // Partial allows graceful scaling when future currencies launch, no migration needed.
   personal: Partial<Record<CurrencyCode, number>>;
 }
 ```
 
-**Campaign funds are strictly home-currency.** All campaign income (fund generation, party distributions) is deposited in the player's home currency. Campaign spending always deducts from this single balance. Campaign funds never participate in forex — no foreign-currency campaign balances, no cross-currency campaign spending.
+**Campaign funds are strictly home-currency.** All campaign income (fund generation, party distributions) is deposited in the player's home currency. Campaign spending always deducts from this single balance. Campaign funds never participate in forex, no foreign-currency campaign balances, no cross-currency campaign spending.
 
 **Personal wealth is multi-currency.** Foreign income (stock dividends, bond coupons, CEO salary) deposits into the corresponding personal currency slot. Players can hold and speculate with any active currency.
 
@@ -186,24 +191,24 @@ A US player's fund generation: `currencyBalances.campaign += generatedAmount` (i
 
 **Personal purchases** (stocks, bonds, foreign assets):
 
-1. Check `currencyBalances.personal[requiredCurrency]` — if sufficient, spend directly, no fee
-2. If partial — spend what they have in that currency, convert the shortfall from `currencyBalances.personal[homeCurrency]` at market-maker rate (0.275% spread), apply atomically
-3. If none — convert the full amount from `currencyBalances.personal[homeCurrency]` at market-maker rate, apply atomically
+1. Check `currencyBalances.personal[requiredCurrency]`, if sufficient, spend directly, no fee
+2. If partial, spend what they have in that currency, convert the shortfall from `currencyBalances.personal[homeCurrency]` at market-maker rate (1% spread), apply atomically
+3. If none, convert the full amount from `currencyBalances.personal[homeCurrency]` at market-maker rate, apply atomically
 
 **Shortfall Failure:** If both the target currency balance and the home currency balance are insufficient to cover the cost, the transaction is rejected. The system does not chain conversions from other foreign currencies; only the home currency is used as the automatic fallback source.
 
 With auto-convert **on** (default), the player sees a confirmation prompt before submitting:
 
-> "You have ¥2,300,000. This costs ¥5,000,000. Use your yen and convert ≈$25,400 (0.275% fee) for the remainder?"
+> "You have ¥2,300,000. This costs ¥5,000,000. Use your yen and convert ≈$25,400 (1% fee) for the remainder?"
 
-With auto-convert **off**, insufficient foreign currency rejects the transaction with a message directing the player to the exchange. The auto-convert shortfall always draws from personal home currency — campaign funds are never touched for personal purchases.
+With auto-convert **off**, insufficient foreign currency rejects the transaction with a message directing the player to the exchange. The auto-convert shortfall always draws from personal home currency, campaign funds are never touched for personal purchases.
 
 ### Foreign Income Handling
 
 Foreign-denominated income (JP stock dividends, UK bond coupons, CEO salary from foreign corporations) has a **per-holding income preference** set by the player:
 
-- **Receive in foreign currency** (default) — income deposits directly into `currencyBalances.personal[sourceCurrency]` at no cost. The player accumulates foreign currency and converts manually when they choose.
-- **Auto-convert to home currency** — income is converted at market-maker rate (0.275% spread) on receipt and deposited into `currencyBalances.personal[homeCurrency]`. Convenient for players who don't want to manage multiple currencies.
+- **Receive in foreign currency** (default), income deposits directly into `currencyBalances.personal[sourceCurrency]` at no cost. The player accumulates foreign currency and converts manually when they choose.
+- **Auto-convert to home currency**, income is converted at market-maker rate (1% spread) on receipt and deposited into `currencyBalances.personal[homeCurrency]`. Convenient for players who don't want to manage multiple currencies.
 
 This preference is stored per holding (per stock position, per bond position) so a player can auto-convert UK bond coupons while accumulating JP dividends in yen. The setting is accessible from the portfolio page next to each holding.
 
@@ -214,34 +219,34 @@ Income routes based on source:
 - Stock dividends, bond coupons, CEO salary → `currencyBalances.personal[sourceCurrency]`
 - Party-related income, fund generation → `currencyBalances.campaign` (home currency only)
 
-## Currency Exchange — Three-Tier System
+## Currency Exchange, Three-Tier System
 
 ### Fee Schedule
 
 | Tier | Method                      | Spread | Fill guarantee              |
 | ---- | --------------------------- | ------ | --------------------------- |
-| 1    | Market maker (auto-convert) | 0.275% | Instant, infinite liquidity |
-| 2    | Public limit order          | 0.175% | When matched or expired     |
-| 3    | Direct player request       | 0.10%  | When target player accepts  |
+| 1    | Market maker (auto-convert) | 1%     | Instant, infinite liquidity |
+| 2    | Public limit order          | 0.64%  | When matched or expired     |
+| 3    | Direct player request       | 0.36%  | When target player accepts  |
 
 Each step down rewards more player engagement. Auto-convert uses Tier 1 by default.
 
 ### Market Maker
 
-System-provided liquidity at the current exchange rate ± 0.275% spread. Always available, always fills instantly. This is what auto-convert uses under the hood.
+System-provided liquidity at the current exchange rate ± 1% spread. Always available, always fills instantly. This is what auto-convert uses under the hood.
 
-Player trades against the market maker still exert volume pressure on the rate — buying yen from the market maker pushes yen stronger, same as any other trade.
+Player trades against the market maker still exert volume pressure on the rate, buying yen from the market maker pushes yen stronger, same as any other trade.
 
 ### Public Limit Orders
 
-Player posts an order visible to all on the exchange: "Buy ¥5,000,000 at rate 104.5 or better." The order sits on the book until the market rate reaches the player's limit price, at which point it auto-executes against the market maker at the prevailing rate (0.175% spread). The order book is primarily a display of what rates players are waiting for — not a peer-matching engine.
+Player posts an order visible to all on the exchange: "Buy ¥5,000,000 at rate 104.5 or better." The order sits on the book until the market rate reaches the player's limit price, at which point it auto-executes against the market maker at the prevailing rate (0.64% spread). The order book is primarily a display of what rates players are waiting for, not a peer-matching engine.
 
 **Execution Priority:**
 
 1. **Manual Player-to-Player Fills**: If another player chooses to manually fill an order from the exchange page, this takes absolute priority.
 2. **Automatic Market Maker Fills**: If no player manually fills the order, the system executes the order against the market maker once the limit price is met.
 
-**Player-to-player fills:** A player viewing the exchange page can see open limit orders and choose to fill one directly — taking the other side at the posted rate. This is a manual, opportunistic action: the seller browses open buy orders and fills one. The 0.175% spread is split evenly — each side pays 0.0875% on the filled amount. Total system take is 0.175%, equivalent to a single market-maker trade at the discounted tier.
+**Player-to-player fills:** A player viewing the exchange page can see open limit orders and choose to fill one directly, taking the other side at the posted rate. This is a manual, opportunistic action: the seller browses open buy orders and fills one. The 0.64% spread is split evenly, each side pays 0.32% on the filled amount. Total system take is 0.64%, equivalent to a single market-maker trade at the discounted tier.
 
 **Partial fills:** Whether filled by the market maker or by another player manually, if less than the full order amount is covered, the matched portion executes and the remainder stays on the book unchanged. `status` transitions to `"partial"`, `filledAmount` tracks cumulative filled volume. Spread is charged proportionally on each fill tranche; `spreadCharged` accumulates across all fill events.
 
@@ -251,8 +256,8 @@ Optional expiry: player can set a turn-based expiry ("cancel after N turns if un
 
 Player sends a conversion offer to a specific character: "Buy ¥2,000,000 from [CharacterName] at rate 105.0." Target receives an in-game mail notification. They can:
 
-- **Accept** — trade executes at proposed rate + 0.10% spread
-- **Decline** — order cancelled, initiator notified
+- **Accept**, trade executes at proposed rate + 0.36% spread
+- **Decline**, order cancelled, initiator notified
 
 No counter-offers. If the target wants different terms they decline and post their own order or direct request.
 
@@ -276,7 +281,7 @@ interface ExchangeRate {
   rate: number; // local currency per 1 internal unit
   baseRate: number; // initial calibration (never changes)
   macroTarget: number; // current fundamental target rate
-  rateHistory: TurnSnapshot[]; // per-turn snapshots for charting — pruned to last 48 via .slice(-48) each turn
+  rateHistory: TurnSnapshot[]; // per-turn snapshots for charting, pruned to last 48 via .slice(-48) each turn
   /** Gross buy volume for this currency over the past 24 turns, in internal units.
    *  Recomputed each turn by the forex phase from tradeHistory. */
   buyVolume24: number;
@@ -301,7 +306,7 @@ interface CurrencyOrder {
   fromCurrency: CurrencyCode;
   toCurrency: CurrencyCode;
   amount: number; // amount of fromCurrency to spend
-  limitRate?: number; // limit orders — worst acceptable rate
+  limitRate?: number; // limit orders, worst acceptable rate
   targetCharacterId?: ObjectId; // direct orders only
   targetCharacterName?: string; // direct orders only
   expiresAtTurn?: number;
@@ -314,7 +319,7 @@ interface CurrencyOrder {
 }
 ```
 
-> **Note:** `balanceType` was removed — all forex trades operate on personal funds only. Campaign funds are strictly home-currency and never participate in forex.
+> **Note:** `balanceType` was removed, all forex trades operate on personal funds only. Campaign funds are strictly home-currency and never participate in forex.
 
 **Indexes:** `{ status: 1, expiresAtTurn: 1 }` for the turn phase scan of open/expired orders. `{ characterId: 1, status: 1 }` for the player's open orders view.
 
@@ -344,7 +349,7 @@ interface TradeHistoryEntry {
 ```typescript
 // New fields
 currencyBalances: {
-  campaign: number; // home currency only — never holds foreign currency
+  campaign: number; // home currency only, never holds foreign currency
   personal: Partial<Record<CurrencyCode, number>>; // missing keys = 0 balance
 }
 displayCurrencyPreference: "local" | "home" | "USD"; // default "local"
@@ -364,28 +369,28 @@ cashOnHand: number   → currencyBalances.personal[homeCurrency]
 
 ### Deployment Strategy: Abstraction Layer + Feature Flag
 
-This is a **zero-downtime progressive deployment** — not a hard cutover. New code deploys alongside existing functionality, and an admin button triggers the migration when ready.
+This is a **zero-downtime progressive deployment**, not a hard cutover. New code deploys alongside existing functionality, and an admin button triggers the migration when ready.
 
 Rationale: a hard cutover across ~307 files requires maintenance mode and a big-bang deploy. The abstraction layer approach lets code ship incrementally while the game continues running. All fund read/write logic is funneled through a small set of helper functions that internally switch between old fields (`funds`/`cashOnHand`) and new fields (`currencyBalances`) based on a feature flag.
 
 **Deployment sequence:**
 
-1. **Deploy abstraction layer** — helper functions (`getCharacterFunds`, `getCampaignBalance`, `getPersonalBalance`, `deductCampaignFunds`, `depositPersonalFunds`, etc.) that read from `funds`/`cashOnHand` by default. All ~307 files migrate to use these helpers. Game continues as normal.
-2. **Deploy forex system** (feature-flagged off) — new types, collections, turn phase, API routes, UI. The forex turn phase and exchange UI are gated behind `GameState.forexEnabled` (default `false`).
-3. **Admin clicks "Enable Forex" button** — triggers the migration:
+1. **Deploy abstraction layer**, helper functions (`getCharacterFunds`, `getCampaignBalance`, `getPersonalBalance`, `deductCampaignFunds`, `depositPersonalFunds`, etc.) that read from `funds`/`cashOnHand` by default. All ~307 files migrate to use these helpers. Game continues as normal.
+2. **Deploy forex system** (feature-flagged off), new types, collections, turn phase, API routes, UI. The forex turn phase and exchange UI are gated behind `GameState.forexEnabled` (default `false`).
+3. **Admin clicks "Enable Forex" button**, triggers the migration:
    a. Set `GameState.isProcessing = true` (prevents turns during migration)
    b. Run migration script (see below)
    c. Set `GameState.forexEnabled = true`
    d. Set `GameState.isProcessing = false`
 4. **Post-migration:** helpers now read from `currencyBalances`. Old `funds`/`cashOnHand` fields remain on documents (ignored) until a cleanup pass removes them.
-5. **Cleanup PR** (later, low priority) — remove the fallback branch from helpers, unset old fields from character documents.
+5. **Cleanup PR** (later, low priority), remove the fallback branch from helpers, unset old fields from character documents.
 
 ### Feature Flag: `GameState.forexEnabled`
 
 Added to the `GameState` document (`_id: "current"`):
 
 ```typescript
-forexEnabled: boolean; // default false — gates forex turn phase, exchange UI, and helper read source
+forexEnabled: boolean; // default false, gates forex turn phase, exchange UI, and helper read source
 ```
 
 The abstraction helpers check this flag (cached per request, not per call) to determine whether to read from old or new fields.
@@ -395,17 +400,17 @@ The abstraction helpers check this flag (cached per request, not per call) to de
 Located in `src/lib/currency/characterFunds.ts`:
 
 ```typescript
-// Campaign funds — always home currency
+// Campaign funds, always home currency
 getCharacterCampaignFunds(character): number
 deductCampaignFunds(db, characterId, amount): Promise<void>
 depositCampaignFunds(db, characterId, amount): Promise<void>
 
-// Personal wealth — currency-aware post-migration
+// Personal wealth, currency-aware post-migration
 getPersonalBalance(character, currencyCode?): number
 depositPersonalFunds(db, characterId, amount, currencyCode): Promise<void>
 deductPersonalFunds(db, characterId, amount, currencyCode): Promise<void>
 
-// Display — returns formatted amount in appropriate currency
+// Display, returns formatted amount in appropriate currency
 formatCharacterFunds(character, type: "campaign" | "personal"): string
 ```
 
@@ -426,7 +431,7 @@ Post-migration: these read/write `currencyBalances.campaign` and `currencyBalanc
    }
    ```
 4. Set `displayCurrencyPreference: "local"`, `autoConvertEnabled: true`
-5. **Do not unset** `funds` and `cashOnHand` yet — they remain as inert data until the cleanup pass
+5. **Do not unset** `funds` and `cashOnHand` yet, they remain as inert data until the cleanup pass
 6. Seed `exchangeRates` documents for US, UK, JP, and DE with initial rates
 7. Ensure active `centralBanks` documents have `tradeGrowth`, `forexRevenue`, and `reserveBalance` initialized
 8. Create indexes: `tradeHistory: { turn: -1 }`, `currencyOrders: { status: 1, expiresAtTurn: 1 }`
@@ -434,20 +439,20 @@ Post-migration: these read/write `currencyBalances.campaign` and `currencyBalanc
 
 ### Code Migration (Blast Radius)
 
-> **Scope warning:** A grep of `\.funds` and `cashOnHand` across `src/` returns ~307 files (142 in `src/lib`, 165 in `src/app/api`). This is the largest single refactor in the project. Implement in phases — abstraction layer first, then turn system, then API routes, then display components.
+> **Scope warning:** A grep of `\.funds` and `cashOnHand` across `src/` returns ~307 files (142 in `src/lib`, 165 in `src/app/api`). This is the largest single refactor in the project. Implement in phases, abstraction layer first, then turn system, then API routes, then display components.
 
 Every code path that reads or writes `funds` or `cashOnHand` must be updated to use the abstraction helpers. Key systems:
 
-- **Fund generation** (`src/lib/turn/fundGeneration.ts`) — `depositCampaignFunds` (home currency)
-- **Campaign spending** (`src/lib/turn/campaignTurn.ts`) — `deductCampaignFunds`
-- **Corporation dividends** (`src/lib/turn/corporationTurn.ts`) — `depositPersonalFunds` (corporation's country currency)
-- **Stock trading** — escrow/settlement via `deductPersonalFunds`/`depositPersonalFunds`
-- **Bond coupons** (`src/lib/turn/bondTurn.ts`) — `depositPersonalFunds` (bond's country currency)
-- **CEO salary** — `depositPersonalFunds` (corporation's country currency)
-- **Party taxes** — `deductCampaignFunds`, deposit to party treasury
-- **NPP fund generation** (`src/lib/turn/nppFundGeneration.ts`) — `depositCampaignFunds` (home currency)
-- **Admin/heal routes** — any route that adjusts character funds
-- **API routes** reading `cashOnHand` or `funds` for display — use `getCharacterCampaignFunds` / `getPersonalBalance`
+- **Fund generation** (`src/lib/turn/fundGeneration.ts`), `depositCampaignFunds` (home currency)
+- **Campaign spending** (`src/lib/turn/campaignTurn.ts`), `deductCampaignFunds`
+- **Corporation dividends** (`src/lib/turn/corporationTurn.ts`), `depositPersonalFunds` (corporation's country currency)
+- **Stock trading**, escrow/settlement via `deductPersonalFunds`/`depositPersonalFunds`
+- **Bond coupons** (`src/lib/turn/bondTurn.ts`), `depositPersonalFunds` (bond's country currency)
+- **CEO salary**, `depositPersonalFunds` (corporation's country currency)
+- **Party taxes**, `deductCampaignFunds`, deposit to party treasury
+- **NPP fund generation** (`src/lib/turn/nppFundGeneration.ts`), `depositCampaignFunds` (home currency)
+- **Admin/heal routes**, any route that adjusts character funds
+- **API routes** reading `cashOnHand` or `funds` for display, use `getCharacterCampaignFunds` / `getPersonalBalance`
 
 Run `grep -rn "\.funds\b\|cashOnHand" src/` before starting to generate the full touchpoint list. Do not rely solely on the list above.
 
@@ -462,7 +467,7 @@ Run `grep -rn "\.funds\b\|cashOnHand" src/` before starting to generate the full
 - Player's currency holdings at the top (all balances, campaign + personal)
 - Live exchange rates table between all active currency pairs
 - Rate trend charts with historical data (reuses `TurnSnapshot` charting pattern)
-- Order book — open public limit orders for each currency pair
+- Order book, open public limit orders for each currency pair
 - Player's own open orders (limit + pending direct requests)
 - Trade form: buy/sell currency with method selector (market / limit / direct)
 
@@ -485,7 +490,7 @@ Three options, stored as `displayCurrencyPreference` on the character:
 
 The `≈` prefix indicates a converted value, distinguishing it from native prices. Accessible from the wallet section.
 
-Note: for US players, `"home"` and `"USD"` are identical — both show USD. The `"USD"` option exists as a common reference currency for non-US players who want to benchmark everything in dollars regardless of their home currency.
+Note: for US players, `"home"` and `"USD"` are identical, both show USD. The `"USD"` option exists as a common reference currency for non-US players who want to benchmark everything in dollars regardless of their home currency.
 
 ### Auto-Convert Toggle
 
@@ -498,7 +503,7 @@ Note: for US players, `"home"` and `"USD"` are identical — both show USD. The 
 1. Player views another character's profile → sees "Holds JPY, GBP" (amounts hidden)
 2. Clicks "Propose currency trade" → form: currency pair, amount, proposed rate
 3. Target receives in-game mail notification
-4. Target accepts (executes at proposed rate + 0.10%) or declines — no counter-offers
+4. Target accepts (executes at proposed rate + 0.36%) or declines, no counter-offers
 5. Expiry countdown shown on both sides
 
 ### Notifications (In-Game Mail)
@@ -510,19 +515,19 @@ Note: for US players, `"home"` and `"USD"` are identical — both show USD. The 
 
 ### Future Enhancement (v2): Rate Alerts
 
-Players set a watch on a currency pair: "Notify me when USD/JPY drops below 95." Receive in-game mail when the rate crosses their threshold. Useful for players who want to time currency purchases without monitoring the exchange page. **Not in v1 scope — no schema pre-created. Define the `rateAlerts` collection when v2 is actively built.**
+Players set a watch on a currency pair: "Notify me when USD/JPY drops below 95." Receive in-game mail when the rate crosses their threshold. Useful for players who want to time currency purchases without monitoring the exchange page. **Not in v1 scope, no schema pre-created. Define the `rateAlerts` collection when v2 is actively built.**
 
 ## Constants & Configuration
 
 ```typescript
 // Spread schedule
-const MARKET_MAKER_SPREAD = 0.00275; // 0.275%
-const LIMIT_ORDER_SPREAD = 0.00175; // 0.175%
-const DIRECT_TRADE_SPREAD = 0.001; // 0.10%
+const MARKET_MAKER_SPREAD = 0.01; // 1%
+const LIMIT_ORDER_SPREAD = 0.0064; // 0.64%
+const DIRECT_TRADE_SPREAD = 0.0036; // 0.36%
 
 // Rate dynamics
 const DRIFT_SPEED = 0.05; // ~48 turns to 90% convergence
-const RATE_NOISE_MAX = 0.003; // ±0.3% per-turn jitter
+const RATE_NOISE_MAX = 0.004; // ±0.4% per-turn jitter
 const RATE_FLOOR_MULTIPLIER = 0.5; // 50% below base rate
 const RATE_CEILING_MULTIPLIER = 1.5; // 50% above base rate
 
@@ -550,7 +555,7 @@ const INITIAL_RATES: Partial<Record<CountryId, number>> = {
 
 // Player volume pressure
 const VOLUME_PRESSURE_SENSITIVITY = 0.0001; // per internal-unit of net volume
-const VOLUME_PRESSURE_CAP = 0.05; // ±5% max rate impact from volume — tunable
+const VOLUME_PRESSURE_CAP = 0.05; // ±5% max rate impact from volume, tunable
 const VOLUME_LOOKBACK_TURNS = 24; // ~6 game months of trade history
 
 // Order expiry defaults
@@ -569,7 +574,7 @@ const DIRECT_TRADE_EXPIRY_TURNS = 24; // ~6 game months
 | Stock exchange         | Trades settle in the stock's country currency; auto-convert if needed |
 | Bond system            | Coupons/maturity payments in the bond's country currency              |
 | Party treasury         | Taxes collect in party's country currency                             |
-| Budget system          | Already has `currencyCode` field — minimal changes                    |
+| Budget system          | Already has `currencyCode` field, minimal changes                    |
 | NPP funds              | Deposit to home currency                                              |
 | Formatters             | All currency formatters accept `currencyCode` parameter               |
 | Display components     | Thread `countryId`/`currencyCode` through ~60+ component files        |
@@ -597,12 +602,12 @@ The canonical storage rule for every money field in the simulation is: **stored 
 | State budget (`revenue`, `spending`, `taxBases`, `balance`, `surplus`, `stateGdp`)             | parent country's currency                                                                  |
 | `enactedLaws.annualCostUsd`                                                                    | country's currency (legacy field name; `Usd` suffix predates v0.2.6)                       |
 | Cross-entity sums (global GDP, global market cap, commodity flows, rankings)                   | computed in ₳ via `sumAsAnchor` / `readCorpEconomicAnchor`; displayed via wallet pref      |
-| `sharePriceFormula` intermediate                                                               | ₳ (anchor) — converted to corp-local at persistence boundary                               |
+| `sharePriceFormula` intermediate                                                               | ₳ (anchor), converted to corp-local at persistence boundary                               |
 | `corporationHistory`, `marketCapHistory`, `corporationPortfolioHistory`                        | corp's `liquidCurrencyCode` at time of write (`currencyCode` stamped on each row)          |
 | `federalBudgetSnapshots.budget.*`                                                              | country's currency at time of write (`budget.currencyCode` stamped on each snapshot)       |
-| `debtToGdpRatio`                                                                               | dimensionless — not scaled                                                                 |
+| `debtToGdpRatio`                                                                               | dimensionless, not scaled                                                                 |
 
-**Deferred (post-v0.2.6):** `Campaign.funds`, `PoliticalParty.treasury`, `StatePartyOrg.treasury`, `DiscordBotFund` — campaign/party-side money stays ₳ for now. A future v0.2.x migration will move these too.
+**Deferred (post-v0.2.6):** `Campaign.funds`, `PoliticalParty.treasury`, `StatePartyOrg.treasury`, `DiscordBotFund`, campaign/party-side money stays ₳ for now. A future v0.2.x migration will move these too.
 
 ### Helpers (authoritative)
 
@@ -622,9 +627,9 @@ The canonical storage rule for every money field in the simulation is: **stored 
 
 The v0.2.6 migration rescales every historical snapshot (`corporationHistory`, `marketCapHistory`, `corporationPortfolioHistory`, `federalBudgetSnapshots`) at **today's** FX rate. Historical FX accuracy is intentionally sacrificed in favor of visually-continuous charts across the migration moment. This was evaluated against two alternatives:
 
-- **Option 1 (leave as ₳)** — rejected: every chart would have a visible jump on the cutover turn.
-- **Option 2 (per-snapshot historical rate)** — rejected: `exchangeRates` history isn't retained beyond a short window, and reconstruction produced unreliable rates.
-- **Option 3 (backfill all at today's rate)** — chosen: chart continuity wins; historical snapshots become approximate post-migration.
+- **Option 1 (leave as ₳)**, rejected: every chart would have a visible jump on the cutover turn.
+- **Option 2 (per-snapshot historical rate)**, rejected: `exchangeRates` history isn't retained beyond a short window, and reconstruction produced unreliable rates.
+- **Option 3 (backfill all at today's rate)**, chosen: chart continuity wins; historical snapshots become approximate post-migration.
 
 ### Migration scripts
 
@@ -633,4 +638,4 @@ Run in this order against a staging clone first (see `scripts/migrations/README.
 1. `scripts/migrations/corpEconomyToLocalCurrency.ts`
 2. `scripts/migrations/bondCurrencyStamp.ts`
 
-(No government-budget migration is shipped — federal and state budgets, snapshots, and enacted laws were already stored in each country's currency pre-v0.2.6; see `docs/design/national-budget.md`.) Each script writes a marker into the `migrationsRun` collection and exits early on re-run. Production rollout is an atomic cutover: pause turns → run both scripts → un-pause → merge the code deploy.
+(No government-budget migration is shipped, federal and state budgets, snapshots, and enacted laws were already stored in each country's currency pre-v0.2.6; see `docs/design/national-budget.md`.) Each script writes a marker into the `migrationsRun` collection and exits early on re-run. Production rollout is an atomic cutover: pause turns → run both scripts → un-pause → merge the code deploy.

@@ -1,25 +1,33 @@
 # United Kingdom
 
-The UK uses the same core sim as the US — **turns**, **actions**, **parties**, **metrics**, and **economy** — with regional and parliamentary rules adapted for Commons and the Prime Minister.
+The UK uses the same core sim as the US, **turns**, **actions**, **parties**, **metrics**, and **economy**, with regional and parliamentary rules adapted for Commons and the Prime Minister.
 
 ## Regions as "states"
 
-UK gameplay uses four regional IDs for Commons elections and residency:
+UK gameplay uses **12 playable regions** (`UK_REGIONS` in `src/lib/constants/uk.ts`) for Commons elections and residency, 9 English NUTS1-style regions plus Scotland, Wales, and Northern Ireland, totaling **650 Commons seats**:
 
-| Code | Region           | Commons seats (approx.) |
-| ---- | ---------------- | ----------------------- |
-| ENG  | England          | 543                     |
-| SCO  | Scotland         | 59                      |
-| WAL  | Wales            | 40                      |
-| NIR  | Northern Ireland | 18                      |
+| Code | Region                  | Nation | Commons seats |
+| ---- | ------------------------ | ------ | -------------- |
+| LON  | London                   | ENG    | 75             |
+| SEE  | South East England       | ENG    | 91             |
+| SWE  | South West England       | ENG    | 58             |
+| EAE  | East of England          | ENG    | 61             |
+| EMI  | East Midlands            | ENG    | 47             |
+| WMI  | West Midlands            | ENG    | 57             |
+| YHU  | Yorkshire & the Humber   | ENG    | 54             |
+| NWE  | North West England       | ENG    | 75             |
+| NEE  | North East England       | ENG    | 27             |
+| SCO  | Scotland                 | SCO    | 57             |
+| WAL  | Wales                    | WAL    | 32             |
+| NIR  | Northern Ireland         | NIR    | 18             |
 
-Your character's **home state** field uses these codes for UK players. Many actions (e.g. [[Canvassing]]) are restricted to that home region.
+Your character's **home state** field uses these region codes for UK players. Many actions (e.g. [[Canvassing]]) are restricted to that home region.
 
 ## House of Commons elections
 
 - Each region runs its own **Commons** election cycle (perpetual scheduling once a cycle completes).
 - Vote accumulation and **multi-seat proportional** allocation follow the same family of rules as the US House implementation (largest-remainder style allocation, minimum share thresholds, spoiler handling where configured).
-- **Candidacy** is generally limited to your **home region**; party leaders may have broader options — check in-game election enter rules for your office.
+- **Candidacy** is generally limited to your **home region**; party leaders may have broader options, check in-game election enter rules for your office.
 
 Demographic **categories and groups** match the US model; regional flavor comes from population weights and leans, not from separate group IDs.
 
@@ -31,7 +39,7 @@ After regional Commons cycles resolve nationally:
 2. The **largest party** attempts to form a government; its leader is nominated as **Prime Minister**.
 3. A **confidence vote** among MPs determines whether that PM is confirmed.
 
-Sitting MPs from the **ruling block** may also trigger **motions of no confidence** against the PM. If a motion succeeds, the PM is removed and the game proceeds to a new confidence process. Use the in-game **UK Government** hub at `/executive/uk` (Downing Street — PM, cabinet, Commons composition, confidence votes; `/uk/government` redirects there) for current status, votes, and deadlines.
+Sitting MPs from the **ruling block** may also trigger **motions of no confidence** against the PM. If a motion succeeds, the PM is removed and the game proceeds to a new confidence process. Use the in-game **UK Government** hub at `/executive/uk` (Downing Street, PM, cabinet, Commons composition, confidence votes; `/uk/government` redirects there) for current status, votes, and deadlines.
 
 ### Government Formation Logic
 
@@ -62,9 +70,9 @@ if (governingSeats >= threshold) {
 | `minority_pending` | Largest party lacks majority; player must initiate formation vote |
 | `forming`          | Coalition negotiation in progress (future feature)                |
 
-### Minority Government Threshold
+### Minority Government
 
-A party needs **≥130 seats** (20% of 650) to attempt minority government formation. Below this, the UI indicates insufficient support.
+There is no fixed minimum-seat threshold for attempting minority government formation. `resolveUKGovernmentFormation()` compares the largest party's seat count to `majorityThreshold` (326, 50%+1 of 650) only; falling short of that yields `minority_pending` at any seat count, and the player initiates the formation vote from there.
 
 ### PM Appointment
 
@@ -129,7 +137,7 @@ const expiredBills = await db
 const passed = didPass(bill.votesFor, bill.votesAgainst);
 
 if (passed) {
-  // Royal Assent is automatic — enacted immediately
+  // Royal Assent is automatic, enacted immediately
   await db.collection<Bill>("bills").updateOne(
     { _id: bill._id },
     {
@@ -156,13 +164,13 @@ if (passed) {
 
 Bill sponsors receive notifications on enactment or failure via `notifyUKSponsor()`.
 
-Timing and exact costs for some motions may be tuned in balance passes — rely on UI copy for live numbers.
+Timing and exact costs for some motions may be tuned in balance passes, rely on UI copy for live numbers.
 
 ## Related pages
 
-- [[Getting Started]] — Onboarding for any country
-- [[Election Mechanics]] — Shared primary/general concepts where applicable
-- [[State-Level Power]] — Analogies to governors / regional power
-- [[Government Approval]] — National and regional approval
-- [[National Budget & Treasury]] — UK treasury panels and public corporations
-- [[Corporations]] — FTSE-listed firms and UK sectors
+- [[Getting Started]], Onboarding for any country
+- [[Election Mechanics]], Shared primary/general concepts where applicable
+- [[State-Level Power]], Analogies to governors / regional power
+- [[Government Approval]], National and regional approval
+- [[National Budget & Treasury]], UK treasury panels and public corporations
+- [[Corporations]], FTSE-listed firms and UK sectors

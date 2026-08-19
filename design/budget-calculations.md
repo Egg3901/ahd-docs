@@ -188,7 +188,9 @@ Based on debt-to-GDP ratio:
 - 60-80%: AA
 - 80-100%: A
 - 100-120%: BBB
-- > 120%: BB+ (junk status approaching)
+- 120-150%: BB
+- 150-250%: B
+- > 250%: CCC (extreme distress; refs #3236, no live-prod country is near this band)
 
 ### `triggerDebtCeilingCrisis(db, fiscalYear)`
 
@@ -282,11 +284,11 @@ The `validation.ts` module provides:
 
 ### Turn Processing
 
-Fiscal year processing runs in **Group 10** (turn 36 of 48):
+Fiscal year processing runs in **Group 10** (turn 40 of 48):
 
 ```typescript
 // src/lib/turnSystem.ts
-if (turn === 36) {
+if (turn === 40) {
   // October
   await processFiscalYear(db, newFiscalYear);
 }

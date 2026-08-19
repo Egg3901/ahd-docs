@@ -29,7 +29,7 @@ Each quarter the issued face value is the sum of two components:
 issueAmount = rolloverAmount + deficitAmount;
 ```
 
-**Deficit component** — quarter share of the annual budget deficit, rounded to whole $1,000 bond units:
+**Deficit component**, quarter share of the annual budget deficit, rounded to whole $1,000 bond units:
 
 ```typescript
 const quarterlyAmount = annualDeficit / 4;
@@ -38,18 +38,22 @@ const deficitAmount = Math.floor(quarterlyAmount / 1000) * 1000;
 
 If the budget is in surplus, `deficitAmount` is zero.
 
-**Rollover component** — total `totalIssued` of active sovereign bonds maturing in the upcoming quarter (`[turn, turn + 12)`), rounded to whole bond units. This refinances maturing debt so the public float stays liquid even when the country is running a surplus.
+**Rollover component**, total `totalIssued` of active sovereign bonds maturing in the upcoming quarter (`[turn, turn + 12)`), rounded to whole bond units. This refinances maturing debt so the public float stays liquid even when the country is running a surplus.
 
 Without rollover, a surplus country's bonds mature out of circulation and the trading market eventually empties. With it, the bond float is replenished each quarter at the current prime rate, matching real-world Treasury rollover behavior.
 
 ### Coupon Rate
 
-Sovereign bonds use the **central bank prime rate** as the coupon rate (no credit spread):
+`couponRate = primeRate + termPremium + credibilitySpread` (`getSovereignCouponRate()`, `src/lib/bonds/sovereign.ts`):
 
 ```typescript
-const primeRate = centralBank.primeRate ?? 5.5; // e.g., 5.5%
-const couponRate = primeRate; // Sovereign debt has no credit risk premium
+const termPremium = SOVEREIGN_BOND_TERM_PREMIUMS[maturityTurns] ?? 0; // 48t: 0, 96t: 0.25pp, 240t: 0.75pp
+const credibilitySpread = sovereignCredibilitySpread(centralBank.chairInfamy ?? 0); // 0 with no bank
+const couponRate = primeRate + termPremium + credibilitySpread;
 ```
+
+- **Term premium** rewards holding longer-dated paper (steeper yield curve for longer maturities).
+- **Credibility spread** is a B4 market-effects penalty driven by the central bank chair's infamy: a compromised chair adds a spread on top of prime, scaling toward `SOVEREIGN_CREDIBILITY_SPREAD_MAX_PP` as scrutiny/infamy rises. A clean or absent bank contributes 0.
 
 ### Bond Structure
 
@@ -58,7 +62,7 @@ const couponRate = primeRate; // Sovereign debt has no credit risk premium
 | `issuerType`    | `"sovereign"`                                     |
 | `countryId`     | `"US"` or `"UK"`                                  |
 | `faceValue`     | $1,000 per unit (`BOND_UNIT_FACE_VALUE`)          |
-| `maturityTurns` | 48 turns (1 year)                                 |
+| `maturityTurns` | 48 turns (1yr) for scheduled quarterly issuance; admin/reconcile issuance can also use 96 turns (2yr) or 240 turns (5yr) |
 | `marketPrice`   | Starts at 1.0 (par)                               |
 | `publicFloat`   | All units start in public float (AI market maker) |
 | `holders`       | Players/corporations who purchase                 |
@@ -83,10 +87,10 @@ interestRate = calculateInterestRate(debtToGdpRatio);
 
 In `processBondTurn()` (`src/lib/turn/bondTurn.ts`):
 
-1. **Coupon payments** — Paid to bond holders (character cash / corporate capital)
-2. **Market price update** — Based on country prime rate and time to maturity
-3. **Maturity settlement** — Face value returned to holders; principal deducted from budget
-4. **History snapshot** — `bondHistory` collection tracks price and cumulative interest
+1. **Coupon payments**, Paid to bond holders (character cash / corporate capital)
+2. **Market price update**, Based on country prime rate and time to maturity
+3. **Maturity settlement**, Face value returned to holders; principal deducted from budget
+4. **History snapshot**, `bondHistory` collection tracks price and cumulative interest
 
 ### Maturity Settlement
 
@@ -106,13 +110,52 @@ budget.surplus += annualCouponCost; // Lower interest = higher surplus
 
 | Phase                | Action                                                                  |
 | -------------------- | ----------------------------------------------------------------------- |
-| **Pre-processing**   | `issueScheduledSovereignBondSeries()` — issues new bonds every 12 turns |
+| **Pre-processing**   | `issueScheduledSovereignBondSeries()`, issues new bonds every 12 turns |
 | **Coupon payment**   | Pay holders (characters + corporations) from issuer budget              |
 | **Price update**     | `calculateBondMarketPrice()` using country prime rate                   |
 | **Maturity check**   | Settle matured bonds via `settleSovereignBondMaturity()`                |
 | **History snapshot** | Insert `bondHistory` document with market price and cumulative interest |
 
-Sovereign bonds **cannot default** — they skip the corporate default check (`liquidCapital < 0`).
+Sovereign bonds skip the corporate liquidity default check (`liquidCapital < 0`), but a country CAN and does default via a separate sovereign-default crisis subsystem, described below.
+
+## Sovereign Default Crisis
+
+Sovereign default is a full crisis subsystem (`src/lib/sovereignDefault/`), always active, no feature flag. It is driven by failing bond auctions, not by a missed coupon payment.
+
+### Trigger: failed auctions
+
+Auction demand is evaluated once per fiscal year (turn 40) as a demand ratio: >=1.0 is subscribed (healthy), 0.7-1.0 is undersubscribed (warning), below 0.7 is a failed auction. A default crisis triggers after **3 consecutive failed auctions**.
+
+Demand ratio is `BASE_DEMAND (1.2)` minus three stacking penalties, floored at 0.6:
+
+- **Debt-to-GDP:** `-0.3` per unit of debt/GDP up to 2.0x, then `-0.4` per unit above that (cliff).
+- **Inflation:** `-max(inflation x 2.0, 0.05)`.
+- **FX depreciation:** `-depreciation x 1.5`.
+
+### Warning and decision windows
+
+A 3-turn warning precedes the formal crisis trigger. Once triggered, the executive has 12 turns to propose a resolution, and each legislative chamber has 24 turns to vote. Windows that expire without action escalate to forced resolution, governance collapse, or automatic repudiation depending on the country's constitution.
+
+### Resolution paths
+
+The executive selects one of four resolutions:
+
+| Path | GDP penalty | Description |
+| --- | --- | --- |
+| **Repudiate** | -12% GDP | Refuse to pay; bondholders take the full hit |
+| **Restructure** | -6% GDP | Haircut + maturity extension for bondholders |
+| **IMF Bailout** | -2% GDP | Accept an IMF facility |
+| **Monetize** | handled via the inflation pipeline, not a flat GDP hit | Print money to cover the debt; gated off when current inflation exceeds 8% (`MONETIZE_GATE_INFLATION`) |
+
+### Default scar and corporate spillover
+
+Every resolution leaves a **100-turn scar**: a -1%/turn economic drag that decays over that window. Corporations headquartered in the defaulting country take an additional sector margin penalty that also decays over `DEFAULT_MARGIN_FULL_PENALTY_TURNS` (48 turns full, `DEFAULT_MARGIN_DECAY_TURNS` = 24 turns to taper out), sized by resolution path: Repudiate -18pp, Restructure -9pp, Bailout -4.5pp, Monetize 0pp (that path's damage runs through inflation instead). Foreign corporations in other countries absorb a partial **contagion** version of the same penalty, scaled by the defaulting country's GDP share of world GDP times `GLOBAL_CONTAGION_MULTIPLIER` (0.5).
+
+Bond-holder insolvency also **cascades up to 3 levels deep**: if a major bondholder is wiped out by the haircut, its own creditors are stressed, and so on.
+
+### Recovery floor
+
+After resolution, the country's bond market is closed for **48 turns** before new sovereign auctions can resume, forcing primary surpluses or IMF reliance during that window.
 
 ## Trading
 
@@ -135,21 +178,27 @@ Corporations can buy sovereign bonds as investments:
 
 ### Market Price Dynamics
 
-Sovereign bond prices fluctuate based on:
+Sovereign bonds share the same pricing function as corporate bonds, `calculateBondMarketPrice()` in `src/lib/constants/bonds.ts`. Price is the present value of the coupon annuity plus the present value of the par redemption, expressed as a fraction of face value (1.0 = par):
 
 ```typescript
-// src/lib/constants/bonds.ts calculateBondMarketPrice()
-const price = (couponPayment / ((currentRate / 100) * faceValue)) * faceValue;
-// Where currentRate = country central bank prime rate
+const yearsRemaining = turnsRemaining / TURNS_PER_YEAR;
+const r = currentRate / 100; // credit tier's current effective annual rate
+const c = couponRate / 100; // bond's fixed coupon rate
+
+const discountFactor = Math.pow(1 + r, -yearsRemaining);
+const annuityFactor = (1 - discountFactor) / r;
+const price = c * annuityFactor + discountFactor; // PV(coupons) + PV(face value)
 ```
 
-When prime rates rise, existing bond prices fall (and vice versa).
+Clamped to `[0.05, 2.0]`. A defaulted bond prices at a flat 0.1 (10 cents on the dollar) recovery value regardless of the formula above.
+
+When current rates rise above the bond's fixed coupon, price falls below par (and vice versa).
 
 **Pull-to-Par Convergence:**
-As a bond approaches its maturity turn, the market price naturally converges toward 1.0 (par). The current prime rate impact is dampened by a time-to-maturity scalar, ensuring that the bond does not experience a price shock at the moment of settlement.
+As `turnsRemaining` shrinks toward 0, `yearsRemaining` shrinks with it, so the discount factor and annuity factor both converge and the formula naturally pulls the price toward 1.0 (par) as maturity approaches, no separate dampening scalar is applied.
 
-**Payment Guarantee:**
-Sovereign bonds cannot default. Coupon payments are guaranteed by the state. If the federal budget is insufficient to cover these payments, the deficit is increased automatically, effectively "printing" the necessary currency to meet the obligation. This reflects the sovereign's unique ability to monetize debt.
+**Payment obligation:**
+Coupon payments are paid from the federal budget each turn. A country that cannot sustain demand for its debt runs into the sovereign-default crisis subsystem below. "Monetize" (print money to cover the debt) is one of the four executive-selected resolution paths in that subsystem, not an automatic fallback that fires on every missed payment, see Resolution paths below.
 
 ## Admin Testing
 
@@ -187,6 +236,6 @@ POST /api/admin/sovereign-debt/
 
 ## Related Documentation
 
-- [[Corporations]] — Corporate bonds (credit rating, trading, defaults)
-- [[National Budget & Treasury]] — Federal budget, debt, deficit mechanics
-- [[Stock Market]] — NYSE/FTSE listings where sovereign bonds appear
+- [[Corporations]], Corporate bonds (credit rating, trading, defaults)
+- [[National Budget & Treasury]], Federal budget, debt, deficit mechanics
+- [[Stock Market]], NYSE/FTSE listings where sovereign bonds appear

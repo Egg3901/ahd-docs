@@ -49,6 +49,20 @@ Tariffs use a five-field upsert key to prevent duplicates:
 
 Re-enacting the same provision updates the existing tariff rather than creating a duplicate.
 
+## FTA Override Layer
+
+Free trade agreements zero out all tariff layers between the partnered countries. When two countries are bound by an active FTA (`organizationLegislation` doc, `type: "free_trade_agreement"`, `status: "active"`), every `C(n,2)` pair among the FTA's `parties` is treated as tariff-free between those two countries, this overrides `economy_wide`, `sector`, `origin_country`, and `corporation` scopes alike.
+
+```typescript
+// src/lib/tariffs/ftaOverrides.ts
+export function isFtaActive(pairs: FtaPairSet, a: string, b: string): boolean {
+  if (a === b) return true; // domestic, treated as fully integrated
+  return pairs.has(ftaPairKey(a as CountryId, b as CountryId));
+}
+```
+
+`getEffectiveTariffRate()` takes an optional `activeFtaPairs` set and short-circuits to 0 before summing any tariff layer when the sector country and the corp HQ country are FTA partners. The same FTA coverage also proportionally neutralizes the domestic malus, the commodity blend weights, and the country-level inflation-pressure input (`computeCountryTariffPressure`), so an FTA that zeroes the corporate-margin channel is consistent everywhere else tariffs feed in, a tariff neutralized by FTA does not still drive consumer-price inflation or blend weighting.
+
 ## Territorial Invariant
 
 **Critical:** Only tariffs where `tariff.countryId === sectorCountryId` are consulted. A tariff imposed by the US on Chinese corps only applies to sectors operating **in the US**, not to Chinese sectors operating in third countries.
@@ -62,16 +76,19 @@ if (t.countryId !== sectorCountryId) continue;
 
 ### Foreign Corporations
 
-Foreign corporations pay the full effective tariff rate as a margin penalty:
+Foreign corporations pay **half** the effective tariff rate as a margin penalty, not the full rate:
 
 ```typescript
-// getForeignTariffMarginModifier():89-106
-const rate = getEffectiveTariffRate(tariffs, sectorCountryId, sectorType, corpHqCountryId, corpId);
+// getForeignTariffMarginModifier():283-305
+const rate = getEffectiveTariffRate(tariffs, sectorCountryId, sectorType, corpHqCountryId, corpId, activeFtaPairs);
 if (rate === 0) return 0;
-return -rate; // -rate percentage points
+// Halved: a 40% tariff gives -20pp margin penalty, not -40pp.
+// Full 1:1 ratio made tariffs too punitive for foreign corps operating
+// in the tariff country, effectively killing their margins.
+return -rate / 2;
 ```
 
-**Example:** 25% tariff → -25pp margin modifier
+**Example:** 25% tariff → -12.5pp margin modifier
 
 ### Domestic Corporations
 
@@ -231,11 +248,12 @@ await db.collection<Tariff>("tariffs").updateOne(
 | File                                    | Purpose                                   |
 | --------------------------------------- | ----------------------------------------- |
 | `src/lib/tariffs/tariffEffects.ts`      | All tariff effect calculations            |
+| `src/lib/tariffs/ftaOverrides.ts`       | Free trade agreement pair loading + lookup |
 | `src/lib/budget/fiscalYear.ts`          | Tariff rate application in budget context |
 | `src/app/api/bills/[id]/enact/route.ts` | Tariff provision enactment                |
 
 ## Related Documentation
 
-- [[Commodities]] — Commodity pricing, blend weights, margin modifiers
-- [[Subsidies]] — Domestic industry support (counterpart to tariffs)
-- [[Legislation System]] — Bill enactment process
+- [[Commodities]], Commodity pricing, blend weights, margin modifiers
+- [[Subsidies]], Domestic industry support (counterpart to tariffs)
+- [[Legislation System]], Bill enactment process

@@ -323,6 +323,68 @@ options?: {
 - Approval scalars pre-calculated in approvalMap
 - Demographic categories fetched once per election
 
+## Swing-Flow Driver Modifiers
+
+The swing-flow engine (`voteDistributionSwingFlow.ts`) layers several driver modules on top of the base appeal/reach/approval calculation. Each is optional (no-ops when its inputs are absent) and each has its own dedicated file under `src/lib/electionEngine/`.
+
+### Coattails (`coattailMagnitude.ts`, `govCoattail.ts`, `presidentialCoattail.ts`)
+
+A sitting executive's approval swings a nominal-share multiplier for their own party in every eligible down-ballot general in scope, governor coattails at state scope, presidential coattails at national scope. Shared math (`coattailMagnitude.ts`):
+
+```typescript
+approvalCoattailMultiplier(approval) =
+  1 + clamp((approval - BASE_APPROVAL) / COATTAIL_APPROVAL_SATURATION, -1, 1) × COATTAIL_MAX_BONUS
+```
+
+An executive exactly at `BASE_APPROVAL` (the neutral approval baseline) contributes 1.0× (no-op); above it the party's races get a lift, up to `COATTAIL_MAX_BONUS` at `COATTAIL_APPROVAL_SATURATION` points above baseline; below it, an equal-magnitude drag. `govCoattail.ts` resolves the sitting regional executive per state (preferring the damped stored `stateApprovalHistory` snapshot over a live recompute) and excludes the executive's own race (no self-coattail) and the head-of-government race itself. `presidentialCoattail.ts` mirrors this at national scope, reading the sitting President's party and stored national approval; currently US-only (`HEAD_OF_GOVERNMENT_TYPE_BY_COUNTRY = { US: "president" }`), since non-US heads of government (UK PM, DE chancellor, JP shugiin) aren't wired in yet. Coattails apply as a **nominal-share multiplier**, not as a persuasion-driver component, kept separate so they don't get double-counted against the incumbency driver below.
+
+### Median-Voter Driver (`medianVoter.ts`)
+
+Replaces the policy-distance driver's old hard-coded `(0, 0)` centrism reference with the state's actual turnout-weighted median voter: `computeMedianVoter()` averages each demographic group's economic/social lean, weighted by `categoryWeight × populationPct × turnoutPct`. It is a weighted average, not a true statistical median, deliberate, since per-voter modeling isn't part of this engine. For US presidential races specifically, `computeNationalEvWeightedMedian()` aggregates each state's median EV-weighted (a 55-EV state pulls the national signal 55× harder than a 3-EV state) rather than population-weighted, reflecting that campaigns court the Electoral College map, not raw population. `usesEvWeightedNationalMedian()` gates this to US president only; other head-of-government races still use the state/national default. Zero-weight or mirror-symmetric inputs return the neutral `{ ep: 0, sp: 0 }`.
+
+### Persuasion Drivers (`persuasionDrivers.ts`)
+
+`persuasionDrivers(pj, pi, ...)` sums four independently-budgeted components into a signed `[-1, +1]` contribution describing how much of `pi`'s marginal support swings toward `pj`:
+
+| Component | Budget | Shape |
+| --- | --- | --- |
+| Candidate Support delta | `SUPPORT_DELTA_BUDGET = 0.30` | Linear on the Support-stat gap between the two parties' representative candidates |
+| Policy distance | `POLICY_DISTANCE_BUDGET = 0.15` | Distance from the median voter (see above), normalized to the ±4 grid; closer-to-median party gets the positive side |
+| Money | `MONEY_BUDGET = 0.20` | log10 ratio of campaign funds, saturating at a 10× advantage |
+| Incumbency | `INCUMBENCY_BUDGET = 0.10` | See the 3-way split below |
+
+Budgets sum to 0.75, deliberately under the `[-1, +1]` aggregate clamp so the clamp only activates on driver pile-on, not by structural design. The "representative candidate" for a party in multi-seat races is whichever candidate has the highest Support.
+
+### Party-Tenure Fatigue (`partyTenureFatigue.ts`)
+
+A thermostatic "time for a change" drag applied to a party that has held the executive office for multiple consecutive terms, subtracted **after** the approval shield/drag is computed and capped (so it bites even a popular incumbent sitting at the shield cap):
+
+```typescript
+TENURE_FATIGUE_PER_TERM = 0.035  // 3.5 budget-pts per term beyond the first
+partyTenureFatiguePenalty(consecutiveTerms) = max(0, floor(consecutiveTerms) - 1) × TENURE_FATIGUE_PER_TERM
+```
+
+A party seeking its 2nd term (1 term held) pays 0; 3rd term (2 held) pays −3.5pp; 4th term pays −7.0pp; and so on, +3.5pp per additional term. Folded into the incumbency driver's net value before the shield/drag is applied to challengers.
+
+### Midterm Opposition Boost (`midtermOppositionBoost.ts`)
+
+A modest nominal-share counterweight, `MIDTERM_OPPOSITION_MULTIPLIER = 1.05`, applied to every party **outside** national government (including independents) in elections eligible for it, currently gated to UK Regional Council midterms (`isUKRegionalCouncilMidterm()`). Coalition/confidence partners resolved as governing parties stay neutral; an unresolved or vacant government no-ops instead of boosting everyone. Applied as a `midtermOppositionModifierByParty` multiplier in `voteDistributionSwingFlow.ts`, alongside the coattail and reg-baseline/resistance tilts.
+
+### The 3-Way Incumbency Split (`incumbentSeatShare.ts`, `persuasionDrivers.ts`)
+
+The incumbency driver branches on race type, in priority order:
+
+1. **Single-winner executive own-race** (`incumbentPartyId` set, governor, president, etc.): full-magnitude directional shield/drag scaled by the sitting executive's approval via the **executive approval curve**:
+   ```typescript
+   approvalAdjustedIncumbencyBudget(approval, pivot = INCUMBENCY_APPROVAL_PIVOT) =
+     approval >= pivot
+       ? min(INCUMBENCY_SHIELD_MAX, (approval - pivot) × INCUMBENCY_APPROVAL_SLOPE)
+       : -min(INCUMBENCY_DRAG_MAX, (pivot - approval) × INCUMBENCY_APPROVAL_SLOPE)
+   ```
+   `INCUMBENCY_APPROVAL_PIVOT = 46`, `INCUMBENCY_SHIELD_MAX = INCUMBENCY_DRAG_MAX = 0.1` (±10pp), `INCUMBENCY_APPROVAL_SLOPE = 0.01`. The pivot sits below the live national mean, so most incumbents get a smaller shield and only the weakest (~44-46 approval) tip into a mild drag. The party-tenure fatigue penalty is subtracted from this budget before the net is applied.
+2. **Single-seat legislative own-race** (`legislativeIncumbentPartyId` set, US Senate): a flat, officeholder-based shield that ignores approval/favorability (already priced in elsewhere) and never becomes a drag: `LEGISLATIVE_INCUMBENCY_SHIELD = 0.06` (+6pp), decaying `LEGISLATIVE_TENURE_FATIGUE_PER_TERM = 0.01` per term beyond the first, floored at `LEGISLATIVE_INCUMBENCY_MIN = 0.01` (+1pp permanent floor).
+3. **Multi-seat / legislature fallback** (`incumbentSeatShareByParty` map, from `incumbentSeatShare.ts`): the prior cycle's per-party seat-share (computed by `computeSeatShareFromTally()` from the last resolved tally on the same seat key) scales the shield linearly: `(shareJ − shareI) × INCUMBENCY_BUDGET`. Used for proportional/multi-seat races (US House, UK Regional Council, JP Shugiin/Sangiin, DE Bundestag). Single-seat races deliberately do NOT use this fallback, a two-candidate vote split isn't a meaningful "incumbent share" signal, and returns an empty map (⇒ 0 driver contribution) when there's no prior resolved election on the same seat key.
+
 ## Related Systems
 
 - **Turn Processing:** `src/simulation/phases/turnPhaseRegistry.ts` - Orchestrates election phases

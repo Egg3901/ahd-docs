@@ -1,4 +1,4 @@
-# China (CN) — System Design
+# China (CN), System Design
 
 ## Overview
 
@@ -44,7 +44,7 @@ parties cannot initiate confidence votes. Runtime gates in
 
 Files: `src/lib/turn/rulingPartyPriorities.ts`, `src/lib/turn/rulingPartyConfidenceTurn.ts`
 
-The subsystem is country-agnostic — the priority profile and policy-axis
+The subsystem is country-agnostic, the priority profile and policy-axis
 effects map for CN live on `COUNTRY_CONFIGS.CN.priorityProfile` and
 `COUNTRY_CONFIGS.CN.policyAxisEffects`. See
 [`docs/design/ruling-party-confidence.md`](./ruling-party-confidence.md)
@@ -68,7 +68,11 @@ File: `src/lib/turn/cnRegionalBudget.ts`
 
 2. **Central transfer grant** (中央转移支付): Finance Minister
    (`CN_minister_of_finance` cabinet setting) sets allocation percentages.
-   Defaults to an equal 1/7th split of a ¥4,000/person national pool (~¥5T total).
+   Defaults to an equal 1/7th split of a national pool sized by
+   `centralTransferPerCapita: 35` (`COUNTRY_CONFIGS.CN.onePartyRegionalBudget`,
+   `src/lib/constants/countries.ts`) × national population, a flat per-capita
+   figure, not the generic 4,000 default used elsewhere. Era overrides (e.g.
+   the 1953 seed) rescale it further (`centralTransferPerCapita: 2.77`).
 
 **Austerity**: Regions in deficit for more than one turn have their most
 expensive programme downgraded one tier, matching UK and JP behaviour.
@@ -85,8 +89,18 @@ legislation moves them.
 
 ## Regions
 
-7 macro-regions replace 31 provincial-level divisions for gameplay:
-NORTHEAST, NORTH, EAST, CENTRAL, SOUTH, SOUTHWEST, NORTHWEST.
+7 macro-regions replace 31 provincial-level divisions for gameplay
+(`src/lib/constants/cn.ts`), named with pinyin, not English:
+
+| Code | Pinyin name | English gloss    |
+| ---- | ----------- | ----------------- |
+| DB   | Dongbei     | Northeast          |
+| HB   | Huabei      | North (Beijing)    |
+| HD   | Huadong     | East (Shanghai)    |
+| HZ   | Huazhong    | Central (Wuhan)    |
+| HN   | Huanan      | South              |
+| XN   | Xinan       | Southwest          |
+| XB   | Xibei       | Northwest          |
 
 Total NPC seats: 2,980. Total CPPCC seats: 2,169.
 

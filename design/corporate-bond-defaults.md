@@ -218,8 +218,8 @@ export function previewDissolveSettlement(
 
 ### Payout Priority
 
-1. **Bond holders** — Paid first from `bondRecoveryPool` (up to total bond claims)
-2. **Shareholders** — Receive `shareholderPool` (remaining assets after bond claims)
+1. **Bond holders**, Paid first from `bondRecoveryPool` (up to total bond claims)
+2. **Shareholders**, Receive `shareholderPool` (remaining assets after bond claims)
 
 | Scenario      | Bond Recovery | Shareholder Recovery |
 | ------------- | ------------- | -------------------- |
@@ -299,15 +299,28 @@ if (options?.previousCompositeScore != null && options.previousCompositeScore > 
 
 ### Rating Thresholds
 
+`CREDIT_RATING_SPREADS` (`src/lib/db/types/centralBank.ts`) gives the base spread over prime by tier; corporate coupons add two more legs on top (see below).
+
 | Rating | Threshold | Spread (over prime) |
 | ------ | --------- | ------------------- |
-| AAA    | 85+       | 0.5%                |
-| AA     | 70+       | 1.0%                |
-| A      | 55+       | 2.0%                |
-| BBB    | 40+       | 3.5%                |
-| BB     | 25+       | 5.5%                |
-| B      | 15+       | 8.0%                |
-| CCC    | 0+        | 12.0%               |
+| AAA    | 85+       | 0%                  |
+| AA     | 70+       | 0.5%                |
+| A      | 55+       | 1.5%                |
+| BBB    | 40+       | 3%                  |
+| BB     | 25+       | 5%                  |
+| B      | 15+       | 8%                  |
+| CCC    | 0+        | 12%                 |
+
+### Corporate Coupon Rate
+
+`getBondCouponRate` (`src/lib/constants/bonds.ts`) builds the actual **corporate** bond coupon from four legs, not the tier spread alone:
+
+```
+couponRate = primeRate + CREDIT_RATING_SPREADS[rating] + CORPORATE_BOND_SPREAD_PREMIUM + termPremium
+```
+
+- `CORPORATE_BOND_SPREAD_PREMIUM` = 1.0pp, added on every corporate issuance (sovereign/treasury issuance skips this leg and uses prime + tier spread alone).
+- `termPremium` comes from `CORPORATE_BOND_TERM_PREMIUMS`, keyed by maturity in turns: 0pp at 48 and 96 turns, 1.0pp at 240 turns, 1.75pp at 336 turns.
 
 ## Key Files
 
@@ -322,6 +335,6 @@ if (options?.previousCompositeScore != null && options.previousCompositeScore > 
 
 ## Related Documentation
 
-- [[Corporations]] — Bond issuance, sector NPV, corporate finance
-- [[Sovereign Bonds]] — Government debt (cannot default)
-- [[Stock Market]] — Bond trading interface, market dynamics
+- [[Corporations]], Bond issuance, sector NPV, corporate finance
+- [[Sovereign Bonds]], Government debt (cannot default)
+- [[Stock Market]], Bond trading interface, market dynamics

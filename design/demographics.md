@@ -2,9 +2,11 @@
 
 ## Overview
 
-The demographic system drives election vote calculations and polling. Each state has demographic data with **12 voter archetypes** — mutually exclusive groups derived from Layer 1 (census-style) characteristics. Candidate appeal is computed by comparing policy positions to group preferences.
+**The electorate that actually casts votes is the granular Layer-1 electorate, not the 12 archetypes.** Every country runs on a lattice of granular demographic cells (the cross-product of Layer-1 census dimensions, race, age, education, wealth in the US; ethnicity, income, urbanization variants abroad), IPF-raked to each state's census marginals. This is the live vote path everywhere; there is no flag-gated archetype fallback left in the tally engine. See [Granular Electorate (as shipped)](./granular-electorate-as-shipped.md) for the authoritative description; `src/lib/demographics/granularElectorate.ts` is the core.
 
-## Structure (12 Archetypes)
+The 12 US voter archetypes described below are **legacy authoring vocabulary, not the live electorate**. Gameplay systems that were written against them (character/NPP `archetypeApprovals`, legislation `demographicEffects`, Address-driven party-group favorability, GOTV/canvassing modifiers) still author effects keyed by archetype id, and `src/lib/demographics/archetypeBucketMap.ts` projects each archetype onto 2-3 Layer-1 census buckets so those effects still land on the real (cell-based) electorate. Archetypes themselves have no independent vote-share logic any more. See [Archetype Approvals](./archetype-approvals.md) for the deprecated-field detail.
+
+## Structure (12 Archetypes, legacy authoring vocabulary)
 
 ### Voter Groups (single category)
 
@@ -25,7 +27,7 @@ One category `voterGroups` with 12 mutually exclusive archetypes:
 | new_immigrants        | New Americans         | -2   | -1     | 42%     |
 | secular_professionals | Secular Professionals | -3   | -4     | 74%     |
 
-> **Note:** State ideology composition modulates leans for retirees, soccer moms, union & trades, and rural traditionalists — their actual values shift slightly based on how conservative or progressive each state is.
+> **Note:** State ideology composition modulates leans for retirees, soccer moms, union & trades, and rural traditionalists, their actual values shift slightly based on how conservative or progressive each state is.
 
 Groups have `defaultEconomicLean`, `defaultSocialLean`, and `defaultTurnout`.
 
@@ -35,31 +37,31 @@ Per state (`StateDemographics`):
 
 - **categoryWeights**: `{ voterGroups: 100 }`
 - **groups**: `Record<groupId, StateDemographicGroup>`
-  - `population`: 0–100 (percentage of state; all 12 sum to 100)
+  - `population`: 0-100 (percentage of state; all 12 sum to 100)
   - `economicLean`: -5 to +5 (derived from defaults + ideology modulation)
   - `socialLean`: -5 to +5 (derived from defaults + ideology modulation)
 
 ### Derivation
 
-Group sizes and leans are derived from Layer 1 (race, education, wealth, age, ideology) via weighted formulas. No manual per-state data entry — all values come from census-style config. See `src/lib/seeds/stateDemographics.ts`.
+Group sizes and leans are derived from Layer 1 (race, education, wealth, age, ideology) via weighted formulas. No manual per-state data entry, all values come from census-style config. See `src/lib/seeds/stateDemographics.ts`.
 
 **Ideology modulation:** For four swing groups, leans shift based on the state's conservative/progressive ideological composition:
 
-- **Retirees** — lean more conservative in high-evangelical/patriot states
-- **Soccer Moms** — lean slightly left in high-progressive states
-- **Union & Trades** — economic lean shifts with progressive vs. patriot balance
-- **Rural Traditionalists** — social lean shifts with overall conservative density
+- **Retirees**, lean more conservative in high-evangelical/patriot states
+- **Soccer Moms**, lean slightly left in high-progressive states
+- **Union & Trades**, economic lean shifts with progressive vs. patriot balance
+- **Rural Traditionalists**, social lean shifts with overall conservative density
 
 ### Vote / Appeal Calculation (Phase 1: Group-Level Competitive Allocation)
 
-Shared formula in `src/lib/utils/demographicAppeal.ts`, used by `electionEngine.ts`, poll route, and NPP dropout:
+Shared formula in `src/lib/utils/demographicAppeal.ts`, used by the election engine, poll route, and NPP dropout. "Group" here means a granular Layer-1 unit (or, for legacy-keyed inputs, the archetype projected onto units, see Overview above):
 
 1. For each category, for each group: get state population share, group lean, turnout
-2. **Reach**: `politicalInfluence / 100` — fraction of turned-out voters the candidate reaches
-3. **Appeal**: Quadratic position (50 − |econDiff|×5 − |socialDiff|×5)²/100 + (politicalInfluence/100)×25 — max 50
+2. **Reach**: `normalizeNPI(politicalInfluence)`, sqrt curve mapping influence to a 0-1 fraction of turned-out voters the candidate reaches, hard-capped at 1.0 once influence reaches 100
+3. **Appeal**: position score `25 × (positionRaw/50)^1.5 + APPEAL_POSITION_FLOOR`, where `positionRaw = max(0, 50 − |econDiff|×5 − |socialDiff|×5)` and the exponent `APPEAL_POSITION_EXPONENT = 1.5` is the live default (the old γ=2 squared curve is a special case, not the default), plus a **directional bonus** of up to `DIRECTION_BONUS_PER_AXIS = 5` per axis (EP, SP) for a candidate whose lean matches the group's lean direction, ramping continuously from a center credit rather than a hard cliff, plus `normalizeNPI(politicalInfluence) × 12.5` when influence is included in appeal (presidential races), max ~50 total (position ~25 + influence ~25)
 4. **Group-level allocation**: Each group contributes to the turn pool proportionally to its size. Within each group, candidates split that contribution by relative `(appeal × reach × approval × partyOrg)`. Groups vote as blocs.
-5. **Approval scalar**: `favorability / 100` — voters won't support candidates they don't approve of
-6. **Party org scalar**: 0.5 + (organization/100)×0.5 — higher state party org = better mobilization
+5. **Approval scalar**: `(favorability / 100)^0.8` (`APPROVAL_SCALAR_EXPONENT`), voters won't support candidates they don't approve of; 0% approval = 0 votes
+6. **Party org scalar** (general elections): `normalizedOrgShare ^ 0.2` (`ORG_WEIGHT_EXPONENT`), a party's normalized share of statewide Org, diminishing returns; primaries use a uniform neutral 1×
 7. **Final votes**: Sum over groups of each candidate's share from that group
 
 ## Policy Positions
@@ -94,7 +96,7 @@ State lean is computed from demographics for display on state pages and the map 
 
 Used for: state page top stats bar, map Political Lean mode (blue/red shading), state panel on map.
 
-> The lean display scale is separate from election mechanics — elections use raw position differences (−5..+5) directly, not the display lean.
+> The lean display scale is separate from election mechanics, elections use raw position differences (−5..+5) directly, not the display lean.
 
 ## State-Level Demographic Turnout
 
@@ -231,35 +233,35 @@ Demographic turnout processing occurs in **sequential order** during turn proces
 
 **Core Logic**:
 
-- `src/lib/turn/demographicTurnoutTurn.ts` — Turn processing (decay, GOTV, canvassing)
-- `src/lib/utils/turnoutDecay.ts` — 2% decay formula with threshold rounding
-- `src/lib/utils/demographicAlignment.ts` — Party GOTV alignment filtering
-- `src/lib/utils/diminishingReturns.ts` — Diminishing returns calculation
+- `src/lib/turn/demographicTurnoutTurn.ts`, Turn processing (decay, GOTV, canvassing)
+- `src/lib/utils/turnoutDecay.ts`, 2% decay formula with threshold rounding
+- `src/lib/utils/demographicAlignment.ts`, Party GOTV alignment filtering
+- `src/lib/utils/diminishingReturns.ts`, Diminishing returns calculation
 
 **Election Integration**:
 
-- `src/lib/seeds/stateDemographics.ts` — `deriveGroupTurnout` (applies state modifiers), `computeLiveGroupTurnouts` (fetches state modifiers from DB)
+- `src/lib/seeds/stateDemographics.ts`, `deriveGroupTurnout` (applies state modifiers), `computeLiveGroupTurnouts` (fetches state modifiers from DB)
 
 **API Routes**:
 
-- `src/app/api/canvassing/route.ts` — Player canvassing endpoint
-- `src/app/api/admin/party-budget/route.ts` — Party budget management
-- `src/app/api/state/[id]/turnout/route.ts` — View turnout data
+- `src/app/api/canvassing/route.ts`, Player canvassing endpoint
+- `src/app/api/admin/party-budget/route.ts`, Party budget management
+- `src/app/api/state/[id]/turnout/route.ts`, View turnout data
 
 **UI Components**:
 
-- `src/app/campaign/[id]/components/CanvassingPanel.tsx` — Canvassing interface
-- `src/app/state/[id]/components/TurnoutDisplay.tsx` — Turnout visualization
+- `src/app/campaign/[id]/components/CanvassingPanel.tsx`, Canvassing interface
+- `src/app/state/[id]/components/TurnoutDisplay.tsx`, Turnout visualization
 
 **Types & Collections**:
 
-- `src/lib/db/types/stateDemographicTurnout.ts` — StateDemographicTurnout type
-- `src/lib/db/types/partyBudget.ts` — PartyBudget type (discriminated union)
-- `src/lib/db/collections.ts` — Collection getters
+- `src/lib/db/types/stateDemographicTurnout.ts`, StateDemographicTurnout type
+- `src/lib/db/types/partyBudget.ts`, PartyBudget type (discriminated union)
+- `src/lib/db/collections.ts`, Collection getters
 
 **Tests**:
 
-- `tests/integration/demographicTurnout.test.ts` — Integration test suite
+- `tests/integration/demographicTurnout.test.ts`, Integration test suite
 
 ## How Demographics Affect Gameplay
 
@@ -275,6 +277,6 @@ Demographic turnout processing occurs in **sequential order** during turn proces
 
 ## Related Documentation
 
-- [[Election Mechanics]] — Vote accumulation, primary score
-- [[Stats & Actions]] — Poll actions
-- [[Technical Architecture]] — Collections: demographicCategories, stateDemographics
+- [[Election Mechanics]], Vote accumulation, primary score
+- [[Stats & Actions]], Poll actions
+- [[Technical Architecture]], Collections: demographicCategories, stateDemographics
