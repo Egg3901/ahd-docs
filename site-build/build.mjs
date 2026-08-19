@@ -2,6 +2,15 @@ import { marked } from "marked";
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import { pipeline, env } from "@xenova/transformers";
+
+// ---------- semantic search: embedder config ----------
+const MODEL_ID = "Xenova/bge-small-en-v1.5";
+const XENOVA_CACHE = process.env.XENOVA_CACHE
+  || "/root/projects/LSGD-ops-dash/node_modules/@xenova/transformers/.cache";
+env.cacheDir = XENOVA_CACHE;
+// Prefer the local cache; only reach the network if the model is not already present.
+env.allowRemoteModels = !fs.existsSync(path.join(XENOVA_CACHE, MODEL_ID));
 
 const SRC = process.env.DOCS_SRC || new URL("..", import.meta.url).pathname;
 const GAME = process.env.GAME_REPO || "../AHDGame";
@@ -178,6 +187,20 @@ nav.side a{display:block;color:var(--ink);font-size:.86rem;padding:.22rem .6rem 
 nav.side a:hover{background:var(--code-bg);text-decoration:none}
 nav.side a.on{color:var(--crimson);font-weight:600;border-left-color:var(--crimson);background:color-mix(in srgb,var(--crimson) 7%,transparent)}
 nav.side .miss{display:none}
+#search-results{display:none;position:absolute;left:.9rem;right:.9rem;top:2.9rem;z-index:30;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:72vh;overflow-y:auto}
+#search-results.open{display:block}
+a.sr{display:flex;gap:.55rem;padding:.5rem .7rem;border-bottom:1px solid var(--line);color:var(--ink);align-items:flex-start}
+a.sr:last-child{border-bottom:0}
+a.sr:hover{background:var(--code-bg);text-decoration:none}
+.sr-b{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.14rem .4rem;border-radius:5px;
+  white-space:nowrap;background:var(--code-bg);color:var(--mut);margin-top:.1rem}
+.sr-b.wiki{color:#199e70}.sr-b.doc{color:var(--acc-link)}
+.sr-tx{display:flex;flex-direction:column;min-width:0}
+.sr-tx b{font-size:.85rem;font-weight:600;white-space:normal}
+.sr-tx b i{font-weight:400;color:var(--mut);font-style:normal}
+.sr-d{font-size:.75rem;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-note,.sr-empty{padding:.7rem .8rem;color:var(--mut);font-size:.8rem}
 
 main{padding:2.4rem 3.2rem 3rem;min-width:0}
 main .crumb{font-size:.78rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--crimson);margin-bottom:.4rem}
@@ -260,14 +283,6 @@ footer{color:var(--mut);font-size:.82rem;padding:2.4rem 0 .6rem;border-top:1px s
 `;
 
 const js = `
-const q=document.getElementById('filter');
-if(q){q.addEventListener('input',()=>{const v=q.value.trim().toLowerCase();
-  document.querySelectorAll('nav.side a[data-t]').forEach(a=>{a.classList.toggle('miss',v&&!a.dataset.t.includes(v))});
-  document.querySelectorAll('nav.side .grp').forEach(g=>{
-    let el=g.nextElementSibling,any=false;
-    while(el&&el.tagName==='A'){if(!el.classList.contains('miss'))any=true;el=el.nextElementSibling}
-    g.classList.toggle('miss',v&&!any)});
-  document.querySelectorAll('nav.side details').forEach(d=>{if(v)d.open=true});});}
 const mb=document.getElementById('menu-btn');
 if(mb)mb.addEventListener('click',()=>document.body.classList.toggle('nav-open'));
 const on=document.querySelector('nav.side a.on');if(on)on.scrollIntoView({block:'center'});
@@ -278,6 +293,77 @@ if(heads.length&&tocLinks.size){
     tocLinks.forEach(a=>a.classList.remove('on'));
     const a=tocLinks.get(e.target.id);if(a)a.classList.add('on');}})},{rootMargin:'-10% 0px -80% 0px'});
   heads.forEach(h=>io.observe(h));}
+`;
+
+// Client-side semantic search: instant lexical results, re-ranked by the bge
+// embedder once it lazy-loads (first search only; browser-cached after).
+const searchJs = String.raw`
+(function(){
+  var box=document.getElementById('filter'); if(!box) return;
+  box.placeholder='Search docs…';
+  var panel=document.createElement('div'); panel.id='search-results';
+  box.parentNode.appendChild(panel);
+  var INDEX=null, VECS=null, extractor=null, modelState='cold', DIM=384, timer=null;
+  function esc(s){return (s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function b64ToI8(b){var bin=atob(b),a=new Int8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=(bin.charCodeAt(i)<<24)>>24;return a;}
+  function loadIndex(){
+    if(INDEX) return Promise.resolve();
+    return fetch('/search-index.json').then(function(r){return r.json();}).then(function(j){
+      INDEX=j.items; VECS=INDEX.map(function(it){return b64ToI8(it.v);});
+    });
+  }
+  function lexical(q){
+    var terms=q.toLowerCase().split(/\s+/).filter(Boolean);
+    var out=[];
+    for(var i=0;i<INDEX.length;i++){
+      var it=INDEX[i], hay=(it.t+' '+it.hd+' '+it.d).toLowerCase(), sc=0;
+      for(var k=0;k<terms.length;k++){ if(hay.indexOf(terms[k])>=0)
+        sc+=(it.t.toLowerCase().indexOf(terms[k])>=0?3:0)+(it.hd.toLowerCase().indexOf(terms[k])>=0?2:0)+1; }
+      if(sc>0) out.push({i:i,sc:sc});
+    }
+    return out.sort(function(a,b){return b.sc-a.sc;});
+  }
+  function ensureModel(){
+    if(modelState!=='cold') return;
+    modelState='loading';
+    import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2').then(function(T){
+      T.env.allowRemoteModels=false; T.env.localModelPath='/models/';
+      try{T.env.backends.onnx.wasm.numThreads=1;}catch(e){}
+      return T.pipeline('feature-extraction','Xenova/bge-small-en-v1.5',{quantized:true});
+    }).then(function(ex){ extractor=ex; modelState='ready'; if(box.value.trim()) run(box.value); })
+      .catch(function(e){ modelState='failed'; console.warn('semantic model unavailable, lexical only',e); });
+  }
+  function semantic(q){
+    return extractor('Represent this sentence for searching relevant passages: '+q,{pooling:'mean',normalize:true})
+      .then(function(out){
+        var qv=out.data, scored=[];
+        for(var i=0;i<INDEX.length;i++){ var v=VECS[i],d=0; for(var k=0;k<DIM;k++) d+=qv[k]*(v[k]/127); scored.push({i:i,sc:d}); }
+        return scored.sort(function(a,b){return b.sc-a.sc;});
+      });
+  }
+  function render(list){
+    if(!list.length){ panel.innerHTML='<div class="sr-empty">No matches</div>'; panel.classList.add('open'); return; }
+    var seen={}, rows=[];
+    for(var n=0;n<list.length&&rows.length<14;n++){ var it=INDEX[list[n].i], key=it.h+it.a; if(seen[key])continue; seen[key]=1; rows.push(it); }
+    var note = modelState==='loading' ? '<div class="sr-note">Loading semantic search… showing keyword matches</div>' : '';
+    panel.innerHTML=note+rows.map(function(it){
+      var href=it.h+(it.a?('#'+it.a):'');
+      return '<a class="sr" href="'+href+'"><span class="sr-b '+it.k+'">'+esc(it.s)+'</span><span class="sr-tx"><b>'+esc(it.t)+(it.hd?(' <i>› '+esc(it.hd)+'</i>'):'')+'</b><span class="sr-d">'+esc(it.d)+'</span></span></a>';
+    }).join('');
+    panel.classList.add('open');
+  }
+  function run(q){
+    q=q.trim(); if(!q){ panel.classList.remove('open'); return; }
+    loadIndex().then(function(){
+      if(modelState==='ready') return semantic(q).then(render);
+      render(lexical(q));
+    });
+  }
+  box.addEventListener('focus',function(){ loadIndex(); ensureModel(); });
+  box.addEventListener('input',function(){ clearTimeout(timer); timer=setTimeout(function(){run(box.value);},130); });
+  box.addEventListener('keydown',function(e){ if(e.key==='Escape'){panel.classList.remove('open');box.blur();} });
+  document.addEventListener('click',function(e){ if(!panel.contains(e.target)&&e.target!==box) panel.classList.remove('open'); });
+})();
 `;
 
 // ---------- nav ----------
@@ -322,11 +408,11 @@ const shell = ({ title, body, activeHref, toc, desc }) => `<!doctype html><html 
   </span>
 </header>
 <div class="layout${toc ? " with-toc" : ""}">
-<nav class="side"><input id="filter" type="search" placeholder="Filter all pages…" autocomplete="off">${navHtml(activeHref)}</nav>
+<nav class="side"><input id="filter" type="search" placeholder="Search docs…" autocomplete="off">${navHtml(activeHref)}</nav>
 <main>${body}
 <footer><span>© Lakeside Games</span><a href="https://github.com/Egg3901/AHDGame">Source on GitHub</a><a href="https://www.ahousedividedgame.com">ahousedividedgame.com</a></footer>
 </main>
-${toc || ""}</div><script>${js}</script></body></html>`;
+${toc || ""}</div><script>${js}</script><script>${searchJs}</script></body></html>`;
 
 // ---------- render ----------
 fs.rmSync(OUT, { recursive: true, force: true });
@@ -381,6 +467,70 @@ for (let i = 0; i < pages.length; i++) {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, shell({ title: p.title, body, activeHref: p.href, toc, desc: p.desc }));
 }
+
+// ---------- semantic search index ----------
+const plain = s => s
+  .replace(/```[\s\S]*?```/g, " ").replace(/`[^`]*`/g, " ")
+  .replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+  .replace(/^[#>*_|\-\s]+/gm, " ").replace(/[#>*_|]/g, " ")
+  .replace(/\s+/g, " ").trim();
+
+// One chunk per H2/H3 section, plus the page intro. Each chunk becomes a
+// separately-embedded, separately-linkable search result.
+const chunkPage = p => {
+  const chunks = [];
+  let heading = "", anchorId = "", buf = [];
+  const flush = () => {
+    const body = plain(buf.join("\n"));
+    if (body.length > 24 || heading) chunks.push({ heading, anchorId, body });
+    buf = [];
+  };
+  for (const ln of p.md.split("\n")) {
+    const h = ln.match(/^(##|###)\s+(.+)$/);
+    if (h) { flush(); heading = h[2].replace(/[*`]/g, "").trim(); anchorId = anchor(heading); }
+    else buf.push(ln);
+  }
+  flush();
+  return chunks.length ? chunks : [{ heading: "", anchorId: "", body: plain(p.md) }];
+};
+
+const idxItems = [];
+for (const p of pages) {
+  for (const c of chunkPage(p)) {
+    idxItems.push({
+      p, c,
+      text: `${p.title}. ${c.heading ? c.heading + ". " : ""}${c.body}`.slice(0, 1600),
+    });
+  }
+}
+
+console.log(`embedding ${idxItems.length} chunks with ${MODEL_ID}…`);
+const extractor = await pipeline("feature-extraction", MODEL_ID, { quantized: true });
+const quant = f => { const b = Buffer.allocUnsafe(f.length); for (let i = 0; i < f.length; i++) { let v = Math.round(f[i] * 127); b[i] = (v > 127 ? 127 : v < -127 ? -127 : v) & 0xff; } return b.toString("base64"); };
+const BATCH = 32;
+const items = [];
+for (let i = 0; i < idxItems.length; i += BATCH) {
+  const batch = idxItems.slice(i, i + BATCH);
+  const out = await extractor(batch.map(b => b.text), { pooling: "mean", normalize: true });
+  for (let j = 0; j < batch.length; j++) {
+    const { p, c } = batch[j];
+    const vec = out.data.slice(j * 384, (j + 1) * 384);
+    items.push({
+      h: p.href, a: c.anchorId, k: p.kind === "wiki" ? "wiki" : "doc",
+      s: secLabel(p), t: p.title, hd: c.heading,
+      d: (c.body || p.desc || "").slice(0, 160), v: quant(vec),
+    });
+  }
+}
+fs.writeFileSync(path.join(OUT, "search-index.json"), JSON.stringify({ model: MODEL_ID, dim: 384, items }));
+
+// Vendor the model files so the browser embeds queries with zero external deps.
+const modelOut = path.join(OUT, "models", MODEL_ID);
+fs.mkdirSync(path.join(modelOut, "onnx"), { recursive: true });
+for (const rel of ["config.json", "tokenizer.json", "tokenizer_config.json", "onnx/model_quantized.onnx"]) {
+  fs.copyFileSync(path.join(XENOVA_CACHE, MODEL_ID, rel), path.join(modelOut, rel));
+}
+console.log(`search index: ${items.length} chunks -> search-index.json; model vendored -> models/${MODEL_ID}`);
 
 // ---------- homepage ----------
 const homeSec = (key, label, blurb) => {
