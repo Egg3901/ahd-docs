@@ -6,7 +6,7 @@ In-game messaging between player characters. Players can send, receive, and repo
 
 - **Access**: Click "Send Mail" on any character's profile page, which opens the Mail Composer Modal
 - **Fields**: Subject (max 80 chars), Body (max 1000 chars)
-- **Formatting**: Markdown-lite support — `**bold**` and `*italic*` rendered via `renderMailBody()` in `src/lib/utils/renderMailBody.tsx`
+- **Formatting**: Markdown-lite support - `**bold**` and `*italic*` rendered via `renderMailBody()` in `src/lib/utils/renderMailBody.tsx`
 - **Rate limit**: 1 message per minute per sender
 - **Requirement**: Both sender and recipient must have characters
 
@@ -113,6 +113,6 @@ CEOs can broadcast a message to all current shareholders of their corporation.
 
 ## Related
 
-- [[Getting Started]] — Overview of player features
-- [[Corporations]] — Shareholder Address feature
-- [[Core Systems]] — News system (similar player-content system)
+- [[Getting Started]] - Overview of player features
+- [[Corporations]] - Shareholder Address feature
+- [[Core Systems]] - News system (similar player-content system)

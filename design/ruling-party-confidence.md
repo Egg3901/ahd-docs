@@ -14,7 +14,7 @@ purge labels), see [`china.md`](./china.md).
 
 In a one-party state, the head of government is selected and retained
 by the ruling party rather than by direct popular vote. Their tenure
-depends on internal confidence — a numeric score (0–95) that drifts each
+depends on internal confidence - a numeric score (0-95) that drifts each
 turn based on:
 
 1. Policy alignment with the ruling-party's priorities (enacted bills'
@@ -25,14 +25,14 @@ turn based on:
 
 When confidence drops past thresholds, in-game consequences progress
 from "no effect" to "discipline loss" to "appointment resistance" to
-"forced crisis" — the lowest band signals a leadership transition risk.
+"forced crisis" - the lowest band signals a leadership transition risk.
 
 ## Components
 
 ### Priority profile (`RulingPartyPriorityProfile`)
 
 A 9-axis profile capturing the ruling party's ideology weights. Each
-axis has an `id`, `name`, `weight` (0–1, summing to 1.0), and a
+axis has an `id`, `name`, `weight` (0-1, summing to 1.0), and a
 `description`. Defined per country on
 `CountryConfig.priorityProfile`. Validated by
 `validatePriorityProfile()`.
@@ -49,25 +49,25 @@ time and folded into the country's drift score.
 
 Per-leader document in the `countryLeaderStates` collection, keyed by
 `${countryId}_${leaderObjectId}`. Carries the current `partyConfidence`
-(0–95), `renewalCount`, and a rolling history of up to 50 deltas with
+(0-95), `renewalCount`, and a rolling history of up to 50 deltas with
 turn, reason, and previous/next values for audit.
 
 ### Confidence bands
 
-- **secure** (≥80) — leadership solid
-- **stable** (≥65) — normal operation
-- **watchful** (≥50) — party paying attention
-- **strained** (≥35) — visible tensions
-- **crisis** (≥20) — leadership challenge risk
-- **critical** (<20) — forced transition path eligible
+- **secure** (≥80) - leadership solid
+- **stable** (≥65) - normal operation
+- **watchful** (≥50) - party paying attention
+- **strained** (≥35) - visible tensions
+- **crisis** (≥20) - leadership challenge risk
+- **critical** (<20) - forced transition path eligible
 
 ### Consequence ladder (`ConfidenceConsequenceLevel`)
 
-- **none** (≥50) — no penalty
-- **discipline_loss** (<50) — NPC discipline weakens
-- **challenge_risk** (<35) — internal challenge events become likely
-- **appointment_resistance** (<25) — cabinet appointments face delay
-- **forced_crisis** (<15) — special leadership-removal mechanics
+- **none** (≥50) - no penalty
+- **discipline_loss** (<50) - NPC discipline weakens
+- **challenge_risk** (<35) - internal challenge events become likely
+- **appointment_resistance** (<25) - cabinet appointments face delay
+- **forced_crisis** (<15) - special leadership-removal mechanics
   become eligible
 
 Today the consequence ladder is informational; consumers (NPC discipline
@@ -88,7 +88,7 @@ maps to a fixed confidence delta via `PURGE_SEVERITY_DELTA`:
 | extreme  | −15   |
 
 Inserted via admin endpoint `POST /api/admin/country/[code]/ruling-party-purge`.
-Consumed by `onePartyBillLifecycle` on the next turn — once consumed,
+Consumed by `onePartyBillLifecycle` on the next turn - once consumed,
 each event is marked `processed: true` so drift is not double-counted.
 
 ## Per-turn flow
@@ -109,11 +109,11 @@ for every one-party country:
 
 ## Lifecycle hooks
 
-- `installNewLeader(db, countryId, leaderId, officeType, partyId, turn)` —
+- `installNewLeader(db, countryId, leaderId, officeType, partyId, turn)`  - 
   fresh confidence of 75. Called when a new PM is seated.
-- `renewLeaderMandate(db, countryId, leaderId, ...)` — +5 bump (capped
+- `renewLeaderMandate(db, countryId, leaderId, ...)` - +5 bump (capped
   at 95). Called when the seated leader is confirmed for another term.
-- `adjustLeaderConfidence(db, countryId, leaderId, delta, reason, turn)` —
+- `adjustLeaderConfidence(db, countryId, leaderId, delta, reason, turn)`  - 
   arbitrary delta with history entry. Used by the turn driver and any
   future ad-hoc consumers.
 
@@ -143,7 +143,7 @@ To onboard a second one-party country (call it "XX"):
 4. If the country has a CN-style regional budget (local tax retention
    - central transfer), populate `XX.onePartyRegionalBudget` and call
      `processCNRegionalBudgets` from the country's turn phase. (File
-     name pending a future rename — the function reads the budget knobs
+     name pending a future rename - the function reads the budget knobs
      from config so the same processor handles XX.)
 5. Seed parties with `regimeStatus` values (one `"ruling"`, others
    `"approved"` or `"banned"`).

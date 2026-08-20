@@ -4,12 +4,12 @@ Your character has personal **economic** and **social** policy positions on a �
 
 ## Personal positions
 
-- **Economic axis** — Left (negative) to right (positive) on fiscal and regulatory questions.
-- **Social axis** — Progressive (negative) to conservative (positive) on cultural and rights questions.
+- **Economic axis** - Left (negative) to right (positive) on fiscal and regulatory questions.
+- **Social axis** - Progressive (negative) to conservative (positive) on cultural and rights questions.
 
 You set starting positions at **character creation**. They matter for **election appeal**: candidates closer to a demographic group's lean tend to earn higher appeal with that group during vote calculation (see [[Election Mechanics]] and [[Demographics & Targeting]]).
 
-## Changing your positions — policy shift
+## Changing your positions - policy shift
 
 Use the **policy shift** action from settings (API: `POST /api/settings/policy`):
 
@@ -28,12 +28,12 @@ Voting on bills **does not** automatically move your personal policy coordinates
 
 ## Viewing the policy landscape
 
-The **Policy** page (`/policy`) shows current **government** positions by legislation type — national or per-state — with human-readable option names. Use it to see the law as it stands, compare to your personal stance, and plan legislation or campaigns.
+The **Policy** page (`/policy`) shows current **government** positions by legislation type - national or per-state - with human-readable option names. Use it to see the law as it stands, compare to your personal stance, and plan legislation or campaigns.
 
 ## Related pages
 
-- [[Bills & Legislation]] — Provisions, votes, archetype approval impacts
-- [[Election Mechanics]] — How appeal and vote share work
-- [[Demographics & Targeting]] — Groups, leans, and turnout
-- [[Stats & Actions]] — Action economy and costs
-- [[National Metrics]] — Outcomes from enacted policy over time
+- [[Bills & Legislation]] - Provisions, votes, archetype approval impacts
+- [[Election Mechanics]] - How appeal and vote share work
+- [[Demographics & Targeting]] - Groups, leans, and turnout
+- [[Stats & Actions]] - Action economy and costs
+- [[National Metrics]] - Outcomes from enacted policy over time

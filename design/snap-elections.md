@@ -6,11 +6,11 @@ Presidential countries (US) and non-parliamentary federations without confidence
 
 ## Real-world grounding
 
-**United Kingdom (post-2022).** The 2011 Fixed-term Parliaments Act — which imposed a 14-day window after a successful no-confidence vote for an alternative government to form before an election was called — was repealed by the Dissolution and Calling of Parliament Act 2022. Today a PM may request dissolution from the monarch at any time; by convention they do so either after losing the confidence of the Commons or to capitalise on a favourable political moment. A successful no-confidence vote is politically binding but does not legally trigger an election on its own.
+**United Kingdom (post-2022).** The 2011 Fixed-term Parliaments Act - which imposed a 14-day window after a successful no-confidence vote for an alternative government to form before an election was called - was repealed by the Dissolution and Calling of Parliament Act 2022. Today a PM may request dissolution from the monarch at any time; by convention they do so either after losing the confidence of the Commons or to capitalise on a favourable political moment. A successful no-confidence vote is politically binding but does not legally trigger an election on its own.
 
 **Japan (Article 69).** If the Shūgiin passes a no-confidence resolution (or fails to pass a government-backed confidence motion), the Cabinet must within ten days either resign en masse or dissolve the Shūgiin. Historically dissolution has been the more common response (Ōhira 1980, Miyazawa 1993, Mori 2000 abstained, Abe 2014 preemptively dissolved).
 
-The game captures both traditions through a single mechanic: any PM vacancy — however it arises — starts a 96-turn (= 96 real-time-hour, ≈ 2-game-year) clock. If no new PM is seated before the clock expires, the lower chamber is automatically dissolved and a fresh election is called. Sitting PMs can also trigger a snap election voluntarily, up to 2 per appointment, gated by a 336-turn cooldown.
+The game captures both traditions through a single mechanic: any PM vacancy - however it arises - starts a 96-turn (= 96 real-time-hour, ≈ 2-game-year) clock. If no new PM is seated before the clock expires, the lower chamber is automatically dissolved and a fresh election is called. Sitting PMs can also trigger a snap election voluntarily, up to 2 per appointment, gated by a 336-turn cooldown.
 
 ## Eligibility
 
@@ -20,10 +20,10 @@ A country is eligible for snap elections when `COUNTRY_CONFIGS[countryId].snapEl
 | ------- | -------------------- | ---------------- | ------------------ |
 | UK      | ✅                   | `commons`        | `snap_commons`     |
 | JP      | ✅                   | `shugiin`        | `snap_shugiin`     |
-| US      | ❌                   | —                | n/a                |
-| DE      | ❌                   | —                | n/a                |
+| US      | ❌                   | -                | n/a                |
+| DE      | ❌                   | -                | n/a                |
 
-Upper chambers (UK Lords, JP Sangiin) are explicitly excluded — Sangiin's `snapElectionsAllowed: false` is a hard gate; Lords are not elected.
+Upper chambers (UK Lords, JP Sangiin) are explicitly excluded - Sangiin's `snapElectionsAllowed: false` is a hard gate; Lords are not elected.
 
 ## Player trigger: `/api/country/[code]/pm/snap-election`
 
@@ -40,10 +40,10 @@ Only the sitting PM (matched by `governmentFormations.pmCharacterId`) may call t
 **Effects (on success, in order):**
 
 1. All active/upcoming regular lower-chamber elections for the country are set to `status: "cancelled"`.
-2. **In-progress bills whose `currentChamber` is the lower chamber** (`proposed`, `active`, `passed_origin`, `active_other`, `override_shugiin`, `veto_override`, `vetoed`) are set to `status: "failed"`. Bills currently in the upper chamber (Lords, Sangiin), in JP `cabinet_review`, or `enrolled` are preserved — their chambers are not dissolved.
+2. **In-progress bills whose `currentChamber` is the lower chamber** (`proposed`, `active`, `passed_origin`, `active_other`, `override_shugiin`, `veto_override`, `vetoed`) are set to `status: "failed"`. Bills currently in the upper chamber (Lords, Sangiin), in JP `cabinet_review`, or `enrolled` are preserved - their chambers are not dissolved.
 3. One `snap_${lowerChamberKey}` election is spawned per region (active status, primary opens immediately, 48-hour window: 24h primary + 24h general).
 4. `governmentFormations.snapElectionsUsed` is incremented; `lastSnapElectionTurn` set to `currentTurn`.
-5. **The sitting Prime Minister is vacated** via `unformGovernmentAndVacatePM` — `pmCharacterId` and `pmName` cleared, cabinet cleared, `currentOffice` cleared on the character and NPP docs, government status transitions to `pending`, and the 96-turn PM-vacancy clock is re-armed.
+5. **The sitting Prime Minister is vacated** via `unformGovernmentAndVacatePM` - `pmCharacterId` and `pmName` cleared, cabinet cleared, `currentOffice` cleared on the character and NPP docs, government status transitions to `pending`, and the 96-turn PM-vacancy clock is re-armed.
 6. Government cycle/seat counters are updated via `resetParliamentaryGovernmentAfterElection`.
 7. A Discord game event is emitted.
 
@@ -51,8 +51,8 @@ Only the sitting PM (matched by `governmentFormations.pmCharacterId`) may call t
 
 When a lower-chamber general election resolves (regular or snap) in any country with a configured `lowerChamber.key`, the turn processor invokes two helpers in `runPostElectionGovernmentPhases`:
 
-- `failInProgressBills(db, countryId, now)` — fails every bill whose `currentChamber === lowerChamberKey` and whose status is one of `proposed`, `active`, `passed_origin`, `active_other`, `override_shugiin`, `veto_override`, `vetoed`. Bills in the upper chamber, in JP `cabinet_review`, or `enrolled` are preserved.
-- `cancelActiveNoConfidenceVotes(db, countryId, now)` — cancels every active VONC for the country. No-op for countries that don't use VONC (e.g., US).
+- `failInProgressBills(db, countryId, now)` - fails every bill whose `currentChamber === lowerChamberKey` and whose status is one of `proposed`, `active`, `passed_origin`, `active_other`, `override_shugiin`, `veto_override`, `vetoed`. Bills in the upper chamber, in JP `cabinet_review`, or `enrolled` are preserved.
+- `cancelActiveNoConfidenceVotes(db, countryId, now)` - cancels every active VONC for the country. No-op for countries that don't use VONC (e.g., US).
 
 For parliamentary countries (UK, JP), the existing `resetParliamentaryGovernmentAfterElection` call still runs after these helpers.
 
@@ -60,7 +60,7 @@ This fires for: `house` (US), `commons` + `snap_commons` (UK), `shugiin` + `snap
 
 ## Auto-trigger: 96-turn PM vacancy deadline
 
-When `governmentFormations.status` transitions into `pending` — regardless of cause (post-election reset, no-confidence pass, admin PM vacate) — the turn processor sets `pmVacancyDeadlineTurn = currentTurn + 96`.
+When `governmentFormations.status` transitions into `pending` - regardless of cause (post-election reset, no-confidence pass, admin PM vacate) - the turn processor sets `pmVacancyDeadlineTurn = currentTurn + 96`.
 
 A new turn phase (`parliamentaryVacancyWatcher`) runs once per turn after the regular parliamentary government phases. For each country with:
 
@@ -93,7 +93,7 @@ The cycle counter continues incrementing: a snap that resolves at cycle `N` is f
 
 ### Implementation
 
-- **`ensureUKElections` / `ensureJPElections`** query both the regular and snap types when determining "most recent completed election" per region. When the most recent is a snap, the cycle-gap check uses the snap's `endTime + cyclePeriod` before permitting a new regular election to spawn, and the regular election's `durationHours` is always the regular cycle duration — never inherited from the snap's 48h.
+- **`ensureUKElections` / `ensureJPElections`** query both the regular and snap types when determining "most recent completed election" per region. When the most recent is a snap, the cycle-gap check uses the snap's `endTime + cyclePeriod` before permitting a new regular election to spawn, and the regular election's `durationHours` is always the regular cycle duration - never inherited from the snap's 48h.
 - **`canonicalTurns` in `recalibrate-timers`** accepts an optional `priorEndTurn`. For `commons`, `regionalCouncil`, and `shugiin`, when a prior (regular-or-snap) election exists for the same region, the anchor is `priorEndTurn + cyclePeriodHours` instead of the bootstrap-derived default. The admin UI mirrors the same rule in `canonicalEndTurn`.
 
 ## What a snap does **not** touch
@@ -108,13 +108,13 @@ Adding a new parliamentary country requires only three config changes:
 
 1. `COUNTRY_CONFIGS[X].snapElectionsAllowed = true`.
 2. `COUNTRY_CONFIGS[X].legislature.lowerChamber.key = "<key>"`.
-3. A matching `snap_<key>` entry in `DEFAULT_DURATIONS` (`src/lib/turn/perpetualElections.ts`) — or rely on the `snap_lowerChamber` fallback.
+3. A matching `snap_<key>` entry in `DEFAULT_DURATIONS` (`src/lib/turn/perpetualElections.ts`) - or rely on the `snap_lowerChamber` fallback.
 
 No new code paths are required. Labels, schemas, and admin tooling will display the raw `snap_<key>` string by default; add the country's snap type to `ELECTION_TYPE_LABEL_MAP`, `MULTI_SEAT_TYPES`, the admin Zod enum, and `electionsAdminTypes.ts` when you want pretty display.
 
 ## Related systems
 
-- [`parliamentary-government.md`](parliamentary-government.md) — PM appointment votes, no-confidence votes, coalition formation.
-- [`elections.md`](elections.md) — election lifecycle and resolution.
-- [`turn-processing.md`](turn-processing.md) — phase ordering; the vacancy watcher runs in Group 7/8 after regular government vote phases.
-- [`united-kingdom.md`](united-kingdom.md), [`japan.md`](japan.md) — country-specific governance.
+- [`parliamentary-government.md`](parliamentary-government.md) - PM appointment votes, no-confidence votes, coalition formation.
+- [`elections.md`](elections.md) - election lifecycle and resolution.
+- [`turn-processing.md`](turn-processing.md) - phase ordering; the vacancy watcher runs in Group 7/8 after regular government vote phases.
+- [`united-kingdom.md`](united-kingdom.md), [`japan.md`](japan.md) - country-specific governance.

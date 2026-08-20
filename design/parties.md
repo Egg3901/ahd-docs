@@ -85,10 +85,10 @@
 Each turn, characters receive funds from:
 
 - **Base rate**: By state population tier (small <2M: $5k/hr, medium: $10k, large: $20k, mega >20M: $40k)
-- **Donor base bonus**: +$500–$4,000/hr per level (scaled by state tier)
+- **Donor base bonus**: +$500-$4,000/hr per level (scaled by state tier)
 - **Office bonus**: House +$5k, State Senate +$3k, Senate +$15k, Governor +$20k, VP +$25k, President +$50k
 
-**Party members** pay taxes (0–33% each):
+**Party members** pay taxes (0-33% each):
 
 - **State tax** → state party treasury (set by State Chair)
 - **National tax** → national party treasury (set by National Chair)
@@ -221,9 +221,9 @@ After any recruitment, the entire party must wait 24 turns before recruiting aga
 
 Each state party (and national party) has three elected leadership positions:
 
-- **Chair** — highest authority; controls tax rate adjustments and treasury transfers
-- **Vice Chair** — second-in-command; assists with NPP influence operations
-- **Treasurer** — view-only treasury access
+- **Chair** - highest authority; controls tax rate adjustments and treasury transfers
+- **Vice Chair** - second-in-command; assists with NPP influence operations
+- **Treasurer** - view-only treasury access
 
 ### Elections
 
@@ -239,19 +239,19 @@ Each state party (and national party) has three elected leadership positions:
 - The admin Elections tab offers **Batch-Create** (spawn missing elections) and **Process Now** (force-resolve) controls
 - All admin appointments are written to the admin action log
 
-### Chair Office — Purge Member
+### Chair Office - Purge Member
 
 The national party Chair can expel a regular member from their party via the **Chair Office** tab.
 
 **Rules:**
 
 - Only the national Chair can initiate a purge.
-- Leadership roles (Vice Chair, Treasurer) cannot be purged — only regular members.
+- Leadership roles (Vice Chair, Treasurer) cannot be purged - only regular members.
 - **Cost to chair:** +25 infamy, minus `floor(target.partyInfluence / 2)` from the chair's own party influence (floored at 0).
 - **Effect on target:** `party → "independent"`, `partyInfluence → 0`; existing candidacies and state party positions cleaned up via `withdrawFromMismatchedPrimaries` + `cleanupPartyPositionsOnSwitch`; any `electedOfficials` records for the target are updated to `party: "independent"`; target receives a `party_kicked` notification.
 - **Cooldown:** 6 turns per party, tracked via `PoliticalParty.lastPurgeAtTurn`. Constant: `PURGE_COOLDOWN_TURNS` in `src/lib/constants/partyActions.ts`.
 
-**API:** `POST /api/country/[code]/parties/[id]/purge` — auth: `requireAuthWithCharacter` (chair only); body `{ characterId: string }` (MongoDB ObjectId hex).
+**API:** `POST /api/country/[code]/parties/[id]/purge` - auth: `requireAuthWithCharacter` (chair only); body `{ characterId: string }` (MongoDB ObjectId hex).
 
 ## Speaker of the House
 
@@ -277,8 +277,8 @@ currently **player-only** in live NPP behavior.
 
 ### API
 
-- `GET /api/congress/speaker` — returns `activeCandidacies[]`, `houseTotal`, `majority`, `isHouseMember`, `hasActiveCandidacy`, `myVoteId`.
-- `POST /api/congress/speaker` — actions: `declare`, `withdraw`, `vote`.
+- `GET /api/congress/speaker` - returns `activeCandidacies[]`, `houseTotal`, `majority`, `isHouseMember`, `hasActiveCandidacy`, `myVoteId`.
+- `POST /api/congress/speaker` - actions: `declare`, `withdraw`, `vote`.
 
 ## NPP Influence
 
@@ -288,16 +288,16 @@ See [[NPP System]] for full documentation.
 
 Players can influence individual NPPs through actions on the NPP's profile page (`/npp/[id]`):
 
-- **Request Endorsement** (5 actions, 40% base) — ask NPP to publicly endorse a candidate
-- **Request Withdrawal** (8 actions + $50K, 25% base) — convince NPP to drop out of an election
-- **Request Opposition** (5 actions + $25K, 35% base) — ask NPP to publicly oppose a candidate
-- **Request Leadership Support** (4 actions, 45% base) — rally NPP support for party leadership
+- **Request Endorsement** (5 actions, 40% base) - ask NPP to publicly endorse a candidate
+- **Request Withdrawal** (8 actions + $50K, 25% base) - convince NPP to drop out of an election
+- **Request Opposition** (5 actions + $25K, 35% base) - ask NPP to publicly oppose a candidate
+- **Request Leadership Support** (4 actions, 45% base) - rally NPP support for party leadership
 
 ### Party-Level Influence
 
-- **State / Regional Party** (Chair/Vice Chair only) — local `Recruitment` and
+- **State / Regional Party** (Chair/Vice Chair only) - local `Recruitment` and
   `Management` surfaces for same-party NPPs in that geography
-- **National Party** (Chair/Vice Chair only) — broader party-management tools,
+- **National Party** (Chair/Vice Chair only) - broader party-management tools,
   endorsements, withdrawals, and relocation
 
 ### Success Calculation
@@ -322,16 +322,16 @@ bill-facing rather than leadership-facing.
 
 ### Access
 
-- **State / Regional Party** (Chair/Vice Chair only) — local NPP whip authority
+- **State / Regional Party** (Chair/Vice Chair only) - local NPP whip authority
   in their own geography
-- **National Party** (Chair/Vice Chair only) — federal whip authority plus
+- **National Party** (Chair/Vice Chair only) - federal whip authority plus
   whatever local fallback the route supports
-- **Caucuses** — caucus-only whip surface for caucus members
+- **Caucuses** - caucus-only whip surface for caucus members
 
 ### Targets
 
-- **Bills** — the primary active NPP whip target for party NPP legislators
-- **Player leadership votes** — still relevant on the player side of the whip
+- **Bills** - the primary active NPP whip target for party NPP legislators
+- **Player leadership votes** - still relevant on the player side of the whip
   system
 
 ### Mechanics
@@ -355,20 +355,20 @@ clears.
 
 ### API
 
-- `GET /api/parties/[id]/whippable-bills` — federal bills where party has NPP legislators
-- `GET /api/parties/[id]/whippable-leadership` — player-facing leadership whip targets
-- `GET /api/state/[id]/party/[partyId]/whippable-bills` — state-level bills for state party
-- `POST /api/state/[id]/party/[partyId]/whip` — issue whip directive; returns compliance estimate
+- `GET /api/parties/[id]/whippable-bills` - federal bills where party has NPP legislators
+- `GET /api/parties/[id]/whippable-leadership` - player-facing leadership whip targets
+- `GET /api/state/[id]/party/[partyId]/whippable-bills` - state-level bills for state party
+- `POST /api/state/[id]/party/[partyId]/whip` - issue whip directive; returns compliance estimate
 
 ## Party Influence
 
-Every party member has a **Party Influence** score (0–100) that accrues passively each turn they are an active member. At the start of each turn, the party distributes **bonus actions** to all members proportional to their share of the party's total influence pool.
+Every party member has a **Party Influence** score (0-100) that accrues passively each turn they are an active member. At the start of each turn, the party distributes **bonus actions** to all members proportional to their share of the party's total influence pool.
 
 ### How It Works
 
 1. **Total pool** = `partyInfluencePoolMultiplier` × number of player members (configurable; default 3×)
 2. **Each member's share** = their `partyInfluence` / total party influence (across all members)
-3. **Closeness scalar**: Members whose policy positions (economic, social) are close to the party's official platform extract more value from the same raw influence score — up to a 2× multiplier
+3. **Closeness scalar**: Members whose policy positions (economic, social) are close to the party's official platform extract more value from the same raw influence score - up to a 2× multiplier
 4. **Bonus actions** = share × pool × closeness scalar, capped at `partyInfluenceMaxBonus` per turn (default 6)
 
 ### What Drives Party Influence
@@ -385,7 +385,7 @@ Every party member has a **Party Influence** score (0–100) that accrues passiv
 
 ### Strategic Implications
 
-- Members ideologically close to the party platform get more out of the same influence score — this rewards picking a party that matches your character's positions
+- Members ideologically close to the party platform get more out of the same influence score - this rewards picking a party that matches your character's positions
 - A single highly active member in a small party can dominate the bonus action allocation; larger parties distribute more evenly
 - Party Influence is a long-term investment: switching parties loses all accumulated standing
 
@@ -527,8 +527,8 @@ transfer controls.
 
 ## Related
 
-- [[Coalitions]] — Full coalition system documentation (formation, priorities,
+- [[Coalitions]] - Full coalition system documentation (formation, priorities,
   invites, disband votes, chair mechanics)
-- [[Getting Started]] — Party membership overview for new players
-- [[Elections]] — How party affiliation affects primaries and generals
-- [[Core Systems]] — Turn processing, party elections phase
+- [[Getting Started]] - Party membership overview for new players
+- [[Elections]] - How party affiliation affects primaries and generals
+- [[Core Systems]] - Turn processing, party elections phase

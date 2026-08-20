@@ -31,7 +31,7 @@ Status of features across the game. Working = shipped. Partial = core done, gaps
 | **Player Mail**         | Inbox, sent box, dual-sided soft-delete, mark-as-read, rate limiting, abuse reports, admin review queue, markdown-lite formatting                                                                     |
 | **Corporations**        | Founding, sectors, shares, dividends, bonds, CEO elections, commodity market (11 types), config-driven exchanges (NYSE/FTSE/DAX/Nikkei), 3-mode sector production, HQ relocation, shareholder address |
 | **National budgets**    | Active-country treasury panels, spending categories, fiscal costs, public enterprise revenue, sovereign bonds, heal tools                                                                             |
-| **Campaigns**           | Fundraising-level income model (L0 $20k → L10 $5M/turn), party org scalar (1.0–1.6×), season multiplier (2× final 4 turns), presidential endorsements, donation tracking                              |
+| **Campaigns**           | Fundraising-level income model (L0 $20k → L10 $5M/turn), party org scalar (1.0-1.6×), season multiplier (2× final 4 turns), presidential endorsements, donation tracking                              |
 | **Travel**              | Presidential candidate travel to states (5 actions), +1% favorability/turn passive bonus, travel state badges on electoral map                                                                        |
 | **Admin**               | Elections, NPPs, officials, demographics, logs, wiki, feedback, setup dashboard, seed, party elections, leadership elections, legislation (country tabs), mail reports, heal tools                    |
 | **Monitoring**          | Sentry error reporting across turn processor, API, UI, and cron jobs                                                                                                                                  |
@@ -134,7 +134,7 @@ The `coming-soon` roster covers most of the eastern-bloc and western-European te
 
 ## Related
 
-- [[Mail]] — Player-to-player messaging
-- [[Coalitions]] — Cross-party alliances
-- [[Election Mechanics]] — Primary scores, vote accumulation, FPTP vs proportional
-- [[Technical Architecture]] — Implementation details
+- [[Mail]] - Player-to-player messaging
+- [[Coalitions]] - Cross-party alliances
+- [[Election Mechanics]] - Primary scores, vote accumulation, FPTP vs proportional
+- [[Technical Architecture]] - Implementation details

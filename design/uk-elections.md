@@ -11,17 +11,17 @@ UK Commons elections use multi-seat proportional allocation (reusing US House sy
 - **Election type:** `electionType: "commons"`
 - **Scope:** One election per UK region
 - **Regions (stored as `state` field):**
-  - `"ENG"` — England (543 seats)
-  - `"SCO"` — Scotland (59 seats)
-  - `"WAL"` — Wales (40 seats)
-  - `"NIR"` — Northern Ireland (18 seats)
+  - `"ENG"` - England (543 seats)
+  - `"SCO"` - Scotland (59 seats)
+  - `"WAL"` - Wales (40 seats)
+  - `"NIR"` - Northern Ireland (18 seats)
 - **Total seats:** 650 across all regions
 
 ### Vote Allocation
 
 Commons elections reuse the US House multi-seat proportional system:
 
-1. **Vote accumulation:** Same as US House — group-level competitive allocation, votes accumulate per turn
+1. **Vote accumulation:** Same as US House - group-level competitive allocation, votes accumulate per turn
 2. **Proportional seats:** Largest-remainder method (Hamilton method)
 3. **Minimum share:** 20% of votes required to win seats (`MULTI_SEAT_MIN_SHARE`)
 4. **FPTP spoiler effect:** Applies by default (unless `state.votingSystem = "rcv"` set per region)
@@ -33,9 +33,9 @@ Commons elections reuse the US House multi-seat proportional system:
 
 ### Timing
 
-- **Duration:** [TBD — recommend 144 hours total = 3 game years]
-- **Primary:** [TBD — recommend 48 hours]
-- **General:** [TBD — recommend 96 hours]
+- **Duration:** [TBD - recommend 144 hours total = 3 game years]
+- **Primary:** [TBD - recommend 48 hours]
+- **General:** [TBD - recommend 96 hours]
 - **Perpetual:** New Commons elections spawn when previous cycle completes for each region
 
 ### Candidacy
@@ -46,7 +46,7 @@ Commons elections reuse the US House multi-seat proportional system:
 
 ## Demographics
 
-UK regions use **the same demographics as US** — no customization needed.
+UK regions use **the same demographics as US** - no customization needed.
 
 - **Categories:** Race, gender, education, wealth, age, ideology (same 6 categories as US)
 - **Groups:** Same groups as US (no UK-specific groups)
@@ -97,13 +97,13 @@ The `parliamentaryGovernments` document (`_id: "UK"`) is created/updated with th
 
 **Threshold:** 326 seats (`COUNTRY_CONFIGS.UK.coalitionThreshold`)
 
-**Minority attempt minimum:** 100 seats (≈15.38% of 650, `MINORITY_SEAT_FRACTION = 0.1538`) — informational; UI shows if party is too small
+**Minority attempt minimum:** 100 seats (≈15.38% of 650, `MINORITY_SEAT_FRACTION = 0.1538`) - informational; UI shows if party is too small
 
 ### Step 3: Confidence Vote
 
 A confidence vote is triggered automatically for majority governments without a PM, or manually by minority governments:
 
-- **Duration:** 24 hours (24 turns) — `UK_PM_CONFIDENCE_VOTE_DURATION_HOURS`
+- **Duration:** 24 hours (24 turns) - `UK_PM_CONFIDENCE_VOTE_DURATION_HOURS`
 - **Eligible voters:** All 650 elected Commons MPs
 - **Question:** "Does [Character Name] ([Party]) have the confidence of this House?"
 - **Threshold:** >50% (326 MPs) vote "yes" to confirm
@@ -267,7 +267,7 @@ After general elections complete (`endTime <= now`), resolve Commons elections:
 
 1. **Resolve each regional election** (ENG, SCO, WAL, NIR) using multi-seat proportional allocation
 2. **Update elected officials** for each region
-3. **Check if all 4 regions resolved** — if yes, trigger government formation
+3. **Check if all 4 regions resolved** - if yes, trigger government formation
 
 ### Phase: Government Formation (`resolveUKGovernmentFormation`)
 
@@ -283,14 +283,14 @@ Runs in Group 8 (UK government) after election resolution:
 
 Two functions in `src/lib/turn/ukGovernment.ts`:
 
-- `processNoConfidenceVotes()` — Processes active no-confidence motions (Group 8)
-- `processConfidenceVotes()` — Processes active PM confidence votes (Group 8)
+- `processNoConfidenceVotes()` - Processes active no-confidence motions (Group 8)
+- `processConfidenceVotes()` - Processes active PM confidence votes (Group 8)
 
 Each turn, for active votes:
 
-1. **Record NPP votes** — Deterministic based on party/whip
-2. **Check expiry** — `now >= closesAt`
-3. **Resolve** — Update status, appoint/remove PM, trigger next vote if needed
+1. **Record NPP votes** - Deterministic based on party/whip
+2. **Check expiry** - `now >= closesAt`
+3. **Resolve** - Update status, appoint/remove PM, trigger next vote if needed
 
 ## API Routes
 
@@ -298,26 +298,26 @@ Each turn, for active votes:
 
 Existing election routes apply to Commons elections:
 
-- `GET /api/elections` — List all elections (includes Commons)
-- `GET /api/elections/[id]` — Get Commons election detail
-- `POST /api/elections/[id]/enter` — Enter Commons candidacy
-- `POST /api/elections/[id]/withdraw` — Withdraw from Commons race
+- `GET /api/elections` - List all elections (includes Commons)
+- `GET /api/elections/[id]` - Get Commons election detail
+- `POST /api/elections/[id]/enter` - Enter Commons candidacy
+- `POST /api/elections/[id]/withdraw` - Withdraw from Commons race
 
 ### UK Government
 
-- `GET /api/uk/government` — Get current PM, ruling party, seat counts, government status
-- `GET /api/uk/confidence-vote/[id]` — Get confidence vote status, vote counts, user vote
+- `GET /api/uk/government` - Get current PM, ruling party, seat counts, government status
+- `GET /api/uk/confidence-vote/[id]` - Get confidence vote status, vote counts, user vote
 
 ### Confidence Voting
 
-- `POST /api/uk/confidence-vote/[id]/vote` — Cast vote (yes/no) on confidence motion
+- `POST /api/uk/confidence-vote/[id]/vote` - Cast vote (yes/no) on confidence motion
   - Body: `{ vote: "yes" | "no" }`
   - Auth: Must be an elected Commons MP
   - One vote per MP per confidence vote
 
 ### Minority Government
 
-- `POST /api/uk/government/minority-attempt` — Initiate minority government confidence vote
+- `POST /api/uk/government/minority-attempt` - Initiate minority government confidence vote
   - Body: `{ nomineeCharacterId: string }`
   - Auth: Must be national chair of governing party
   - Requires: `status: "minority_pending"`, party has ≥100 seats
@@ -335,8 +335,8 @@ Existing election routes apply to Commons elections:
 
 - **Current Prime Minister** (name, party, portrait)
 - **Ruling party** (seat count, majority status)
-- **Active confidence vote** (if any) — vote yes/no
-- **Cabinet** — list of current cabinet ministers
+- **Active confidence vote** (if any) - vote yes/no
+- **Cabinet** - list of current cabinet ministers
 
 ### Confidence Vote Panel (on `/uk/government`)
 
@@ -358,8 +358,8 @@ When a new PM is appointed (confidence vote passes) or a sitting PM is removed (
 
 Called from:
 
-- `src/lib/turn/ukGovernmentFormation.ts` (`appointUKPrimeMinister`) — on new PM appointment
-- `src/lib/turn/ukGovernment.ts` (`processNoConfidenceVotes`) — on no-confidence vote passage
+- `src/lib/turn/ukGovernmentFormation.ts` (`appointUKPrimeMinister`) - on new PM appointment
+- `src/lib/turn/ukGovernment.ts` (`processNoConfidenceVotes`) - on no-confidence vote passage
 
 ## Regional Council Elections
 
@@ -369,19 +369,19 @@ Each of the 12 UK regions has an elected **Regional Council** with seats based o
 - **Spawning:** `ensureUKRegionalCouncilElections()` in `src/lib/turn/perpetualElections.ts`
 - **Seat counts:** `UK_REGIONAL_COUNCIL_SEATS` in `src/lib/constants/states.ts`
 - **Office type:** `{ type: "regionalCouncil", state: "UK_LON", seatsHeld: number }`
-- **Mutually exclusive with Commons** — winning one vacates the other
+- **Mutually exclusive with Commons** - winning one vacates the other
 - **Regional legislation:** Councillors propose and vote on regional bills via the `StateBill` system. Bills auto-enact on passage (no governor veto).
 - **NPP participation:** NPPs enter elections and vote on regional bills using `getMajorPartiesForRegion()` for party distribution.
 
 ## Future Enhancements
 
-1. **Coalition negotiation system** — Formal coalition agreements between parties
-2. **Early elections** — Trigger new Commons election if government falls
-3. **Prime Minister's Questions (PMQs)** — Weekly Q&A session in Commons
-4. **Devolved elections** — Scottish Parliament (Holyrood), Welsh Senedd (separate from Regional Council)
+1. **Coalition negotiation system** - Formal coalition agreements between parties
+2. **Early elections** - Trigger new Commons election if government falls
+3. **Prime Minister's Questions (PMQs)** - Weekly Q&A session in Commons
+4. **Devolved elections** - Scottish Parliament (Holyrood), Welsh Senedd (separate from Regional Council)
 
 ## Related Documentation
 
-- [UK PM No-Confidence](./uk-pm-no-confidence.md) — Removing a sitting PM
-- [Elections](./elections.md) — General election mechanics
-- [Vacancy Handling](./vacancy-handling.md) — UK MP vacancies
+- [UK PM No-Confidence](./uk-pm-no-confidence.md) - Removing a sitting PM
+- [Elections](./elections.md) - General election mechanics
+- [Vacancy Handling](./vacancy-handling.md) - UK MP vacancies

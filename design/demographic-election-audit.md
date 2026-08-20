@@ -20,11 +20,11 @@
 ### 1.2 Appeal Formula (unchanged)
 
 ```ts
-// positionScore: 0–25
+// positionScore: 0-25
 positionRaw = max(0, 50 - |econDiff|×5 - |socialDiff|×5)
 positionScore = positionRaw² / 100
 
-// influenceScore: 0–25
+// influenceScore: 0-25
 influenceScore = (politicalInfluence / 100) × 25
 
 appeal = positionScore + influenceScore  // max 50
@@ -34,7 +34,7 @@ appeal = positionScore + influenceScore  // max 50
 
 ### 1.3 Vote Flow (per turn)
 
-1. **Total pool** = `calcStateTurnout()` — sum over groups of `pop × turnout × categoryWeight`
+1. **Total pool** = `calcStateTurnout()` - sum over groups of `pop × turnout × categoryWeight`
 2. **Per candidate raw potential** = sum over groups of `reachedPop × (appeal/50) × categoryWeight`
 
    Where `reachedPop = groupPop × turnout × (politicalInfluence/100)`
@@ -47,7 +47,7 @@ appeal = positionScore + influenceScore  // max 50
 | Issue                            | Description                                                                                                                                                                                                                                                                                                  | Severity   |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
 | **Double-counting voters**       | Each voter is counted in _multiple_ categories (race, gender, education, wealth, age, ideology). A voter is white + male + college + middle_income + age_30_44 + moderate. The current model sums weighted contributions across all categories as if they were independent. In reality, a person votes once. | **High**   |
-| **Category-weighted sum**        | We sum `groupPop × appeal × categoryWeight` across 6 categories. The total is not a voter count — it's a weighted score. Turnout pool is also category-weighted.                                                                                                                                             | **High**   |
+| **Category-weighted sum**        | We sum `groupPop × appeal × categoryWeight` across 6 categories. The total is not a voter count - it's a weighted score. Turnout pool is also category-weighted.                                                                                                                                             | **High**   |
 | **Reach is uniform**             | `politicalInfluence = reach` applies identically to all groups. A low-influence candidate can't reach urban or rural voters differently.                                                                                                                                                                     | **Medium** |
 | **Single policy space**          | Only econ (left-right) and social (left-right). Real elections have many dimensions (e.g., immigration, guns, climate).                                                                                                                                                                                      | **Medium** |
 | **Proportional split is global** | We split the _entire_ turn pool by _total_ potential. We don't model "Evangelicals vote 70% for A, 30% for B" within each group.                                                                                                                                                                             | **Medium** |
@@ -55,11 +55,11 @@ appeal = positionScore + influenceScore  // max 50
 
 ### 1.5 What Works Well
 
-- **Appeal formula** — Quadratic position + influence is intuitive and produces sensible gradients. Policy alignment matters; name recognition matters.
-- **Approval scalar** — "Voters won't support candidates they don't approve of" is realistic.
-- **Party org scalar** — Stronger state party = better mobilization.
-- **Government approval** — Scales turnout pool by state performance; governor races most affected.
-- **Reuse** — Same appeal used for polls, elections, NPP dropout. Keeps consistency.
+- **Appeal formula** - Quadratic position + influence is intuitive and produces sensible gradients. Policy alignment matters; name recognition matters.
+- **Approval scalar** - "Voters won't support candidates they don't approve of" is realistic.
+- **Party org scalar** - Stronger state party = better mobilization.
+- **Government approval** - Scales turnout pool by state performance; governor races most affected.
+- **Reuse** - Same appeal used for polls, elections, NPP dropout. Keeps consistency.
 
 ---
 
@@ -116,8 +116,8 @@ Use the 12 mutually exclusive archetypes. Each voter belongs to one group:
 
 **Pros:**
 
-- One person, one vote — no double-counting
-- Group sizes derived from Layer 1 (race, age, etc.) — no new data entry
+- One person, one vote - no double-counting
+- Group sizes derived from Layer 1 (race, age, etc.) - no new data entry
 - Appeal formula unchanged
 - Polls show 12 groups; players understand "I'm strong with Evangelicals, weak with Progressives"
 
@@ -132,7 +132,7 @@ Keep current 6 categories but only use **one** for vote allocation (e.g., ideolo
 
 **Pros:**
 
-- Minimal change — just stop summing across categories; use ideology only
+- Minimal change - just stop summing across categories; use ideology only
 - Same appeal formula
 - Same data structures
 
@@ -141,13 +141,13 @@ Keep current 6 categories but only use **one** for vote allocation (e.g., ideolo
 - Loses race, age, education, wealth effects in elections (they still affect state lean display)
 - Ideology groups overlap with real demographics (e.g., evangelicals skew older, white)
 
-### 2.4 Option C: Hybrid — Per-Group Allocation, Keep Current Structure
+### 2.4 Option C: Hybrid - Per-Group Allocation, Keep Current Structure
 
 Keep 6 categories and 26 groups. For each group, compute:
 
 ```
 groupVoters = groupPop × turnout × reach
-  (but cap so sum of groupVoters across groups ≤ totalTurnout — avoid overcounting)
+  (but cap so sum of groupVoters across groups ≤ totalTurnout - avoid overcounting)
 
 For each group:
   share_A = appeal_A / sum(appeal_all_candidates)
@@ -163,11 +163,11 @@ For each group:
 
 ### 2.5 Recommended Path: Option A (12 Groups) + Group-Level Competitive Allocation
 
-1. **Adopt 12 voter groups** from demographic-overhaul-plan — mutually exclusive, derived from Layer 1.
-2. **Use group-level competitive allocation** — within each group, votes split by relative appeal.
-3. **Keep appeal formula** — `calcAppeal()` unchanged.
-4. **Keep approval, party org, government approval** — unchanged.
-5. **Reach** — still `politicalInfluence/100`; could later add per-group reach modifiers.
+1. **Adopt 12 voter groups** from demographic-overhaul-plan - mutually exclusive, derived from Layer 1.
+2. **Use group-level competitive allocation** - within each group, votes split by relative appeal.
+3. **Keep appeal formula** - `calcAppeal()` unchanged.
+4. **Keep approval, party org, government approval** - unchanged.
+5. **Reach** - still `politicalInfluence/100`; could later add per-group reach modifiers.
 
 **Formula:**
 
@@ -181,7 +181,7 @@ For each of 12 groups g:
     votes_c += groupVoters × (appeal_c / totalAppeal) × approvalScalar × partyOrgScalar
 ```
 
-**Turn pool:** Same as now — `turnVoteWeight()` × party strength. We're distributing that pool per group, then summing.
+**Turn pool:** Same as now - `turnVoteWeight()` × party strength. We're distributing that pool per group, then summing.
 
 Actually: we need to be careful. The turn pool is a _fixed_ number of votes per turn. We're not creating new votes. So:
 
@@ -224,6 +224,6 @@ This preserves the fixed turn pool. Each group contributes a fraction of the poo
 | **Vote allocation** | Global proportional split by total potential | Per-group competitive split by relative appeal | Same                         |
 | **Voter model**     | Sum across categories (double-counted)       | Same structure, but per-group split            | 12 mutually exclusive groups |
 | **Appeal**          | Unchanged                                    | Unchanged                                      | Unchanged                    |
-| **Realism**         | Medium — voters over-counted                 | Higher — groups vote as blocs                  | Highest — OPOV               |
+| **Realism**         | Medium - voters over-counted                 | Higher - groups vote as blocs                  | Highest - OPOV               |
 
 **Recommendation:** Implement Phase 1 first. It is a contained change that improves realism (groups vote as blocs) without migration. Phase 2 can follow if the 12-group model is desired.

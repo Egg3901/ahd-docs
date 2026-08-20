@@ -122,7 +122,7 @@ return total;
 | 2 federal (economy_wide + sector) | +15pp                             |
 | 2 federal (same scope)            | +7.5pp (second overwrites first)  |
 
-**Note:** Multiple subsidies of the same scope/type do NOT stack — the second overwrites the first via upsert. Different scopes (economy_wide + sector) or different levels (federal + state) DO stack.
+**Note:** Multiple subsidies of the same scope/type do NOT stack - the second overwrites the first via upsert. Different scopes (economy_wide + sector) or different levels (federal + state) DO stack.
 
 ## Enactment
 
@@ -232,6 +232,6 @@ const effectiveMargin = Math.min(100, sector.profitMargin + totalMarginMod);
 
 ## Related Documentation
 
-- [[Tariffs]] — Trade barriers (counterpart to subsidies)
-- [[Corporations]] — Profit margin modifiers, sector processing
-- [[Legislation System]] — Bill enactment process
+- [[Tariffs]] - Trade barriers (counterpart to subsidies)
+- [[Corporations]] - Profit margin modifiers, sector processing
+- [[Legislation System]] - Bill enactment process

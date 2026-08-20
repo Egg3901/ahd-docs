@@ -271,7 +271,7 @@ export async function resolveUserIdFromCharacter(characterId: ObjectId): Promise
 
 ## Trigger System
 
-The trigger system automatically checks for achievement conditions when game events occur. All triggers are **non-blocking** — errors are logged and swallowed.
+The trigger system automatically checks for achievement conditions when game events occur. All triggers are **non-blocking** - errors are logged and swallowed.
 
 ### Action Achievements
 
@@ -330,11 +330,11 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `first_candidate` — First candidacy ever
-- `house_candidate` — House candidacy
-- `senate_candidate` — Senate candidacy
-- `governor_candidate` — Governor candidacy
-- `president_candidate` — Presidential candidacy
+- `first_candidate` - First candidacy ever
+- `house_candidate` - House candidacy
+- `senate_candidate` - Senate candidacy
+- `governor_candidate` - Governor candidacy
+- `president_candidate` - Presidential candidacy
 
 ### Election Win Achievements
 
@@ -344,11 +344,11 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `house_member` — Win House election
-- `senator` — Win Senate election
-- `governor` — Win governor election
-- `state_senator` — Win state senate election
-- `three_terms` — Win 3+ elections total
+- `house_member` - Win House election
+- `senator` - Win Senate election
+- `governor` - Win governor election
+- `state_senator` - Win state senate election
+- `three_terms` - Win 3+ elections total
 
 ### Office Held Achievements
 
@@ -358,8 +358,8 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `president` — Become President
-- `vice_president` — Become Vice President
+- `president` - Become President
+- `vice_president` - Become Vice President
 
 ### Influence Achievements
 
@@ -369,8 +369,8 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `influencer` — 5+ influence actions
-- `barnstormer` — 1+ barnstorm actions
+- `influencer` - 5+ influence actions
+- `barnstormer` - 1+ barnstorm actions
 
 ### Subscriber Achievements
 
@@ -380,8 +380,8 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `popular` — 5+ subscribers
-- `celebrity` — 20+ subscribers
+- `popular` - 5+ subscribers
+- `celebrity` - 20+ subscribers
 
 ### Funds Achievements
 
@@ -391,7 +391,7 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `millionaire` — Reach $1,000,000
+- `millionaire` - Reach $1,000,000
 
 ### Bill Achievements
 
@@ -401,7 +401,7 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `first_bill` — Sponsor first bill
+- `first_bill` - Sponsor first bill
 
 ### News Achievements
 
@@ -411,8 +411,8 @@ The trigger system automatically checks for achievement conditions when game eve
 
 **Achievements:**
 
-- `first_post` — First original post
-- `commenter` — 5+ reply posts
+- `first_post` - First original post
+- `commenter` - 5+ reply posts
 
 ## Progress Calculation
 
