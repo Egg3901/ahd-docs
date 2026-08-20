@@ -9,13 +9,13 @@
 
 This document captures naming conventions, explains confusing directory pairs, and guides where to put new code. It complements [`repo-operating-map.md`](./repo-operating-map.md) and [`architecture-boundaries.md`](./architecture-boundaries.md).
 
-**Audit focus:** File names, module names, folder structure, and domain clarity — not behavioral changes.
+**Audit focus:** File names, module names, folder structure, and domain clarity, not behavioral changes.
 
 ---
 
 ## 2. Key Findings from Audit
 
-### 2.1 Documented (No Rename — Value vs Churn)
+### 2.1 Documented (No Rename, Value vs Churn)
 
 | Issue                                           | Resolution                                                                                                                                 |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -32,7 +32,7 @@ This document captures naming conventions, explains confusing directory pairs, a
 | `docs/engineering/prompts/fix-bug.md`       | Fixed `election/voteDistribution.ts` → `electionEngine/voteDistribution.ts`                             |
 | `docs/design/demographics.md`               | Fixed stale `elections/electionEngine.ts` → `seeds/stateDemographics.ts` for `computeLiveGroupTurnouts` |
 | `docs/archive/wiki-content/demographics.md` | Same fix as above                                                                                       |
-| `docs/engineering/repo-operating-map.md`    | Marked P1 item 3 (stale root debug files) as resolved — now in `scripts/archive/debug/`                 |
+| `docs/engineering/repo-operating-map.md`    | Marked P1 item 3 (stale root debug files) as resolved, the files were removed; no `scripts/archive/` directory exists |
 
 ### 2.3 Deferred (Low Confidence or High Churn)
 
@@ -40,13 +40,13 @@ This document captures naming conventions, explains confusing directory pairs, a
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dual `candidateEnrichment.ts`** | One in `electionEngine/` (DB-fetch for vote calc), one in `elections/` (in-memory for API). Different roles; clarifying comment in each file is preferable to rename. |
 | **Seed script naming**            | `seedBudgets.ts` (camelCase, lives in `src/app/api/admin/seed/handlers/`) vs `seed-*.ts` (kebab-case in `scripts/`). Low impact.                                      |
-| **`src/lib/data/`**               | Single file `2020ElectionResults.ts`. Could move to `constants/` but is reference data, not tunables. Low impact.                                                     |
+| **`src/lib/data/`**               | 8 files of historical election-results reference data (`1952ElectionResults.ts` through `2024ElectionResults.ts`, plus `historicalPresidentialMargins.ts`). Could move to `constants/` but is reference data, not tunables. Low impact.                                                     |
 
 ---
 
 ## 3. Naming Patterns (Going Forward)
 
-### 3.1 Election Logic — Two Directories
+### 3.1 Election Logic, Two Directories
 
 | Path                      | Purpose                                                                                       | When to Use                                                              |
 | ------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -92,7 +92,7 @@ This document captures naming conventions, explains confusing directory pairs, a
 | ---------------------- | ----------------------------------------------------------- | -------------------------------------------- |
 | `src/lib/constants/`   | App-only config, labels, tunables                           | `countries.ts`, `partyOrg.ts`, `turnTime.ts` |
 | `shared/constants/`    | Values needed by both `scripts/` and `src/`                 | `formulas.ts`, `legislation.ts`              |
-| `src/lib/constants.ts` | Barrel + US visual assets (STATE_IMAGES, PARTY_LOGOS, etc.) | 47+ import sites — do not move               |
+| `src/lib/constants.ts` | Barrel + US visual assets (STATE_IMAGES, PARTY_LOGOS, etc.) | 47+ import sites, do not move               |
 
 ---
 
@@ -104,7 +104,7 @@ This document captures naming conventions, explains confusing directory pairs, a
 | Auth helpers         | `src/lib/api/requireAuth.ts`, `requireAdmin.ts`, etc.                             | See `claude.md` auth table                |
 | Parse JSON body      | `src/lib/api/validate.ts` → `parseJsonBody`                                       | Zod validation for route bodies           |
 | Country config       | `src/lib/constants/countries.ts` → `getCountryConfig`, `getMajorPartiesForRegion` | No hardcoded country literals             |
-| Script DB connection | `scripts/utils/db.ts` → `connectDb`, `closeDb`                                    | For scripts only — not `getDb()`          |
+| Script DB connection | `scripts/utils/db.ts` → `connectDb`, `closeDb`                                    | For scripts only, not `getDb()`          |
 
 ---
 
@@ -112,21 +112,21 @@ This document captures naming conventions, explains confusing directory pairs, a
 
 ### 5.1 Resolved or Documented
 
-- **`electionEngine` vs `elections`** — See §3.1.
-- **`npp` vs `npps`** — `npp/` = turn/NPP behavior modules; `npps` = collection/API group. Consistent.
+- **`electionEngine` vs `elections`**, See §3.1.
+- **`npp` vs `npps`**, `npp/` = turn/NPP behavior modules; `npps` = collection/API group. Consistent.
 
 ### 5.2 Avoid These Patterns
 
-- **Generic names for domain logic** — Prefer `electionResolution.ts` over `resolve.ts`.
-- **`lib` under API routes** — `src/app/api/admin/npps/lib/` holds route-specific helpers; avoid confusing with top-level `src/lib/`.
-- **Ambiguous plurals** — `elections` (API helpers) vs `electionEngine` (vote pipeline) — document in comments when adding.
+- **Generic names for domain logic**, Prefer `electionResolution.ts` over `resolve.ts`.
+- **`lib` under API routes**, `src/app/api/admin/npps/lib/` holds route-specific helpers; avoid confusing with top-level `src/lib/`.
+- **Ambiguous plurals**, `elections` (API helpers) vs `electionEngine` (vote pipeline), document in comments when adding.
 
 ---
 
 ## 6. Validation Performed
 
-- `npx tsc --noEmit` — Pass
-- `npx eslint .` — Pass (excluding unrelated pre-existing)
+- `npx tsc --noEmit`, Pass
+- `npx eslint .`, Pass (excluding unrelated pre-existing)
 - Import paths verified for corrected docs
 
 ---
@@ -136,7 +136,7 @@ This document captures naming conventions, explains confusing directory pairs, a
 | Risk                                                               | Mitigation                                                                                                |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | New contributors may still confuse `electionEngine` vs `elections` | Point to this doc and `repo-operating-map.md` §5 Quick Reference                                          |
-| Seed data split (`scripts/seeds/` vs `src/lib/seeds/`)             | Documented in `repo-operating-map.md` P1 #1 — boundary: scripts = DB seeding; src/lib = runtime constants |
+| Seed data split (`scripts/seeds/` vs `src/lib/seeds/`)             | Documented in `repo-operating-map.md` P1 #1, boundary: scripts = DB seeding; src/lib = runtime constants |
 | Plan sprawl (the design archive, `docs/superpowers/plans/`)             | Active work: `docs/superpowers/plans/`; archive: the design archive                                    |
 
 ---

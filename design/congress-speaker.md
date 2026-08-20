@@ -30,7 +30,7 @@ The Congress Speaker System manages Speaker of the House elections in the US Con
 
 ### Election Timing
 
-- **Duration:** 12 hours from start
+- **Duration:** 24 hours from start (`ELECTION_DURATION_MS` in `actions.ts` / `openSpeakerElection.ts`)
 - **End condition:** Time expires OR admin force-ends
 - **Resolution:** Plurality wins (most votes, no majority required)
 
@@ -55,7 +55,7 @@ export async function recalculateNPPSpeakerVotes(): Promise<void> {
 
 1. Check no active election exists
 2. Clear failed nominations
-3. Create new 12-hour election window
+3. Create new 24-hour election window
 4. Auto-nominate incumbent Speaker if eligible (has seat, majority party)
 5. Trigger NPP vote recalculation
 
@@ -64,7 +64,7 @@ export async function recalculateNPPSpeakerVotes(): Promise<void> {
 ```json
 {
   "success": true,
-  "message": "Speaker election started. Voting ends in 12 hours. Only the majority party may run and vote. Plurality wins."
+  "message": "Speaker election started. Voting ends in 24 hours. Only the majority party may run and vote. Plurality wins."
 }
 ```
 
@@ -83,7 +83,7 @@ export async function recalculateNPPSpeakerVotes(): Promise<void> {
 ```json
 {
   "success": true,
-  "message": "Speaker election reset. You can start a new 12-hour election."
+  "message": "Speaker election reset. You can start a new 24-hour election."
 }
 ```
 
@@ -250,33 +250,59 @@ Ties are broken by:
 Called during election resolution phase:
 
 ```typescript
-export async function vacateSpeakerIfLostSeat(): Promise<void> {
-  const db = await getDb();
-
-  const speaker = await db
+export async function vacateSpeakerIfLostSeat(db: Db): Promise<void> {
+  const leaderDoc = await db
     .collection<CongressLeader>("congressLeaders")
     .findOne({ role: "speaker_of_the_house" });
-  if (!speaker) return;
-
-  // Check if speaker still has House seat
-  const hasSeat = await db.collection<ElectedOfficial>("electedOfficials").findOne({
+  if (!leaderDoc?.characterId) return;
+  const stillHasSeat = await db.collection<ElectedOfficial>("electedOfficials").findOne({
     officeType: "house",
-    $or: [{ characterId: speaker.characterId }, { nppId: speaker.characterId }],
+    $or: [{ characterId: leaderDoc.characterId }, { nppId: leaderDoc.characterId }],
   });
-
-  if (!hasSeat) {
-    // Remove speaker
-    await db
-      .collection<CongressLeader>("congressLeaders")
-      .deleteOne({ role: "speaker_of_the_house" });
-
-    // Log career history
-    await logCareerHistory(speaker.characterId, "vacated", "speaker_of_the_house");
-  }
+  if (stillHasSeat) return;
+  const now = new Date();
+  await db
+    .collection<CongressLeader>("congressLeaders")
+    .updateOne(
+      { role: "speaker_of_the_house" },
+      { $set: { characterId: null, characterName: "Vacant", updatedAt: now } }
+    );
+  // The chair is now empty, open an election so the House can refill it without
+  // waiting on an admin to start one.
+  await openSpeakerElection(db, now);
 }
 ```
 
+The leader doc is not deleted; it is set to `characterId: null` / `characterName: "Vacant"` so the singleton is idempotent (subsequent calls early-return once already vacant, so the election opens exactly once per vacancy). A fresh 24-hour Speaker election is opened automatically as part of this call.
+
 **Trigger:** Runs in Group 7 (Election Resolution) after general elections resolve.
+
+## Motion to Vacate
+
+A sitting House member can move to remove the current Speaker without waiting for the next general election.
+
+**Location:** `src/lib/congress/speaker/actions.ts` (`handleFileVacateMotion`, `handleVoteVacateMotion`), `src/lib/congress/speaker/resolveVacateMotion.ts`, collection `speakerVacateMotions`.
+
+### Filing (`file_vacate_motion`)
+
+- **Authorization:** Any sitting House member (not restricted to majority party).
+- **Precondition:** There must be a sitting Speaker (`characterId` set on the `speaker_of_the_house` leader doc). A motion cannot be filed against a vacant chair.
+- **Conflict guard:** Rejected with 409 if a motion is already `voting` and its window has not yet closed.
+- **Effect:** Creates/overwrites the singleton `speakerVacateMotions` doc (`_id: "current"`) with a 24-hour voting window (`ELECTION_DURATION_MS`). The filer's own vote is recorded as `"for"` immediately.
+
+### Voting (`vote_vacate_motion`)
+
+- **Authorization:** Any sitting House member.
+- **Vote values:** `"for"` (vacate) or `"against"` (keep).
+- Votes are tallied via `computeCongressLeadershipTally`, which is seat-scoped and seat-weighted, and drops votes from members who have since lost their seat.
+
+### Resolution (`resolveSpeakerVacateMotion`)
+
+- **Threshold to pass:** Absolute majority of the House (`Math.floor(totalSeats / 2) + 1` for-votes), not a plurality.
+- Can resolve early once the threshold is reached, or when the 24-hour window closes (whichever comes first).
+- Concurrency-safe: the motion is claimed via a conditional `status: voting → passed|failed` write so two concurrent resolvers cannot double-vacate.
+- **On pass:** the Speaker is vacated (`vacateCongressLeadershipRole`) and a fresh 24-hour Speaker election is opened immediately (`openSpeakerElection`), shared with the lost-seat vacancy path.
+- **On fail** (window closed without reaching the threshold): the motion is marked `failed` and the sitting Speaker stays in place.
 
 ## Data Model
 

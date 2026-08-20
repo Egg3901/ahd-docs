@@ -33,10 +33,10 @@ This ensures continuous Senate activity with elections happening at different ti
 
 - **Type**: Continuous server-based world
 - **Players**: Join and leave dynamically
-- **Empty Seats**: Filled by NPPs — Non-Player Politicians automatically enter elections and hold office (see [[NPP System]])
+- **Empty Seats**: Filled by NPPs, Non-Player Politicians automatically enter elections and hold office (see [[NPP System]])
 - **No Resets**: Game runs continuously without seasonal resets
 - **State Data**: Population and GDP data loaded per state (used for campaign costs and donor pools)
-- **Perpetual Elections**: All race types (house, senate, governor, stateSenate) spawn a new cycle immediately after the previous one resolves — no seat ever goes permanently uncontested
+- **Perpetual Elections**: All race types (house, senate, governor, stateSenate) spawn a new cycle immediately after the previous one resolves, no seat ever goes permanently uncontested
 
 ## Action System
 
@@ -46,7 +46,7 @@ This ensures continuous Senate activity with elections happening at different ti
   - State Senate: +1 (5 total)
   - Senate: +2 (6 total)
   - Vice President: +2 (6 total)
-  - Governor: +3 (7 total)
+  - Governor: +2 (6 total)
   - President: +4 (8 total)
 - **Starting Actions**: 25 (one-time grant on character creation)
 - **Action Spending**: Players spend actions to perform various activities
@@ -57,21 +57,21 @@ This ensures continuous Senate activity with elections happening at different ti
 
 | Action                | Actions | Funds                           | Effect                                           |
 | --------------------- | ------- | ------------------------------- | ------------------------------------------------ |
-| Campaign              | 1       | Free                            | +1% Political Influence                          |
-| Fundraise             | 3       | Earns $50k + $10k × donor level | Requires donor base > 0                          |
-| Run Advertisements    | 5       | −$100,000                       | +1–3% Favorability (diminishing above 70%)       |
-| Build Donor Network   | 6       | −$50k − $25k × current level    | +1 Donor Network Level                           |
+| Campaign              | 1-5 (tiered by state PI) | −$20,000 × tier, GDP-scaled   | +1% Political Influence                          |
+| Fundraise             | 3 (flat)     | Earns $50k + $2k × donor level, scaled by state influence (1.0x, 2.0x) and the Fundraising stat | Requires donor base > 0 |
+| Run Advertisements    | 5-9 (tiered by favorability) | −$100,000, GDP-scaled          | Favorability effect (diminishing at high favorability) |
+| Build Donor Network   | 4-20 (power curve by level) | −$3k − $1.5k × current level, GDP-scaled | +1 Donor Network Level                    |
 | Quick Poll            | 2       | −$25,000                        | Topline appeal + best/worst 5 groups             |
 | Full Demographic Poll | 6       | −$75,000                        | Complete breakdown by every demographic category |
 
 ### Out-of-State Costs
 
-- Campaign, Ads, and Attack cost more when targeting a state other than your home state
+- The state-adjacency multiplier applies to interpersonal actions (Support, Attack, Barnstorm), not to Campaign or Advertise, which use GDP-based fund scaling instead
 - Home state: 1.0× | Neighboring state: 1.25× | Non-neighboring: 1.5×
 
 ## Per-Turn Processing Order
 
-Each turn runs **40+ phases in 14 groups**. Phases within a group marked **(parallel)** execute concurrently via `Promise.all`; all others run sequentially. Each phase is error-isolated via `runPhase()` — a failure logs to Sentry but does not halt subsequent phases.
+Each turn runs **40+ phases in 14 groups**. Phases within a group marked **(parallel)** execute concurrently via `Promise.all`; all others run sequentially. Each phase is error-isolated via `runPhase()`, a failure logs to Sentry but does not halt subsequent phases.
 
 | Group                    | Phases                                                                                                          | Key constraint                                        |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -82,14 +82,14 @@ Each turn runs **40+ phases in 14 groups**. Phases within a group marked **(para
 | 4. NPP behavior          | Election entry, federal/local bill voting, manual-endorsement cleanup, leadership-vote no-op guard              | Uses shared `loadNPPContext()`                        |
 | 5. Bills & cabinets      | Bill lifecycle (federal + state + UK Commons), cabinet nominations                                              | Parallel-safe                                         |
 | 6. Campaigns             | Campaign turn, NPP action processing (every 4 turns)                                                            | Sequential                                            |
-| 7. Election resolution   | Primary resolution → vote accumulation → timer advancement → snapshots → general resolution → leadership vacate | **Strictly sequential — ordering is load-bearing**    |
+| 7. Election resolution   | Primary resolution → vote accumulation → timer advancement → snapshots → general resolution → leadership vacate | **Strictly sequential, ordering is load-bearing**    |
 | 8. UK government         | Government formation, no-confidence votes, confidence votes                                                     | After election resolution                             |
 | 9. Election coverage     | Perpetual elections, UK elections, leadership elections, stale cleanup, coalition disband vote resolution       | Parallel-safe                                         |
 | 10. Fiscal year          | October processing (turn 36 of 48)                                                                              | Conditional                                           |
 | 11. Effects & metrics    | Policy effects, demographic effects, approval decay, corporate GDP, **unowned sector growth**                   | Parallel-safe                                         |
 | 12. National aggregation | National metrics, inflation, central bank chair                                                                 | After state effects                                   |
 | 13. History              | Metric snapshots, approval snapshots, interest rate snapshots                                                   | Parallel-safe                                         |
-| 14. Persistence          | Increment GameState turn, save TurnLog, emit SSE                                                                | **Critical — not wrapped in try/catch**               |
+| 14. Persistence          | Increment GameState turn, save TurnLog, emit SSE                                                                | **Critical, not wrapped in try/catch**               |
 
 **Invariants:**
 
@@ -110,7 +110,7 @@ See `technical-architecture.md` for the full implementation details of each phas
 
 The President nominates advisors to cabinet positions; the Senate confirms or rejects.
 
-- **Positions**: 18 principal officer roles (Secretary of State, Defense, Treasury, Interior, Agriculture, Commerce, Labor, HHS, HUD, Transportation, Energy, Education, Veterans Affairs, Homeland Security, EPA, OMB, UN Ambassador, USTR)
+- **Positions**: 15 principal officer roles (Secretary of State, Treasury, Defense, Attorney General, Interior, Agriculture, Commerce, Labor, HHS, HUD, Transportation, Energy, Education, Veterans Affairs, Homeland Security)
 - **Nomination**: President selects any character and a cabinet position via `/whitehouse/cabinet`
 - **Senate vote**: Senators vote For / Against / Abstain within a 24-hour window; simple majority confirms
 - **Confirmed**: Character added to `cabinetMembers`; appears on the cabinet page
@@ -149,7 +149,7 @@ National party chairs can form cross-party coalitions. See [[Coalitions]] for fu
 - **Formation**: Any national party chair; requires name, abbreviation, color
 - **Membership**: Invite flow and join request flow
 - **Disband**: 24-hour majority vote; resolved during turn processing
-- **Status**: Organizational only — no gameplay effects yet
+- **Status**: Organizational only, no gameplay effects yet
 
 ## News / Posts System
 
@@ -167,8 +167,8 @@ The game also generates news posts automatically as part of turn processing. The
 
 Automated news functions (all in `src/lib/news.ts`):
 
-- **`generateElectionNews(outcomes)`** — fired after general election resolution. Groups results by election type (US House, US Senate, Gubernatorial, UK Parliament, etc.) and emits an aggregated post: if multiple races resolved, it summarizes party win counts (e.g., "US House Results (12 races): Democratic 7, Republican 5") and calls out any player winners by name. Single-race results name the winner directly.
-- **`generateBillSignedNews(billTitle, sponsorName, scope, state?)`** — fired when a president or governor signs a bill into law. Posts a "New Law" notice with the bill title, sponsor, and jurisdiction (federal or state-level).
-- **`generateBillVetoedNews(billTitle, scope, state?)`** — fired when a bill is vetoed. Posts a notice naming the executive who vetoed and noting that an override may be attempted.
+- **`generateElectionNews(outcomes)`**, fired after general election resolution. Groups results by election type (US House, US Senate, Gubernatorial, UK Parliament, etc.) and emits an aggregated post: if multiple races resolved, it summarizes party win counts (e.g., "US House Results (12 races): Democratic 7, Republican 5") and calls out any player winners by name. Single-race results name the winner directly.
+- **`generateBillSignedNews(billTitle, sponsorName, scope, state?)`**, fired when a president or governor signs a bill into law. Posts a "New Law" notice with the bill title, sponsor, and jurisdiction (federal or state-level).
+- **`generateBillVetoedNews(billTitle, scope, state?)`**, fired when a bill is vetoed. Posts a notice naming the executive who vetoed and noting that an override may be attempted.
 
 All automated news fires from within turn processing phases, not as player actions. The `category` field is set to `"election"` for election news and `"legislation"` for bill news, enabling category-based filtering in the feed.

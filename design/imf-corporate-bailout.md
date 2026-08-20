@@ -1,15 +1,23 @@
-# IMF corporate bailout (admin rescue) — implementation plan
+# IMF corporate bailout (admin rescue)
+
+**Status: shipped.** This is the corporate-side IMF rescue facility, live in code (`src/lib/imf/`). It is a separate mechanism from the sovereign IMF facility described below, the two use different capture/cap numbers and different eligibility (corporations vs national governments); do not conflate them.
 
 ## Purpose
 
-Give admins a structured **bailout** tool for distressed corporations: flag a corp as under **IMF restructuring**; **reduce bond-holder claims (haircut)** and **notify** holders; **consolidate** remaining obligation into an **amortizing IMF facility** (principal + interest) with **payments capped at 45% of per-turn income**; **remit** collections to the **IMF corporation** in **USD** (with **forex** from the rescued corp’s home currency / ₳ as needed); dilute existing shareholders by issuing new shares to the IMF; **bar dividends and CEO compensation** while active; block **bond-default refinance** while active; apply a **−15% share price** penalty; show **admin-only** stake metrics in **₳**; and allow **admin forced liquidation** if the CEO fails obligations.
+Give admins a structured **bailout** tool for distressed corporations: flag a corp as under **IMF restructuring**; **reduce bond-holder claims (haircut)** and **notify** holders; **consolidate** remaining obligation into an **amortizing IMF facility** (principal + interest) with **payments defaulting to a 35% capture of per-turn income, capped at 45%** (`IMF_BAILOUT_DEFAULT_INCOME_CAPTURE_FRACTION` / `IMF_BAILOUT_INCOME_FRACTION_CAP`, `src/lib/imf/constants.ts`); **remit** collections to the **IMF corporation** in **USD** (with **forex** from the rescued corp’s home currency / ₳ as needed); dilute existing shareholders by issuing new shares to the IMF; **bar dividends and CEO compensation** while active; block **bond-default refinance** while active; apply a **−15% share price** penalty (`IMF_BAILOUT_SHARE_PRICE_MULTIPLIER` = 0.85, already wired into `computeSharePrices`); show **admin-only** stake metrics in **₳**; and allow **admin forced liquidation** if the CEO fails obligations.
 
-This doc is the implementation blueprint; it does not change game rules until code and seeds land.
+### Sovereign IMF facility (separate system)
+
+Governments have their own IMF facility for sovereign default, implemented in `src/lib/sovereignDefault/` (`imfSovereignFacility.ts`, `constants.ts`). It uses different numbers: income capture defaults to 20% (`IMF_SOVEREIGN_INCOME_CAPTURE_DEFAULT`), floored at 10% and capped at 30% (`IMF_SOVEREIGN_INCOME_CAPTURE_MIN` / `IMF_SOVEREIGN_INCOME_CAPTURE_CAP`). It is not covered further in this doc.
+
+### Related but separate: interbank / dead-bank lending
+
+Private banking has its own distress-lending mechanism, interbank loans and dead-bank handling in `src/lib/turn/bankingTurn.ts` and `src/lib/turn/bankSolvencyTurn.ts`. It is unrelated to the IMF corporate facility described here and is not covered further in this doc.
 
 ### Currency
 
-- **Admin analytics** (stake value, facility principal comparisons, “net of debt” views): **anchor (₳)** — consistent with `formatAmount` and `POST /api/admin/corporations/[id]/capital`.
-- **IMF corporation balance sheet:** **USD** — `liquidCurrencyCode` / US HQ; all bailout **cash remittances** credit IMF in USD using existing `corporationCapital` conversion helpers.
+- **Admin analytics** (stake value, facility principal comparisons, “net of debt” views): **anchor (₳)**, consistent with `formatAmount` and `POST /api/admin/corporations/[id]/capital`.
+- **IMF corporation balance sheet:** **USD**, `liquidCurrencyCode` / US HQ; all bailout **cash remittances** credit IMF in USD using existing `corporationCapital` conversion helpers.
 - Do not use Australian dollars (AUD) unless a future product explicitly adds AUD as a game currency; the symbol “A$” is not used for anchor.
 
 ---
@@ -41,16 +49,16 @@ Add to `Corporation` (names illustrative):
 | ---------------------------------- | -------------- | ----------------------------------------------------------------- |
 | `imfBailoutActive`                 | `boolean`      | Bailout / restructuring in effect.                                |
 | `imfBailoutImfCorporationId`       | `ObjectId`     | Which IMF corp holds (or will hold) the stake.                    |
-| `imfBailoutTargetOwnershipPercent` | `number`       | Target fully diluted ownership **of the IMF** (0–100), e.g. `40`. |
+| `imfBailoutTargetOwnershipPercent` | `number`       | Target fully diluted ownership **of the IMF** (0-100), e.g. `40`. |
 | `imfBailoutStartedAt`              | `Date` or turn | Audit / display.                                                  |
 
-**IMF facility (amortization)** — illustrative fields on the rescued corp:
+**IMF facility (amortization)**, illustrative fields on the rescued corp:
 
 | Field                             | Type          | Meaning                                                         |
 | --------------------------------- | ------------- | --------------------------------------------------------------- |
 | `imfFacilityPrincipalOutstanding` | `number` (₳)  | Remaining principal owed to IMF after haircut / consolidation.  |
 | `imfFacilityAnnualRate`           | `number`      | Annual interest rate on outstanding principal (design-tunable). |
-| `imfFacility…`                    | turns / dates | Term or maturity — enough to compute scheduled P+I each turn.   |
+| `imfFacility…`                    | turns / dates | Term or maturity, enough to compute scheduled P+I each turn.   |
 
 **Invariant:** When `imfBailoutActive` is true, `imfBailoutImfCorporationId` must reference the seeded IMF corp (validate on write).
 
@@ -79,10 +87,10 @@ Add to `Corporation` (names illustrative):
 
 - Each turn while the facility has principal outstanding:
   1. Compute **scheduled** principal + interest for that turn (₳).
-  2. **Cap:** payment = `min(scheduled, 0.45 × perTurnIncome₳)` where **per-turn income** matches the same basis used in corporation turn / `corporationHistory` (align with implementation).
+  2. **Capture:** payment defaults to `0.35 × perTurnIncome₳` (`IMF_BAILOUT_DEFAULT_INCOME_CAPTURE_FRACTION`), configurable per bailout, hard-capped at `0.45 × perTurnIncome₳` (`IMF_BAILOUT_INCOME_FRACTION_CAP`), and never above `scheduled`. **Per-turn income** matches the same basis used in corporation turn / `corporationHistory` (align with implementation).
   3. Split the payment into interest and principal; reduce `imfFacilityPrincipalOutstanding`.
   4. Debit the rescued corp’s `liquidCapital` (home currency); **credit IMF** `liquidCapital` in **USD** via existing forex conversion.
-- If the cap binds, define whether the schedule **extends** (implicit re-term) or accrues — pick one rule and document it in code.
+- If the cap binds, define whether the schedule **extends** (implicit re-term) or accrues, pick one rule and document it in code.
 - **Turn order:** Place this logic relative to `processBondTurn` / corporation turn per `docs/design/core-systems.md` so `liquidCapital` and defaults stay coherent.
 
 ### 6. Admin forced liquidation
@@ -97,7 +105,7 @@ Add to `Corporation` (names illustrative):
 ### 1. Bond-default refinance (and related crisis actions)
 
 - While `imfBailoutActive`:
-  - **POST** `/api/corporations/[id]/bond-default/refinance` → **400** with clear message (IMF restructuring—refinance not available).
+  - **POST** `/api/corporations/[id]/bond-default/refinance` → **400** with clear message (IMF restructuring, refinance not available).
   - **GET** `/api/corporations/[id]/bond-default` → `refinance.canRefinance: false` (and UI reasons) so `DefaultedBondCrisisModal` does not offer refinance.
 - **Cash paydown** / **CEO dissolve** may still exist per existing rules; **admin forced liquidation** is separate (see §6 above).
 
@@ -106,7 +114,7 @@ Add to `Corporation` (names illustrative):
 - **Storage:** Continue storing the “intrinsic” computed price in `sectorCalculations` as today.
 - **Bailout adjustment:** When `imfBailoutActive`, multiply the **final rounded** share price used for persistence (and trading hooks that read `corp.sharePrice`) by **`0.85`**.
 - Single implementation site preferred: `src/lib/turn/corporation/sectorCalculations.ts` (where `sharePrice` is set), so all consumers see one consistent number.
-- **Tests:** Snapshot with/without flag; ensure dividends / orders that depend on price stay coherent (document if any path must use pre-penalty price—ideally none).
+- **Tests:** Snapshot with/without flag; ensure dividends / orders that depend on price stay coherent (document if any path must use pre-penalty price, ideally none).
 
 ### 2b. Dividends and CEO compensation: barred during bailout
 
@@ -132,12 +140,12 @@ Add to `Corporation` (names illustrative):
 
 ### API
 
-- **`GET /api/admin/corporations`** — extend payload with `imfBailoutActive`, optional computed **IMF stake metrics** (or lazy-load detail).
+- **`GET /api/admin/corporations`**, extend payload with `imfBailoutActive`, optional computed **IMF stake metrics** (or lazy-load detail).
 - **New:** e.g. `POST /api/admin/corporations/[id]/imf-bailout` with `requireAdmin`:
   - Body includes: `active`, `targetOwnershipPercent`, **haircut**, **facility rate/term** (as needed), `applyIssuance`.
   - Turning **on**: haircut bonds + notify, issue shares, init facility, set flags.
-  - Turning **off**: clear `imfBailoutActive` (product decision on unwinding equity — default **do not auto-liquidate**).
-- **New:** `POST .../force-liquidate` — admin settlement (see §6).
+  - Turning **off**: clear `imfBailoutActive` (product decision on unwinding equity, default **do not auto-liquidate**).
+- **New:** `POST .../force-liquidate`, admin settlement (see §6).
 
 ### UI (`CorporationsAdminPanel` and/or corp detail admin)
 
@@ -160,7 +168,7 @@ Add to `Corporation` (names illustrative):
 
 ### Config
 
-- **IMF corporation id**: resolved via `GameState` field, env var, or constant populated by seed—**one** source of truth referenced by admin validation and issuance.
+- **IMF corporation id**: resolved via `GameState` field, env var, or constant populated by seed, **one** source of truth referenced by admin validation and issuance.
 
 ---
 
@@ -190,7 +198,7 @@ Add to `Corporation` (names illustrative):
 
 ## Risks / follow-ups
 
-- **Forex / non-USD HQ:** QA bailout remittances with **JPY** and **GBP** rescued corporations (active forex); use **EUR** only if Germany is in scope for that test matrix—not as the default second non-USD beside JPY.
+- **Forex / non-USD HQ:** QA bailout remittances with **JPY** and **GBP** rescued corporations (active forex); use **EUR** only if Germany is in scope for that test matrix, not as the default second non-USD beside JPY.
 - **Forex:** If any display mixes home currency and ₳, keep admin readout strictly in **₳** for this slice; expand later if needed.
 - **Double dilution:** Guard admin “apply issuance” against repeated clicks (transaction or idempotency key).
 - **Nationalized corps:** Likely **exclude** or explicit error if `countryOwnerId` set (same as other bond-default restrictions).

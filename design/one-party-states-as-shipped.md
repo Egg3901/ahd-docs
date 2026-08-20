@@ -85,7 +85,16 @@ Stage 4, `stage4.faceCollapse` (default `acceptPeacefully`):
 
 ## Faction split
 
-Entering Stage 3 fires `fireFactionSplit` (`src/lib/onePartyState/factionSplit.ts`). It picks `max(3, ceil(15% of ruling-party officials))` defectors by divergence score (today every official scores 0, so selection is by stable input order), spawns a new approved party under the country's `factionDefectionName` (CN: "Democratic Faction of the CCP"; RU: "Reformist Faction of the CPSU") seeded from the ruling party's ideology axes, and reassigns each defector's party field. Only character-held seats defect; NPP-held seats have a null `characterId` and are skipped. The split no-ops when the country has no `factionDefectionName`, no ruling party, or no officials.
+Entering Stage 3 fires `fireFactionSplit` (`src/lib/onePartyState/factionSplit.ts`). It picks `max(3, ceil(15% of ruling-party officials))` defectors by divergence score, spawns a new approved party under the country's `factionDefectionName` (CN: "Democratic Faction of the CCP"; RU: "Reformist Faction of the CPSU") seeded from the defectors' own axis positions, not the ruling party's, and reassigns each defector's party field. Only character-held seats defect; NPP-held seats have a null `characterId` and are skipped. The split no-ops when the country has no `factionDefectionName`, no ruling party, or no officials.
+
+### Faction divergence scoring
+
+Who actually leaves is decided in `src/lib/onePartyState/factionDivergence.ts`, two pure (DB-free) kernels:
+
+- `scoreDivergence(official, line)`, Manhattan distance between an official's own (economic, social) axis position and the ruling party's line, normalized to 0..1 (axes run roughly -5..+5, so max distance is 20). An official with no recorded axis position scores 0, since absence of a position is not evidence of disloyalty. Treating a null as maximally distant would purge NPC-imported officials first.
+- `applyCaucusCohesion(scored, weight = CAUCUS_COHESION_WEIGHT)`, blends each official's individual score toward their caucus's mean score at `CAUCUS_COHESION_WEIGHT = 0.6`, so a faction leaves together rather than as scattered individuals who happen to cross the divergence line alone. Officials in no caucus keep their unmodified individual score.
+
+The `max(3, ceil(15%))` defector count is then taken by highest cohesion-adjusted divergence, ties broken by input order. `factionCentreOfGravity` averages the defectors' own axis positions (falling back to the ruling party's line only when no defector has a recorded position) to seed the new party's ideology, so the breakaway faction is ideologically distinct from the party it left rather than a renamed copy of it.
 
 ## Liberalization reforms
 
@@ -132,7 +141,7 @@ NPPs (the game's AI-run politicians) file, hold seats and are enriched with thei
 
 ## Conversion: one way out, and it is one way
 
-`triggerSystemConversion` in `src/lib/onePartyState/systemConversion.ts` does four things: sets the new `governmentType`, nulls `opsVoteMultipliers` and sets `hasLeaderConfidenceModel: false` (which is what switches off every intra-party and popular driver); clears `regimeStatus` on every party in the country; writes a `regime_escalation` history event with `subtype: "conversion"`; and calls `bootstrapNewSystem` to park the snap-election marker. No rows are deleted, so the history survives.
+`triggerSystemConversion` in `src/lib/onePartyState/systemConversion.ts` does four things: sets the new `governmentType`, nulls `opsVoteMultipliers` and sets `hasLeaderConfidenceModel: false` (which is what switches off every intra-party and popular driver); clears `regimeStatus` on every party in the country (`clearAllRegimeStatusForCountry` in `src/lib/onePartyState/regimeStatusReset.ts`, which sets the field to `null` rather than unsetting it, so legacy readers still find a sentinel instead of `undefined`); writes a `regime_escalation` history event with `subtype: "conversion"`; and calls `bootstrapNewSystem` to park the snap-election marker. No rows are deleted, so the history survives.
 
 The forced path, `checkForcedConversion`, fires on either of two conditions: Stage 4's accept-peacefully set `conversionPendingAtTurn` and that turn has arrived, or the country has sat in `collapse` with no convention and any `stage4Delay` window has elapsed. Forced constants: `FORCED_LEGACY_RESERVATION = 5` seats (halved to `3` when the resist delay expired with popular still below 15), `FORCED_VOTE_SHARE_PENALTY = -0.2` on the former ruling party's first post-conversion election, and `FORCED_ELECTION_DELAY_TURNS = 12`. Both paths are idempotent: the pending marker and the delay marker are cleared once consumed.
 

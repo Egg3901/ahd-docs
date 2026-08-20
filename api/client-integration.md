@@ -2,6 +2,8 @@
 
 This document covers everything a desktop client (Electron/Tauri) needs to integrate with the A House Divided web API.
 
+Deployment is on **Railway** (development → staging → main), not Vercel.
+
 ---
 
 ## Authentication
@@ -11,7 +13,7 @@ AHD uses **HTTP-only JWT cookies** for authentication. The cookie is named `toke
 **For the desktop client:**
 
 - Use a persistent cookie jar (e.g., Electron's `session.cookies` or a custom `tough-cookie` jar with `axios`)
-- Log in via `POST /api/auth/login` — the cookie is set automatically in the response
+- Log in via `POST /api/auth/login`, the cookie is set automatically in the response
 - All authenticated requests must include the cookie; there is no Bearer token alternative for player routes
 - Admin/automation routes accept `X-Api-Key: <key>` as an alternative (internal use only)
 
@@ -36,9 +38,9 @@ The `Set-Cookie: token=...` header in the response sets the auth cookie.
 
 ## Core Navigation Endpoint
 
-`GET /api/client-nav` — no auth required (returns guest manifest if unauthenticated)
+`GET /api/client-nav`, no auth required (returns guest manifest if unauthenticated)
 
-This is the primary polling endpoint for the client. Poll it every 30–60 seconds to keep the UI in sync.
+This is the primary polling endpoint for the client. Poll it every 30-60 seconds to keep the UI in sync.
 
 ### Response Shape
 
@@ -54,32 +56,29 @@ interface ClientNavResponse {
   activeElection: {
     id: string;
     seatId?: string;
-    label: string; // e.g. "U.S. Senate — CA"
+    label: string; // e.g. "U.S. Senate, CA"
   } | null;
   activePresidentElectionId: string | null;
   activePresidentElectionSeatId: string | null;
   missingDemographics: boolean;
-  // Character financial fields (null when no character or unauthenticated)
-  funds: number | null; // campaign funds
-  actions: number | null; // action points remaining this turn
-  cashOnHand: number | null; // personal cash (separate from campaign funds)
-  projectedIncome: number | null; // projected fundraising income next turn
 }
 ```
 
-### `projectedIncome` formula
+`client-nav` does **not** carry funds, actions, cash-on-hand, or projected income, those are served by `GET /api/client-status`, the status-bar endpoint.
+
+### `projectedIncome` (on `GET /api/client-status`)
 
 ```
-projectedIncome = 50000 + donorBaseLevel * 10000
+projectedIncome = (50000 + donorBaseLevel * 2000) * (1 + politicalInfluence / 100)
 ```
 
-Base of $50,000 per turn, +$10,000 per donor base level (0–5). This is the fundraising action yield.
+`calculateFundraisingAmount()` in `src/lib/actions.ts`: a $50,000 floor plus $2,000 per donor base level, scaled by a state-influence multiplier (1.0x at 0% influence to 2.0x at 100%). This is the per-use Fundraise action yield.
 
 ---
 
 ## Theme Settings
 
-`PATCH /api/settings/theme` — requires auth cookie
+`PATCH /api/settings/theme`, requires auth cookie
 
 ### Request
 
@@ -96,95 +95,25 @@ Content-Type: application/json
 { "success": true }
 ```
 
-### SSE Event: `theme_changed`
+### Internal event emit (not client-facing)
 
-After a successful PATCH, the server emits a `theme_changed` event over SSE:
+After a successful PATCH, the server calls `emit({ type: "theme_changed", ... })` on an in-process event bus (`src/lib/events.ts`). **This emitter has no HTTP consumer**, there is no route that streams it to a client. It exists as internal plumbing only.
 
-```ts
-{
-  type: "theme_changed",
-  payload: { theme: string; userId: string },
-  timestamp: string,  // ISO 8601
-  userId: string,
-}
-```
-
-**Critical limitation:** SSE in AHD is in-process only (single Vercel serverless instance). The client's SSE connection and the PATCH request may land on different server instances, causing the event to be silently dropped. **Do not rely on SSE alone for theme sync.** Implement a polling fallback: re-fetch `/api/client-nav` after any theme change action, or poll on a short interval.
+**Do not build an SSE/EventSource integration for theme sync.** Poll instead: re-fetch `/api/client-nav` after any theme change action, or on a short interval.
 
 ---
 
-## SSE Events
+## No SSE Event Stream
 
-`GET /api/events` — no auth required
+**`GET /api/events` is not an SSE endpoint.** It is a REST resource for the in-game "events" (crisis/random-event) system, `GET /api/events/active`, `GET /api/events/[id]`, unrelated to real-time client sync. There is no `text/event-stream` endpoint anywhere in the public API surface, and no `EventSource`-based integration is possible today.
 
-AHD uses a lightweight in-process pub/sub. All events share this shape:
-
-```ts
-interface GameEvent {
-  type: "turn_complete" | "election_resolved" | "bill_enacted" | "theme_changed";
-  payload: Record<string, unknown>;
-  timestamp: string; // ISO 8601
-  userId?: string;
-}
-```
-
-### Validating events
-
-Use this guard when parsing SSE messages:
-
-```ts
-function validateSSEEvent(event: unknown): event is GameEvent {
-  return (
-    typeof event === "object" &&
-    event !== null &&
-    "type" in event &&
-    typeof (event as any).type === "string" &&
-    "payload" in event &&
-    "timestamp" in event
-  );
-}
-```
-
-### Event reference
-
-| Type                | Payload                                     | Notes                                           |
-| ------------------- | ------------------------------------------- | ----------------------------------------------- |
-| `turn_complete`     | `{ turn: number, year: number }`            | Fired each hourly turn                          |
-| `election_resolved` | `{ electionId: string, winnerId?: string }` | Fired when an election concludes                |
-| `bill_enacted`      | `{ billId: string, billTitle: string }`     | Fired when a bill passes                        |
-| `theme_changed`     | `{ theme: string, userId: string }`         | Fired on theme PATCH; unreliable cross-instance |
-
-### Connection example
-
-```ts
-const es = new EventSource("/api/events");
-
-es.addEventListener("turn_complete", (e) => {
-  const event = JSON.parse(e.data);
-  // handle turn
-});
-
-es.addEventListener("theme_changed", (e) => {
-  const event = JSON.parse(e.data);
-  // apply theme: event.payload.theme
-});
-
-es.onerror = () => {
-  // EventSource reconnects automatically; re-fetch /api/client-nav on reconnect
-};
-```
-
-Events are sent as **named SSE events** (`event: <type>`). Use `addEventListener` with the event type name, not `onmessage`.
-
-### Reconnection
-
-`EventSource` reconnects automatically. On reconnect, re-fetch `/api/client-nav` to catch any state missed while disconnected.
+For turn updates, election results, and any other near-real-time state, **poll the relevant REST endpoint** (see Polling Recommendations below) rather than expecting a push channel.
 
 ---
 
 ## Error Codes
 
-`GET /api/error-codes` — no auth required
+`GET /api/error-codes`, no auth required
 
 Returns a static versioned catalog. Cache it at startup; re-fetch if `version` changes.
 
@@ -236,9 +165,9 @@ Always check `code` for programmatic handling; `error` is for display.
 ## Rate Limits
 
 | Endpoint                    | Limit                 |
-| --------------------------- | --------------------- |
+| ---------------------------- | ---------------------- |
 | `PATCH /api/settings/theme` | 30 req / 60s per user |
-| Most player action routes   | 20–30 req / 60s       |
+| Most player action routes   | 20-30 req / 60s       |
 | Auth routes                 | 10 req / 60s          |
 
 Rate-limited responses return `429` with a `Retry-After` header (seconds).
@@ -247,11 +176,11 @@ Rate-limited responses return `429` with a `Retry-After` header (seconds).
 
 ## Polling Recommendations
 
-Since SSE is unreliable across Vercel instances, prefer polling for critical state:
+There is no push channel for the desktop client, poll for all near-real-time state:
 
-| Data                               | Recommended approach                            |
-| ---------------------------------- | ----------------------------------------------- |
-| Nav state (funds, actions, unread) | Poll `/api/client-nav` every 60s                |
-| Theme sync                         | Re-fetch after PATCH + SSE fallback             |
-| Turn updates                       | SSE `turn_complete` + re-fetch on reconnect     |
-| Election results                   | SSE `election_resolved` + re-fetch on reconnect |
+| Data                               | Recommended approach              |
+| ------------------------------------ | ------------------------------------ |
+| Nav state (unread, party, election) | Poll `/api/client-nav` every 60s     |
+| Funds, actions, projected income   | Poll `/api/client-status` every 60s |
+| Theme sync                         | Re-fetch `/api/client-nav` after PATCH |
+| Turn updates / election results    | Poll the relevant status endpoint on a short interval |

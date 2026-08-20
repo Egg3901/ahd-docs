@@ -8,10 +8,10 @@ All bills require a **category** and at least one **provision** (legislation typ
 
 - **Description**: Bills built from legislation types with named policy options and **economic/social** integer scores (-3 to +3; 0 = center). Each type has 7 options (3 left, 1 center, 3 right) with a primary axis (economic or social) per type.
 - **Creation**: Any sitting Congress/Parliament member, or admins via Admin override
-- **Content**: Title, summary, **category** (required), and **provisions** (1–5 per bill). Each provision is a legislation type + policy option (or effect direction). Provisions can store optional **economic** and **social** integers. Category limits which legislation types can be added (e.g. Healthcare → Medicare, Medicaid; Economy → Tax Policy, Minimum Wage, Social Security).
+- **Content**: Title, summary, **category** (required), and **provisions** (1-3 per bill). Each provision is a legislation type + policy option (or effect direction). Provisions can store optional **economic** and **social** integers. Category limits which legislation types can be added (e.g. Healthcare → Medicare, Medicaid; Economy → Tax Policy, Minimum Wage, Social Security).
 - **Categories**: economy, healthcare, education, infrastructure, environment, public safety, social, defense, foreign policy. Defined in `shared/constants/legislation.ts`; each maps to one or more policy domains.
-- **Provisions**: 1–5 per bill. Each provision is one legislation type plus one policy option (or effect direction). When the bill is signed, every provision’s effect is applied to the relevant state/national metrics.
-- **Cost**: 1st provision = 1 national influence, 2nd = 5, 3rd = 10, 4th = 15, 5th = 20. Admins exempt. Balance shown in propose form; backend deducts on submit for non-admins.
+- **Provisions**: 1-3 per bill (`MAX_PROVISIONS = 3` in `shared/constants/legislation.ts`). Each provision is one legislation type plus one policy option (or effect direction). When the bill is signed, every provision’s effect is applied to the relevant state/national metrics.
+- **Cost**: `PROVISION_COSTS = [5, 10, 15]` national influence for the 1st, 2nd, 3rd provision respectively. Admins exempt. Balance shown in propose form; backend deducts on submit for non-admins. Proposing a bill (any bill, national or state) also costs a flat `BILL_PROPOSE_ACTION_COST = 10` action points.
 - **Effects**: When a bill is signed (or pocket-signed), `applyLegislationEffect()` in `src/lib/legislationEffects.ts` applies each provision’s delta to its legislation type’s `effectTarget` metric.
 
 ### LegislationType Fields
@@ -20,26 +20,26 @@ Key fields on the `LegislationType` interface (`src/lib/db/types/legislation.ts`
 
 | Field                                 | Description                                                                                                                                                                                                                                                                                  |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `countryScope`                        | `"us"` \| `"uk"` \| `"international"` — which country this type belongs to. All US types are `"us"` or `"international"`; 19 UK types are `"uk"`.                                                                                                                                            |
+| `countryScope`                        | `"us"` \| `"uk"` \| `"international"`, which country this type belongs to. All US types are `"us"` or `"international"`; 19 UK types are `"uk"`.                                                                                                                                            |
 | `effectTargetsWeighted`               | Array of weighted metric targets applied when a bill using this type is enacted.                                                                                                                                                                                                             |
-| `policyOptions[].metricEffects`       | Per-option `{ category, metricId, ratePerTurn }` — direct additive metric change applied **each turn** the policy is active. Scaled for ~10-year full reversal: extreme ≈ ±0.06/turn, center = 0.                                                                                            |
+| `policyOptions[].metricEffects`       | Per-option `{ category, metricId, ratePerTurn }`, direct additive metric change applied **each turn** the policy is active. Scaled for ~10-year full reversal: extreme ≈ ±0.06/turn, center = 0.                                                                                            |
 | `policyOptions[].annualCostPerCapita` | **Absolute** per-capita spending level in $ per year (not a delta). Represents the total program cost at that policy level. `$0` = full abolition of the program. Positive = spending; negative = net savings/revenue (e.g., tax increases). Applied to national/state budgets when enacted. |
 | `policyOptions[].minimumWageRate`     | (Minimum wage types only) The actual hourly wage in $/hour for this option. Stored alongside the standard economic/social scores so the UI can display the real dollar figure.                                                                                                               |
-| `positions[].chamber`                 | `"house" \| "senate" \| "commons" \| "lords"` — committee positions for the type.                                                                                                                                                                                                            |
+| `positions[].chamber`                 | `"house" \| "senate" \| "commons" \| "lords"`, committee positions for the type.                                                                                                                                                                                                            |
 
-### US Tax System — 11-Bracket Model
+### US Tax System, 11-Bracket Model
 
-All 9 US tax legislation types (`income_tax`, `corporate_tax`, `capital_gains_tax`, `payroll_tax`, `estate_tax`, `excise_tax`, `carbon_tax`, `wealth_tax`, `financial_transaction_tax`) use an **11-bracket scale** (indices 0–10) with LARP-style bill names:
+All 9 US tax legislation types (`income_tax`, `corporate_tax`, `capital_gains_tax`, `payroll_tax`, `estate_tax`, `excise_tax`, `carbon_tax`, `wealth_tax`, `financial_transaction_tax`) use an **11-bracket scale** (indices 0-10) with LARP-style bill names:
 
 | Index | Direction | Example title pattern          |
 | ----- | --------- | ------------------------------ |
 | 0     | Far left  | "X Expansion and Reform Act"   |
-| 1–4   | Left      | Progressive-leaning rate bills |
+| 1-4   | Left      | Progressive-leaning rate bills |
 | 5     | Center    | Status quo / baseline rate     |
-| 6–9   | Right     | Rate reduction bills           |
+| 6-9   | Right     | Rate reduction bills           |
 | 10    | Far right | "X Abolition Act" / "Zero X"   |
 
-Each bracket has an explicit `economic` score (−5 to +5), a `social` score (0 unless cross-axis), an `annualCostPerCapita` representing total per-capita revenue impact, and a LARP-style title and description. This replaced the prior 6–8 option scale.
+Each bracket has an explicit `economic` score (−5 to +5), a `social` score (0 unless cross-axis), an `annualCostPerCapita` representing total per-capita revenue impact, and a LARP-style title and description. This replaced the prior 6-8 option scale.
 
 ### Absolute Cost Model
 
@@ -66,9 +66,9 @@ Configured via `FEDERAL_MULTIPLIER` in `src/lib/demographicEffects.ts`.
 
 ### US Legislation Type Changes (v3 overhaul)
 
-- **Removed**: `medicare` — removed as redundant with `federal_healthcare_funding` and `drug_pricing_medicare`.
-- **Added**: `state_spending_stimulus` — state-level economic stimulus spending legislation.
-- **Added**: `state_housing` — state-level housing and development legislation.
+- **Removed**: `medicare`, removed as redundant with `federal_healthcare_funding` and `drug_pricing_medicare`.
+- **Added**: `state_spending_stimulus`, state-level economic stimulus spending legislation.
+- **Added**: `state_housing`, state-level housing and development legislation.
 - All ~45 remaining non-tax US types reworked with LARP-style bill names, absolute `annualCostPerCapita` values, and explicit dual-axis (`economic`, `social`) scores.
 
 ### UK Legislation Types
@@ -77,15 +77,15 @@ Configured via `FEDERAL_MULTIPLIER` in `src/lib/demographicEffects.ts`.
 
 **34 National (Parliament) types** across 16 categories: Healthcare (4), Education (4), Economic (2), Infrastructure (2), Environment (2), Law & Justice (2), Defence (2), Foreign Policy (1), Welfare (2), Immigration (2), Labour (2), Housing (2), Governance (3), Media (2), Civil Liberties (2), plus 5 national tax types (Income Tax, NI, VAT, Corporation Tax, Excise/Customs).
 
-**14 Regional (Council) types** plus 2 regional tax types (Council Tax, Business Rates). Regional types are subject to the **budget constraint system** — total enacted regional spending cannot exceed the region's budget (Council Tax revenue + Business Rates revenue + Westminster grant).
+**14 Regional (Council) types** plus 2 regional tax types (Council Tax, Business Rates). Regional types are subject to the **budget constraint system**, total enacted regional spending cannot exceed the region's budget (Council Tax revenue + Business Rates revenue + Westminster grant).
 
 **7 tax types** use 11 brackets with explicit rates, LARP-style titles, and economic scores. National taxes: `uk_income_tax_rate`, `uk_national_insurance`, `uk_vat`, `uk_corporation_tax`, `uk_excise_customs`. Regional taxes: `uk_council_tax`, `uk_business_rates`.
 
-**Key national type:** `uk_local_government_funding` controls the Westminster grant to regions — the primary funding lever for regional council budgets. Future Chancellor of the Exchequer office will allocate this pool across regions.
+**Key national type:** `uk_local_government_funding` controls the Westminster grant to regions, the primary funding lever for regional council budgets. Future Chancellor of the Exchequer office will allocate this pool across regions.
 
 **UK-specific metrics:** 14 metrics unique to the UK (e.g., `nhsWaitingTime`, `childPoverty`, `housingAffordability`, `devolutionSatisfaction`, `bbcTrust`). 4 US-only metrics excluded from UK (`uninsuredRate`, `affordabilityIndex`, `highSchoolGradRate`, `collegeEnrollment`). National effect division uses `UK_FEDERAL_MULTIPLIER = 1/12` (12 regions vs US 50 states).
 
-**Regional Budget Constraint:** UK regions operate under a balanced-budget requirement. Revenue = Council Tax + Business Rates + Westminster grant. If enacted spending exceeds budget for more than 1 turn, forced austerity downgrades the most expensive programme one option level per turn until balanced. Property and commercial value bases drift dynamically based on investment levels (25%–300% of baseline guardrails).
+**Regional Budget Constraint:** UK regions operate under a balanced-budget requirement. Revenue = Council Tax + Business Rates + Westminster grant. If enacted spending exceeds budget for more than 1 turn, forced austerity downgrades the most expensive programme one option level per turn until balanced. Property and commercial value bases drift dynamically based on investment levels (25%-300% of baseline guardrails).
 
 Full spec: the design archive
 
@@ -99,15 +99,15 @@ Bills move through a strict status pipeline managed by the turn processor each h
 | `passed_origin` | Passed origin chamber; pending transmission to second chamber       |
 | `active_other`  | Voting open in the second chamber (24-hour window)                  |
 | `enrolled`      | Passed both chambers; awaiting presidential action (10-hour window) |
-| `signed`        | President signed — bill is law                                      |
+| `signed`        | President signed, bill is law                                      |
 | `vetoed`        | President vetoed the bill                                           |
 | `failed`        | Failed a chamber vote or pocket-expired without presidential action |
 | `withdrawn`     | Sponsor withdrew before voting opened                               |
 
 ### Proposal
 
-1. **Cost**: No action cost to propose. Additional provisions (2nd–5th) cost national influence (5, 10, 15, 20); admins are exempt.
-2. **Availability**: US — House or Senate members. UK — Commons members. **JP — Shūgiin or Sangiin members** (origin chamber matches the sponsor's seat). Admins can override in all countries.
+1. **Cost**: Flat 10 action points to propose (`BILL_PROPOSE_ACTION_COST`). Additional provisions (2nd, 3rd) cost national influence (5, 10 respectively, on top of the 1st provision's 5); admins are exempt.
+2. **Availability**: US, House or Senate members. UK, Commons members. **JP, Shūgiin or Sangiin members** (origin chamber matches the sponsor's seat). Admins can override in all countries.
 3. **Required**: Category and at least one provision (legislation type + policy option). Category limits which legislation types appear in the form (see `GET /api/game/legislation-types?category=...`).
 4. **Activation**: Bill immediately enters `active` status with a 24-hour `votingEndsAt` timestamp set at submission
 5. **Origin chamber** is recorded from the proposing member’s selection (House, Senate, or Joint)
@@ -136,18 +136,37 @@ Bills move through a strict status pipeline managed by the turn processor each h
 - **Pocket signature**: If the President takes no action within 10 hours of enrollment, the bill is automatically signed (`signed`)
 - Only the character currently holding the President office sees the action panel
 
+### Senate Filibuster / Cloture
+
+Implemented, US Senate only (`src/lib/legislature/commands/nationalBillActions.ts`); a bill with `countryId !== "US"` is rejected.
+
+- **Who can invoke**: Only a sitting US Senator (officeType `"senate"`). Once per character per bill.
+- **Cost**: 25 action points + 5 National Political Influence (NPI).
+- **Effect**: Extends the Senate's voting deadline by 12 hours, adjusted by the invoking senator's Statecraft stat (via `statMultiplier`, roughly a +/-20% band, so a stronger senator delays it more), and sets a cloture threshold of 3/5 of votes cast to pass the bill (instead of a simple majority).
+- **Not usable** on a bill in status `active_both` (both chambers voting concurrently), since there is no single chamber clock to delay in that state.
+- **Can be disabled**: A Senate rule change (a `statePolicies` doc with `legislationTypeId: "senate_filibuster_rules"` and `effectDirection: -1`) abolishes the filibuster; simple majority applies again.
+
+### Veto Override
+
+Implemented. A vetoed bill can enter status `veto_override` with its own separate voting deadline (`overrideVotingEndsAt` / `overrideVotingEndsOnTurn`).
+
+- **Who can vote**: Any member of either chamber, via action `veto_override_vote`.
+- **Weighting**: Votes are weighted by `seatsHeld`.
+- **Tally**: Tracked in `vetoOverrideVotesFor` / `vetoOverrideVotesAgainst`.
+
 ## Detail Page (`/congress/bills/[id]`)
 
 Each bill has a dedicated page showing:
 
-- **Timeline stepper** — proposed → origin vote → second chamber → president → enacted
+- **Timeline stepper**, proposed → origin vote → second chamber → president → enacted
 - **Live countdown** timer while voting is open
 - **Vote bars** for both chambers (For / Against / Abstain percentages)
 - **Vote buttons** for eligible members; re-voting moves the previous vote
-- **Presidential action panel** (Sign / Veto) — visible to the President only
+- **Presidential action panel** (Sign / Veto), visible to the President only
 - **Co-sponsors** list and full bill text
 - Sidebar quick-facts (status, origin chamber, sponsor, key dates)
-- Placeholder cards for future **Amendments**, **Senate Filibuster / Cloture**, and **Veto Override** mechanics
+- Placeholder card for future **Amendments**
+- **Senate Filibuster / Cloture** and **Veto Override** are implemented (see below), not placeholders
 
 ### NPP Auto-Voting
 
@@ -209,12 +228,12 @@ Implementation: `DOMAIN_AFFINITIES` and `calculateShiftImpacts()` in `src/lib/ar
 - **Legislation types**: `GET /api/game/legislation-types` (optional `?category=...`). Types include `policyOptions` with `economic` and `social` scores for the proposal UI.
 - **Current policies**: `GET /api/game/current-policies?stateId=federal` returns `{ legislationTypeId: policyOptionIndex }` map for shift-based UI previews.
 - **Propose**: `POST /api/congress/bills` with `title`, `summary`, `chamber`, `category`, and `provisions: [{ legislationTypeId, effectDirection?, economic?, social? }]`. Backend validates category and domain; deducts national influence for non-admins when provisions.length > 1.
-- **Policy (base law)**: `GET /api/policy?scope=national` or `GET /api/policy?scope=state&stateId=...` returns per–legislation-type records with `economic`, `social`, and `policyOptionName` (the option that best matches the stored position). Used by the national Policy page and the state page **State Laws & Policy** tab.
+- **Policy (base law)**: `GET /api/policy?scope=national` or `GET /api/policy?scope=state&stateId=...` returns per, legislation-type records with `economic`, `social`, and `policyOptionName` (the option that best matches the stored position). Used by the national Policy page and the state page **State Laws & Policy** tab.
 - **Committee assignments**: See [Legislation System Completion Audit](./legislation-system-completion-audit.md). Committees tab on Congress page; admins assign via Admin → Legislation.
 
 ## Base policy and state laws
 
-- **Collection**: `statePolicies` stores the current base policy per legislation type for the **nation** (one record per national-only or shared type) and for **each state** (only for non–national-only types; see `nationalOnly` on legislation types).
+- **Collection**: `statePolicies` stores the current base policy per legislation type for the **nation** (one record per national-only or shared type) and for **each state** (only for non, national-only types; see `nationalOnly` on legislation types).
 - **Position model**: Each record has **economic** and **social** integer scores (-3 to +3; 0 = center). The API matches the stored (economic, social) to the legislation type’s `policyOptions` and returns **policyOptionName** (exact or nearest by Manhattan distance).
 - **Seed**: `scripts/seeds/basePolicies.ts` defines **national defaults** (per-type, e.g. tax +1, healthcare -1) and **state defaults** from `state.politicalLean` (bluer → more negative, redder → more positive; clamped to -3..+3). Run `npm run seed:policies` to upsert, or `npm run seed:policies:reset` to clear and reseed.
 - **National Policy page**: `/policy` (USA nav) lists all national policies grouped by domain; each row shows current base **policy option name** and Economic/Social positions.
@@ -232,7 +251,7 @@ Implementation: `DOMAIN_AFFINITIES` and `calculateShiftImpacts()` in `src/lib/ar
 
 - Speaker/Majority Leader controls agenda
 - Decides which bills get voted on
-- **Status**: Speaker of the House is implemented (declare candidacy, vote, majority wins). Other House and all Senate leadership roles are planned. See [[Congress Leadership]].
+- **Status**: Speaker of the House, House Majority/Minority Leader, Senate President Pro Tempore, and Senate Majority/Minority Leader are all implemented (24-hour plurality elections). Motion to Vacate the Speaker is also implemented. Leadership control over agenda/committee assignments is still planned. See [[Congress Leadership]].
 
 ### Corporation System
 

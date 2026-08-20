@@ -7,7 +7,7 @@
 
 ## Investigation Summary
 
-Audited 113 test files containing ~934 test cases across Vitest (unit/integration) and Playwright (E2E). The codebase has strong coverage of **pure calculation functions** (vote math, demographics, party org, formatting) but critical gaps in **orchestration systems** (turn processing, bill lifecycle, election resolution) and **security-critical paths** (auth, admin gates). The mock database utility enables fast tests but creates false confidence by not validating MongoDB queries or simulating real cursor behavior.
+Audited a sample of the ~3123 test files across Vitest (unit/integration) and Playwright (E2E). The codebase has strong coverage of **pure calculation functions** (vote math, demographics, party org, formatting) but gaps remain in **orchestration systems** (turn processing, bill lifecycle, election resolution) and **security-critical paths** (auth, admin gates). The mock database utility enables fast tests but creates false confidence by not validating MongoDB queries or simulating real cursor behavior. Per-file test counts below are illustrative examples, not a full-repo audit.
 
 ---
 
@@ -98,8 +98,8 @@ See Section 3 below for the full ranked list.
 
 | #   | File                                                           | Lines | Conditionals | Blast Radius                                      | Why it matters                                                                                                                           |
 | --- | -------------------------------------------------------------- | ----- | ------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `src/lib/turnSystem.ts`                                        | 669   | ~48          | **Maximum** -- orchestrates all 40+ turn phases   | A bug here corrupts the entire game state every hour. No test verifies phase ordering, error isolation, or group sequencing.             |
-| 2   | `src/lib/billLifecycle.ts`                                     | 467   | ~57          | **High** -- bill voting, passage, veto, enactment | Multi-chamber voting logic, presidential action windows, auto pocket-sign -- all untested. Only trivial helpers have tests.              |
+| 1   | `src/lib/turnSystem.ts`                                        | 740   | ~48          | **Maximum** -- orchestrates all 40+ turn phases   | A bug here corrupts the entire game state every hour. No test verifies phase ordering, error isolation, or group sequencing.             |
+| 2   | `src/lib/billLifecycle.ts`                                     | 31    | ~57          | **High** -- bill voting, passage, veto, enactment | Multi-chamber voting logic, presidential action windows, auto pocket-sign -- all untested. Only trivial helpers have tests.              |
 | 3   | `src/lib/auth.ts`                                              | 135   | ~24          | **Critical** -- every authenticated request       | `verifyAuth()`, `getAuthUser()`, JWT validation -- zero unit tests. Auth integration tests exist but mock jose entirely.                 |
 | 4   | `src/lib/api/requireAuth.ts`                                   | 80    | moderate     | **Critical** -- gates ~400 API routes             | The primary auth guard. No unit tests.                                                                                                   |
 | 5   | `src/lib/api/requireAdmin.ts`                                  | 21    | low          | **High** -- gates all admin operations            | Untested. `claude.md` explicitly warns about bypassing this.                                                                             |
@@ -299,15 +299,13 @@ Every interactive game feature is untested end-to-end:
 
 | Metric                          | Value                                                      |
 | ------------------------------- | ---------------------------------------------------------- |
-| Total test files                | 113                                                        |
-| Total test cases                | ~934                                                       |
-| Vitest unit/integration         | 110 files, ~921 tests                                      |
+| Total test files                | ~3123                                                      |
 | Playwright E2E                  | 3 files, 13 tests                                          |
 | Coverage scope                  | `src/lib/**` only (excludes `src/app/`, components, hooks) |
 | Turn phase files with tests     | 14 of 42 (~33%)                                            |
 | Turn phase files without tests  | 28 (~67%)                                                  |
 | Auth/security files with tests  | 3 of 7 (~43%, and those 3 are shallow)                     |
-| API routes with tests           | ~23 of ~409 (~5.6%)                                        |
+| API route tests                 | ~344 of ~1256 routes have a `route.test.ts`                |
 | Lines of untested critical code | ~5,500+ across 51 files                                    |
 
 ---
