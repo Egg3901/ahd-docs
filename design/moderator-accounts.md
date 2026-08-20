@@ -2,7 +2,7 @@
 
 ## Overview
 
-Moderator accounts are an intermediate auth role between admin and player. Admins can assign/remove moderator status from users. Moderators get their own panel at `/moderator` with a subset of admin functionality — currently limited to player management. The system is designed so additional tabs can be added to the mod panel with minimal effort.
+Moderator accounts are an intermediate auth role between admin and player. Admins can assign/remove moderator status from users. Moderators get their own panel at `/moderator` with a subset of admin functionality - currently limited to player management. The system is designed so additional tabs can be added to the mod panel with minimal effort.
 
 Mod notes and audit logs are shared between panels: admins see everything moderators do, and both roles can write mod notes with automatic attribution.
 
@@ -34,11 +34,11 @@ interface ModNote {
 }
 ```
 
-Both admins and moderators can add notes. All notes display in both the Admin Panel and Mod Panel with attribution (e.g., "ModeratorX — 2026-04-11: Note text").
+Both admins and moderators can add notes. All notes display in both the Admin Panel and Mod Panel with attribution (e.g., "ModeratorX - 2026-04-11: Note text").
 
 ### New Collection: `modAuditLog`
 
-Tracks every privileged action a moderator takes. Admin actions are NOT logged here — this exists specifically for mod accountability.
+Tracks every privileged action a moderator takes. Admin actions are NOT logged here - this exists specifically for mod accountability.
 
 ```ts
 interface ModAuditLogEntry {
@@ -53,7 +53,7 @@ interface ModAuditLogEntry {
 }
 ```
 
-No separate collection for moderator roster — moderators are queried via `{ role: "moderator" }` on the `users` collection.
+No separate collection for moderator roster - moderators are queried via `{ role: "moderator" }` on the `users` collection.
 
 ## Auth System
 
@@ -70,7 +70,7 @@ Location: `src/lib/api/requireModerator.ts`
 
 Location: `src/lib/auth.ts`
 
-- Mirrors `getAuthAdmin()` — returns `AuthUserWithCharacter | null`
+- Mirrors `getAuthAdmin()` - returns `AuthUserWithCharacter | null`
 - Returns the user if `role === "moderator"` or `role === "admin"`, otherwise `null`
 - Used for page-level protection on `/moderator` routes
 
@@ -80,9 +80,9 @@ No structural changes. The `role` field is already carried in the JWT payload vi
 
 ### Existing Guards Unchanged
 
-- `requireAdmin()` — still only accepts `role: "admin"`, untouched
-- `requireAuth()` / `requireBasicAuth()` / `requireAuthWithCharacter()` — unchanged, work for all roles
-- `requireAdminOrApiKey()` — unchanged, admin-only
+- `requireAdmin()` - still only accepts `role: "admin"`, untouched
+- `requireAuth()` / `requireBasicAuth()` / `requireAuthWithCharacter()` - unchanged, work for all roles
+- `requireAdminOrApiKey()` - unchanged, admin-only
 
 ### Target Protection
 
@@ -171,7 +171,7 @@ These use `requireAdmin()`. Moderators cannot assign/remove other moderators.
 
 **Moderators subtab:**
 
-- Lists all users with `role: "moderator"` — shows username, assigned date, character name
+- Lists all users with `role: "moderator"` - shows username, assigned date, character name
 - "Assign Moderator" action: search for a user by username, confirm dialog, sets role to `"moderator"`
 - "Remove Moderator" action: button per mod, confirm dialog, sets role back to `"player"`
 - Cannot assign moderator to another admin
@@ -188,7 +188,7 @@ These use `requireAdmin()`. Moderators cannot assign/remove other moderators.
 ### Navbar
 
 - Moderators see a "Mod Panel" link in the navbar (same position/style as the "Admin Panel" link)
-- Admins do NOT see a "Mod Panel" link — Admin Panel is a superset
+- Admins do NOT see a "Mod Panel" link - Admin Panel is a superset
 - The link uses the same styling pattern as the admin link but points to `/moderator`
 
 ### Profile Badge
@@ -215,11 +215,11 @@ Users with an existing `modNote` string value need migration to the new `modNote
 2. Convert each to a single-entry `modNotes` array: `{ authorId: adminId, authorName: "System (migrated)", text: modNote, createdAt: user.updatedAt }`
 3. Unset the old `modNote` field
 
-No users need role migration — all existing users remain `"admin"` or `"player"` as-is.
+No users need role migration - all existing users remain `"admin"` or `"player"` as-is.
 
 ## Gameplay Impact
 
-None. Moderator status has zero effect on gameplay mechanics — elections, legislation, campaigns, NPP behavior, etc. are completely unaware of the moderator role. Mods play the game as normal players with their characters.
+None. Moderator status has zero effect on gameplay mechanics - elections, legislation, campaigns, NPP behavior, etc. are completely unaware of the moderator role. Mods play the game as normal players with their characters.
 
 ## Extensibility
 

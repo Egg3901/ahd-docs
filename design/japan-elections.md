@@ -1,4 +1,4 @@
-# Japan — Elections & Bills
+# Japan - Elections & Bills
 
 ## Electoral System
 
@@ -18,11 +18,10 @@ Japan uses **FPTP** (First Past the Post) for all elections in v1. Mixed-member 
 
 - **248 seats** across 8 regions, split into 2 staggered classes
 - **Duration:** 144 hours (72h primary + 72h general)
-- **Term cycle:** 6 game years, but half-elections every 3 years (144 turns)
-- **Class 1 regions:** Hokkaido, Kanto, Kansai, Shikoku (131 seats)
-- **Class 2 regions:** Tohoku, Chubu, Chugoku, Kyushu & Okinawa (117 seats)
-- Active class formula: `((Math.floor(currentTurn / 144)) % 2) + 1`
-- Cannot be dissolved — provides legislative continuity
+- **Term cycle:** 6 game years (288 turns) per class; half-elections every 3 game years (144 turns)
+- Every region contests **both** classes. Class 1 seats = `ceil(regionSeats / 2)` (**125** total). Class 2 seats = `floor(regionSeats / 2)` (**123** total). Together they sum to 248.
+- Class 1 / Class 2 are not "some regions vs others." Hokkaido 4+3, Tohoku 10+10, Kanto 40+40, Chubu 22+22, Kansai 22+22, Chugoku 7+7, Shikoku 4+4, Kyushu 16+15.
+- Cannot be dissolved - provides legislative continuity
 
 ### Governor
 
@@ -40,7 +39,7 @@ The PM can dissolve the Shugiin and trigger a snap election.
 - **Who:** Sitting PM only
 - **Limit:** 2 snap elections per PM appointment (resets on new PM)
 - **Cooldown:** 336 turns (2 real-time weeks) between snap elections
-- **Scope:** Shugiin only — Sangiin is unaffected
+- **Scope:** Shugiin only - Sangiin is unaffected
 - **Duration:** 48 hours (24h primary + 24h general)
 - **Election type:** `"snap_shugiin"` (distinct from regular `"shugiin"`)
 
@@ -50,7 +49,7 @@ The PM can dissolve the Shugiin and trigger a snap election.
 - Fresh snap elections spawn for all 8 regions
 - After resolution, perpetual cycle continues on original schedule
 - All JP bills not yet finalized are cancelled (`status → "failed"`)
-- Government resets to "pending" — new PM appointment process begins
+- Government resets to "pending" - new PM appointment process begins
 
 ### Tracking
 
@@ -60,14 +59,14 @@ The PM can dissolve the Shugiin and trigger a snap election.
 
 ### API
 
-- `POST /api/country/[code]/pm/snap-election` — PM-only, config-gated via `snapElectionsAllowed`
+- `POST /api/country/[code]/pm/snap-election` - PM-only, config-gated via `snapElectionsAllowed`
 
 ## Major Party Spoiler Modeling
 
 FPTP regions use major party sets for spoiler vote redistribution:
 
-- **Kansai (KNS):** `{ ishin, ldp }` — Nippon Ishin dominates as opposition
-- **All other regions:** `{ ldp, cdp }` — from `COUNTRY_CONFIGS.JP.majorPartyIds`
+- **Kansai (KNS):** `{ ishin, ldp }` - Nippon Ishin dominates as opposition
+- **All other regions:** `{ ldp, cdp }` - from `COUNTRY_CONFIGS.JP.majorPartyIds`
 
 ## Government Formation
 
@@ -79,7 +78,7 @@ Parliamentary system matching the UK pattern:
 4. Minority government attempt if no coalition
 5. No-confidence vote handling (48-turn cooldown)
 
-## Bills — Bicameral Lifecycle
+## Bills - Bicameral Lifecycle
 
 ### Diet Bill Flow
 
@@ -97,13 +96,13 @@ Shugiin-origin (Diet member):
 Sangiin-origin (Diet member):
   "active" (Sangiin) → "active_other" (Shugiin) → "signed"
                                ↓ reject
-                            "failed"   (no override — Shugiin supremacy)
+                            "failed"   (no override - Shugiin supremacy)
 ```
 
 ### Key Differences from US System
 
-- **No executive veto** — passage in both chambers = enacted immediately
-- **Shugiin override** — if Sangiin rejects, Shugiin can override with 2/3 supermajority
+- **No executive veto** - passage in both chambers = enacted immediately
+- **Shugiin override** - if Sangiin rejects, Shugiin can override with 2/3 supermajority
 - **Chamber keys:** `"shugiin"` / `"sangiin"` (not `"house"` / `"senate"`)
 
 ### Cabinet-Origin Bills
@@ -120,9 +119,9 @@ Sangiin-origin (Diet member):
 
 Any seated Shūgiin or Sangiin member may propose a national bill.
 
-- Proposals follow the shared Diet proposal form (category + 1–3 provisions), with the standard action-point and national-influence costs defined in `shared/constants/legislation.ts`.
-- **Origin chamber** is the sponsor's own chamber — Shūgiin members originate in Shūgiin, Sangiin members originate in Sangiin.
-- **Second chamber** is the opposing chamber. On passage there, the bill enacts (no executive signing step — Japan's parliamentary system has no PM signature).
+- Proposals follow the shared Diet proposal form (category + 1-3 provisions), with the standard action-point and national-influence costs defined in `shared/constants/legislation.ts`.
+- **Origin chamber** is the sponsor's own chamber - Shūgiin members originate in Shūgiin, Sangiin members originate in Sangiin.
+- **Second chamber** is the opposing chamber. On passage there, the bill enacts (no executive signing step - Japan's parliamentary system has no PM signature).
 - **Shūgiin supremacy on rejection:** if the second chamber rejects, behavior depends on origin:
   - Shūgiin-origin bills rejected by the Sangiin → Shūgiin 2/3 override vote.
   - Sangiin-origin bills rejected by the Shūgiin → fail outright; the Sangiin cannot override the Shūgiin.

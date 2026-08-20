@@ -167,5 +167,5 @@ if (actionType === "poll" || actionType === "pollLarge") {
 
 ## Related
 
-- [[Player Progression]]: Career path and office benefits
-- [[Stats & Actions]]: Core actions that unlock achievements
+- [Player Progression](./player-progression.md): Career path and office benefits
+- [Stats & Actions](./stats-actions.md): Core actions that unlock achievements

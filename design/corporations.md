@@ -88,7 +88,7 @@ Every turn (24 turns per game-day), each corporation is processed:
 
 ### Sector Calculations
 
-The steps below are the legacy growth-slider model. It is still the mechanic under the earlier `marketSystemMode` tiers, but the **live market mode is `"plants"`**, the top tier of `src/lib/market/modes.ts`: a sector no longer earns from a self-compounding growth rate at all. It owns priced, buildable capacity, staffs it with workers, and revenue is derived each turn from what that capacity actually produced and sold into the clearing market. See [[The Capacity Economy (as shipped)]] for the current model end to end (build queue, capacity pricing, the sector turn, staffing, and valuation); it supersedes steps 1-2 below wherever plants is enabled.
+The steps below are the legacy growth-slider model. It is still the mechanic under the earlier `marketSystemMode` tiers, but the **live market mode is `"plants"`**, the top tier of `src/lib/market/modes.ts`: a sector no longer earns from a self-compounding growth rate at all. It owns priced, buildable capacity, staffs it with workers, and revenue is derived each turn from what that capacity actually produced and sold into the clearing market. See [The Capacity Economy (as shipped)](./capacity-economy-as-shipped.md) for the current model end to end (build queue, capacity pricing, the sector turn, staffing, and valuation); it supersedes steps 1-2 below wherever plants is enabled.
 
 For each sector (legacy growth-slider tiers):
 
@@ -99,7 +99,7 @@ For each sector (legacy growth-slider tiers):
 5. **Maintenance:** `hourlyRevenue × (1 - effectiveMargin / 100)`
 6. **Sector NPV:** `yearlyProfit / 0.15` (15% discount rate, `NPV_ANNUAL_DISCOUNT_RATE`), for balance sheet valuation
 
-Under plants, margin modifiers (step 3) still apply, but revenue and maintenance (steps 1, 2, 5) are replaced by the physical production-and-clearing pass described in [[The Capacity Economy (as shipped)]]: `sector.revenue` becomes the nameplate `capitalStock × mixPrice`, and profit is realized revenue minus physical cost lines, not a margin percentage applied to an asserted revenue figure.
+Under plants, margin modifiers (step 3) still apply, but revenue and maintenance (steps 1, 2, 5) are replaced by the physical production-and-clearing pass described in [The Capacity Economy (as shipped)](./capacity-economy-as-shipped.md): `sector.revenue` becomes the nameplate `capitalStock × mixPrice`, and profit is realized revenue minus physical cost lines, not a margin percentage applied to an asserted revenue figure.
 
 ### Corporate Tax
 
@@ -684,7 +684,7 @@ CEOs can relocate corporate headquarters to another state or region (including i
 - **Country update:** Cross-country moves update `corporation.countryId` alongside `headquartersState`.
 - **CEO residency:** If the CEO's `homeState` does not match the new HQ state after the move, the corporation's `ceoVacant` is set to `true` and `ceoId` / `userId` are unset, shareholders can then elect a new CEO who lives there. The UI warns the player before submission; the action is not blocked.
 
-Players who are CEOs can also combine their own relocation with a corp HQ move via the region-page "Relocate here" button (see [[Relocation]], "Combined character + corporation relocation"). In that flow the CEO role is preserved because the character ends up at the new HQ.
+Players who are CEOs can also combine their own relocation with a corp HQ move via the region-page "Relocate here" button (see [Relocation](./relocation.md), "Combined character + corporation relocation"). In that flow the CEO role is preserved because the character ends up at the new HQ.
 
 ### Treasury and sector revenue on cross-country relocation
 

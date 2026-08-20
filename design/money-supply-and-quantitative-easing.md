@@ -1,6 +1,6 @@
 # Money Supply and Quantitative Easing
 
-This page covers the money-supply aggregates (M1/M2), open market operations (QE/QT), the NPP autonomous monetary-operations policy, and how all of it feeds back into inflation. It is a companion to [[Monetary System (as shipped)]], which covers the prime rate, FOMC, forex and lines of credit; those systems are not repeated here except where they interact directly with money supply. The whole feature is gated behind `gameConfig.moneySupplyEnabled` (`isMoneySupplyEnabledFromConfig` in `src/lib/moneySupply/featureFlag.ts`): every entry point below is a no-op when the flag is off.
+This page covers the money-supply aggregates (M1/M2), open market operations (QE/QT), the NPP autonomous monetary-operations policy, and how all of it feeds back into inflation. It is a companion to [Monetary System (as shipped)](./monetary-system-as-shipped.md), which covers the prime rate, FOMC, forex and lines of credit; those systems are not repeated here except where they interact directly with money supply. The whole feature is gated behind `gameConfig.moneySupplyEnabled` (`isMoneySupplyEnabledFromConfig` in `src/lib/moneySupply/featureFlag.ts`): every entry point below is a no-op when the flag is off.
 
 ## M1 and M2
 

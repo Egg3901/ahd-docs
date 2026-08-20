@@ -12,7 +12,7 @@ Status of features across the game. Working = shipped. Partial = core done, gaps
 
 | Area                    | Features                                                                                                                                                                                              |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Turn system**         | Cron hourly, ordered phase sections (40+ phases), action refresh, fund generation, election timers, coalition disband resolution                                                                      |
+| **Turn system**         | Cron hourly, ordered phase sections (~12 groups / ~105 runPhase calls), action refresh, fund generation, election timers, coalition disband resolution                                                |
 | **Elections**           | House, Senate, Governor, State Senate, President (primaries + Electoral College, running mates), UK Commons (multi-seat proportional)                                                                 |
 | **NPPs**                | Entry, primaries, dropouts, federal + local bill voting, organic + arranged endorsements, whip compliance / defiance, and player-only U.S. congressional leadership voting                            |
 | **Parties**             | State + national orgs, leadership elections, party actions, party influence mechanic (bonus actions from influence pool)                                                                              |
@@ -31,7 +31,7 @@ Status of features across the game. Working = shipped. Partial = core done, gaps
 | **Player Mail**         | Inbox, sent box, dual-sided soft-delete, mark-as-read, rate limiting, abuse reports, admin review queue, markdown-lite formatting                                                                     |
 | **Corporations**        | Founding, sectors, shares, dividends, bonds, CEO elections, commodity market (11 types), config-driven exchanges (NYSE/FTSE/DAX/Nikkei), 3-mode sector production, HQ relocation, shareholder address |
 | **National budgets**    | Active-country treasury panels, spending categories, fiscal costs, public enterprise revenue, sovereign bonds, heal tools                                                                             |
-| **Campaigns**           | Fundraising-level income model (L0 $20k → L10 $5M/turn), party org scalar (1.0–1.6×), season multiplier (2× final 4 turns), presidential endorsements, donation tracking                              |
+| **Campaigns**           | Fundraising-level income model (L0 $20k → L10 $5M/turn), party org scalar (1.0-1.6×), season multiplier (2× final 4 turns), presidential endorsements, donation tracking                              |
 | **Travel**              | Presidential candidate travel to states (5 actions), +1% favorability/turn passive bonus, travel state badges on electoral map                                                                        |
 | **Admin**               | Elections, NPPs, officials, demographics, logs, wiki, feedback, setup dashboard, seed, party elections, leadership elections, legislation (country tabs), mail reports, heal tools                    |
 | **Monitoring**          | Sentry error reporting across turn processor, API, UI, and cron jobs                                                                                                                                  |
@@ -95,7 +95,7 @@ _Out of scope: real-time chat, microtransactions, PvP leaderboards._
 
 ## Audit Notes
 
-**Turn pipeline.** 40+ phases in ordered sections. Action refresh, fund gen, corporation turn, party influence, line of credit, NPP funds, savings interest, bond coupons, commodity prices, share-price recompute, financial snapshots, suspect scan, turnout decay, party GOTV, party elections, coalition disband votes, NPP behavior, country bill lifecycles, cabinet nominations, campaign turn, NPP action processing, activity logging, strict election resolution, parliamentary government phases, country election coverage, presidential succession, fiscal year, policy/demographic effects, regional budgets, crisis/ministerial orders, GDP growth, national metrics, trade-growth mirror, inflation, forex, central-bank chair phases, history snapshots, game health, suspicious detection, game state persist.
+**Turn pipeline.** ~12 groups / ~105 runPhase calls in ordered sections. Action refresh, fund gen, corporation turn, party influence, line of credit, NPP funds, savings interest, bond coupons, commodity prices, share-price recompute, financial snapshots, suspect scan, turnout decay, party GOTV, party elections, coalition disband votes, NPP behavior, country bill lifecycles, cabinet nominations, campaign turn, NPP action processing, activity logging, strict election resolution, parliamentary government phases, country election coverage, presidential succession, fiscal year, policy/demographic effects, regional budgets, crisis/ministerial orders, GDP growth, national metrics, trade-growth mirror, inflation, forex, central-bank chair phases, history snapshots, game health, suspicious detection, game state persist.
 
 **Policy chain.** Legislation changes state metrics, metrics feed approval, and approval feeds elections. Natural metric decay toward baseline is implemented (0.25%/turn, see `src/lib/turn/metricDecay.ts`). Legislation-driven demographic movement now has two channels on `LegislationType.demographicEffects[]` (`src/lib/demographicEffects.ts`): a legacy population-share channel (always active) and a v2 economicLean/socialLean/turnout channel gated on the `legislationDemographicEffectsV2Enabled` game-state flag (defaults to `true`, see `src/lib/seeds/reference/featureFlagDefaults.ts`). Federal policies apply at 1/50 strength per US state and 1/12 strength per UK region; population shift caps at 0.1% per turn at full policy strength.
 
@@ -134,7 +134,7 @@ The `coming-soon` roster covers most of the eastern-bloc and western-European te
 
 ## Related
 
-- [[Mail]] — Player-to-player messaging
-- [[Coalitions]] — Cross-party alliances
-- [[Election Mechanics]] — Primary scores, vote accumulation, FPTP vs proportional
-- [[Technical Architecture]] — Implementation details
+- [Mail](./mail.md) - Player-to-player messaging
+- [Coalitions](./coalitions.md) - Cross-party alliances
+- [Election Mechanics](./elections.md) - Primary scores, vote accumulation, FPTP vs proportional
+- [Technical Architecture](./technical-architecture.md) - Implementation details

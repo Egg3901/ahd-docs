@@ -2,7 +2,7 @@
 
 Commodities model inputs and outputs between corporate sectors. Prices move with global and regional supply and demand, and feed into sector profit margins.
 
-Supply is not an abstract number: under the live market mode (`marketSystemMode: "plants"`, see [[The Capacity Economy (as shipped)]]) a sector's commodity output comes from real plant capacity it built and staffed. A sector still under construction, or mothballed, contributes nothing to supply even though it exists on paper. Sold units, not nameplate revenue, are what move the D/S ratio below. Beyond the margin modifiers described here, commodity prices also scale sector revenue directly through **price realization** (see that section below), and under the deeper clearing/capital tiers, revenue itself is derived from what capacity actually sold, not asserted from a growth rate. See [[The Capacity Economy (as shipped)]] and the in-game [Market System guide](/wiki/market-system-guide) for the full production side of this loop.
+Supply is not an abstract number: under the live market mode (`marketSystemMode: "plants"`, see [The Capacity Economy (as shipped)](./capacity-economy-as-shipped.md)) a sector's commodity output comes from real plant capacity it built and staffed. A sector still under construction, or mothballed, contributes nothing to supply even though it exists on paper. Sold units, not nameplate revenue, are what move the D/S ratio below. Beyond the margin modifiers described here, commodity prices also scale sector revenue directly through **price realization** (see that section below), and under the deeper clearing/capital tiers, revenue itself is derived from what capacity actually sold, not asserted from a growth rate. See [The Capacity Economy (as shipped)](./capacity-economy-as-shipped.md) and the in-game [Market System guide](/wiki/market-system-guide) for the full production side of this loop.
 
 ## Overview
 
@@ -96,7 +96,7 @@ The commodity detail page shows:
 
 - **Commodity detail**, `/commodity/[type]` with hero image, world map, charts, and market context.
 - **Sector pages**, Commodity rows link into that detail.
-- **Corporations**, Sector economics interact with commodity flows; see [[Corporations]].
+- **Corporations**, Sector economics interact with commodity flows; see [Corporations](./corporations.md).
 
 ### Key Files
 
@@ -110,7 +110,7 @@ The commodity detail page shows:
 
 ## Related pages
 
-- [[Corporations]], Sectors, splits, revenue, and corporate bonds
-- [[The Capacity Economy (as shipped)]], Plants, build queue, and how capacity turns into commodity supply
-- [[Stock Market]], Where market-wide instruments are listed
-- [[Formula Deep-Dive]], Turnout, influence, and other numeric systems
+- [Corporations](./corporations.md), Sectors, splits, revenue, and corporate bonds
+- [The Capacity Economy (as shipped)](./capacity-economy-as-shipped.md), Plants, build queue, and how capacity turns into commodity supply
+- [Stock Market](./stock-market.md), Where market-wide instruments are listed
+- [Formula Deep-Dive](./formula-deep-dive.md), Turnout, influence, and other numeric systems

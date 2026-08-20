@@ -4,8 +4,8 @@
 
 The policy system tracks where characters and the game world stand on policy issues across two dimensions: **economic** (fiscal/regulatory spectrum) and **social** (cultural/rights spectrum). These positions are stored at two levels:
 
-1. **Character policy positions** — each player character's personal stance on the economic and social axes (-5 to +5)
-2. **State/national policy records** — the current legislative status quo per legislation type, stored in the `statePolicies` collection (-3 to +3 per axis)
+1. **Character policy positions** - each player character's personal stance on the economic and social axes (-5 to +5)
+2. **State/national policy records** - the current legislative status quo per legislation type, stored in the `statePolicies` collection (-3 to +3 per axis)
 
 The two levels are related but distinct. A character's personal positions affect how demographic groups vote in elections and how visible policy alignment is to voters. The `statePolicies` records reflect what the government has actually enacted through legislation and drive ongoing metric effects each turn.
 
@@ -28,7 +28,7 @@ interface PolicyPositions {
 - Set at character creation; changed only through the explicit policy shift action or by voting on bills.
 - NPPs also carry `PolicyPositions` and use the same fields in election calculations.
 
-### Changing Positions — Policy Shift Action
+### Changing Positions - Policy Shift Action
 
 Players shift their policy position one step at a time via `POST /api/settings/policy`.
 
@@ -50,7 +50,7 @@ The new value is clamped to −5..+5; requests that would go out of bounds are r
 
 A `policy_shift` achievement is awarded on the first successful shift.
 
-### Changing Positions — Bill Votes
+### Changing Positions - Bill Votes
 
 Voting on bills does not currently shift character policy positions in the codebase. The economic/social scores on a bill's provisions indicate the ideological direction of the bill, but no automatic position adjustment is applied to the voting character.
 
@@ -95,7 +95,7 @@ The `statePolicies` position (economic, social) is an integer pair, not a named 
 
 ## Policy to Demographics (Elections)
 
-Character policy positions are compared to the leans of each demographic group when calculating vote appeal. The formula uses the squared difference across both axes. For the exact formula and pipeline, see [elections.md](./elections.md) — specifically the **Appeal** step in the Total Appeal System.
+Character policy positions are compared to the leans of each demographic group when calculating vote appeal. The live appeal curve uses exponent 1.5 (`APPEAL_POSITION_EXPONENT`), not the retired squared/gamma=2 curve. For the exact formula and pipeline, see [elections.md](./elections.md) - specifically the **Appeal** step in the Total Appeal System.
 
 Summary: candidates closer to a demographic group's lean on the economic and social axes receive higher appeal scores with that group, which translates to a larger share of that group's votes per turn during general elections.
 
@@ -106,21 +106,21 @@ Summary: candidates closer to a demographic group's lean on the economic and soc
 When a bill is enacted, each provision's legislation type carries `economic` and `social` scores that define the ideological direction of that policy shift. This information is used in two ways:
 
 1. **State metrics**: `applyLegislationEffect()` applies the provision's delta to the relevant state or national metrics via `effectTarget`.
-2. **Archetype approval**: Legislators who voted FOR the enacted bill receive approval changes from their demographic archetypes. The impact is calculated from the difference between the old and new policy index for that legislation type, multiplied by each archetype's domain affinity. For the full formula, see [bills-legislation.md](./bills-legislation.md) — the **Archetype Approval Impacts** section.
+2. **Archetype approval**: Legislators who voted FOR the enacted bill receive approval changes from their demographic archetypes. The impact is calculated from the difference between the old and new policy index for that legislation type, multiplied by each archetype's domain affinity. For the full formula, see [bills-legislation.md](./bills-legislation.md) - the **Archetype Approval Impacts** section.
 
 Active `statePolicies` records also drive **per-turn metric effects** through `policyOptions[].metricEffects`. Each turn a policy is in effect, the matched option's `metricEffects` array applies direct additive changes to specific state or national metrics (e.g. −0.04%/turn to uninsured rate while a given healthcare option is active).
 
 ---
 
-## Turn Processing — Policy Effects Engine
+## Turn Processing - Policy Effects Engine
 
 **Entry point:** `src/lib/policyEffects.ts` → `processStatePolicyEffects()`
 
 ### Processing Order (per turn)
 
-1. **Exponential decay toward target** — Metrics move toward policy-driven targets
-2. **Direct tick rates** — `metricEffects` apply additive changes
-3. **Natural decay** — All metrics decay 0.25%/turn toward baseline when no policy is active
+1. **Exponential decay toward target** - Metrics move toward policy-driven targets
+2. **Direct tick rates** - `metricEffects` apply additive changes
+3. **Natural decay** - All metrics decay 0.25%/turn toward baseline when no policy is active
 
 ### Exponential Decay Formula
 
@@ -135,7 +135,7 @@ export function applyPolicyDecay(current: number, target: number): number {
 }
 ```
 
-Metrics approach their target asymptotically — large gaps close faster than small ones.
+Metrics approach their target asymptotically - large gaps close faster than small ones.
 
 ### Target Calculation
 
@@ -189,7 +189,7 @@ export function getFederalMultiplier(countryId: CountryId): number {
 
 ### Time-Based Effect Decay
 
-Some policies have `adjustmentHalfLife` — models economic adaptation:
+Some policies have `adjustmentHalfLife` - models economic adaptation:
 
 ```typescript
 // Example: Defense cuts hurt GDP initially, but economy adapts
@@ -234,7 +234,7 @@ When no policy is active, metrics decay toward baseline:
 
 ---
 
-## Turn Processing — Demographic Effects
+## Turn Processing - Demographic Effects
 
 **Entry point:** `src/lib/demographicEffects.ts` → `processAllStateDemographics()`
 
@@ -303,7 +303,7 @@ Returns current policy records joined with legislation type metadata. No authent
 | --------- | ---------- | ----------------------------------------------------------------------------------- |
 | `scope`   | Yes        | `"national"` or `"state"`                                                           |
 | `stateId` | When state | State abbreviation (e.g. `"CA"`)                                                    |
-| `country` | No         | `"us"` or `"uk"` — filters legislation types by country scope when `scope=national` |
+| `country` | No         | `"us"` or `"uk"` - filters legislation types by country scope when `scope=national` |
 
 **Response**: Array of `PolicyRecordResponse` objects:
 
@@ -326,7 +326,7 @@ Cache-Control is set to `no-store` on all responses.
 
 ### `POST /api/settings/policy`
 
-Shifts the authenticated character's policy position. See [Player Policy Positions — Policy Shift Action](#changing-positions--policy-shift-action) above.
+Shifts the authenticated character's policy position. See [Player Policy Positions - Policy Shift Action](#changing-positions--policy-shift-action) above.
 
 ---
 
@@ -338,21 +338,21 @@ Shifts the authenticated character's policy position. See [Player Policy Positio
 
 **Related collections**:
 
-- `legislationTypes` — provides `policyOptions`, `policyDomain`, `nationalOnly`, `countryScope`, and `effectTargetsWeighted` used by the policy API and turn system
-- `characters` — stores per-character `policies: { economic, social }` (−5 to +5)
+- `legislationTypes` - provides `policyOptions`, `policyDomain`, `nationalOnly`, `countryScope`, and `effectTargetsWeighted` used by the policy API and turn system
+- `characters` - stores per-character `policies: { economic, social }` (−5 to +5)
 
 **Key type files**:
 
-- `src/lib/db/types/legislation.ts` — `LegislationType`, `LegislationPolicyOption`, `StatePolicyRecord`, `PolicyOptionMetricEffect`
-- `src/lib/db/types/statePolicy.ts` — `StatePolicy` (the enacted-bill record), `PolicyReaction`, `VoteImpact`
-- `src/lib/db/types/character.ts` — `PolicyPositions`
+- `src/lib/db/types/legislation.ts` - `LegislationType`, `LegislationPolicyOption`, `StatePolicyRecord`, `PolicyOptionMetricEffect`
+- `src/lib/db/types/statePolicy.ts` - `StatePolicy` (the enacted-bill record), `PolicyReaction`, `VoteImpact`
+- `src/lib/db/types/character.ts` - `PolicyPositions`
 
-> Note: `StatePolicyRecord` (in `legislation.ts`) and `StatePolicy` (in `statePolicy.ts`) are different interfaces. `StatePolicyRecord` is what the policy API reads — the current axis positions per type. `StatePolicy` is a richer enacted-bill record that also stores `enactedAt`, `enactedByBillId`, and `effectDirection`.
+> Note: `StatePolicyRecord` (in `legislation.ts`) and `StatePolicy` (in `statePolicy.ts`) are different interfaces. `StatePolicyRecord` is what the policy API reads - the current axis positions per type. `StatePolicy` is a richer enacted-bill record that also stores `enactedAt`, `enactedByBillId`, and `effectDirection`.
 
 ---
 
 ## Display
 
 - **National Policy page** (`/policy`): Lists all national policies grouped by domain. Shows current policy option name and economic/social positions per type.
-- **State page — State Laws & Policy tab**: State-level policy records for the selected state. Empty if `seed:legislation` and `seed:policies` have not been run.
+- **State page - State Laws & Policy tab**: State-level policy records for the selected state. Empty if `seed:legislation` and `seed:policies` have not been run.
 - **Character profile**: Shows the character's personal economic and social positions on the −5 to +5 scale.

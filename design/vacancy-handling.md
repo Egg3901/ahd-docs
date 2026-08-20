@@ -40,7 +40,7 @@ When a Senate seat becomes vacant:
 - Must be a character (not NPP)
 - Must have `homeState` matching the vacancy's state
 - Must not already hold an elected office
-- Traditionally same party as vacating senator (but governor's discretion — no hard requirement)
+- Traditionally same party as vacating senator (but governor's discretion - no hard requirement)
 
 **Appointment steps:**
 
@@ -71,7 +71,7 @@ When a Senate seat becomes vacant:
 - **Term end:** Jan 2026 (Turn 288 = 6 years)
 - **May 2022 (Turn 110):** Senator Smith resigns
 - **May 2022 (Turn 110):** Governor Newsom appoints Sarah Johnson (D-CA) as replacement
-- **Appointment duration:** Until Jan 2026 (Turn 288) — when next Class 1 election completes
+- **Appointment duration:** Until Jan 2026 (Turn 288) - when next Class 1 election completes
 - **Sarah Johnson serves:** 178 turns (3.7 years)
 
 ### No Special Elections for Senate
@@ -392,14 +392,14 @@ This action cannot be undone. Your seat will become vacant immediately.
 
 ## Future Enhancements
 
-1. **Special elections** — Allow states to opt-in to special elections for House/State Senate
-2. **Lt. Governor succession** — Implement Lt. Governor office; auto-succession on Governor vacancy
-3. **UK by-elections** — Implement by-elections for UK MP vacancies (mirrors real-world practice)
-4. **Death/mortality** — Characters die of natural causes or events; triggers vacancies
-5. **Expulsion** — Congress can expel members via 2/3 vote; triggers vacancy
+1. **Special elections** - Allow states to opt-in to special elections for House/State Senate
+2. **Lt. Governor succession** - Implement Lt. Governor office; auto-succession on Governor vacancy
+3. **UK by-elections** - Implement by-elections for UK MP vacancies (mirrors real-world practice)
+4. **Death/mortality** - Characters die of natural causes or events; triggers vacancies
+5. **Expulsion** - Congress can expel members via 2/3 vote; triggers vacancy
 
 ## Related pages
 
-- [[Election Mechanics]] — Election cycles and perpetual races
-- [[United Kingdom]] — Commons vacancies until the next regional cycle
-- [[State-Level Power]] — Governors and appointments
+- [Election Mechanics](./elections.md) - Election cycles and perpetual races
+- [United Kingdom](./united-kingdom.md) - Commons vacancies until the next regional cycle
+- [State-Level Power](./state-level-power.md) - Governors and appointments

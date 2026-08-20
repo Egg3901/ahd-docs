@@ -161,7 +161,7 @@ Social axis: Far Liberal (-5), Strong Liberal (-4), Liberal (-3), Lean Liberal (
 
 ## Related Pages
 
-- [[Election Mechanics]], Election system overview
-- [[Demographics & Targeting]], Demographic details
-- [[Stats & Actions]], Action costs and stats
-- [[Government Approval]], Approval system
+- [Election Mechanics](./elections.md), Election system overview
+- [Demographics & Targeting](./demographics-targeting.md), Demographic details
+- [Stats & Actions](./stats-actions.md), Action costs and stats
+- [Government Approval](./government-approval.md), Approval system

@@ -13,7 +13,7 @@
 - **`distributeVotesByGroupLevelAllocation`** iterates categories → groups, uses `demographics.categoryWeights[category._id]` and `demographics.groups[group.id]`
 - **`calcStateTurnout`**, **`calcCandidateVotePotential`** use same category/group structure
 - **Primary resolution** (`primaryResolution.ts`) calls `accumulateVoteTurn` per turn
-- All election logic reads `demographicCategories` and `stateDemographics` from DB — compatible with 12 archetypes
+- All election logic reads `demographicCategories` and `stateDemographics` from DB - compatible with 12 archetypes
 
 ### Poll
 
@@ -24,22 +24,22 @@
 
 ### NPP Election Behavior
 
-- **NPP dropout** uses `demographicCategories` and `stateDemographics` — iterates categories/groups, uses `categoryWeights`, `groups[group.id]`
+- **NPP dropout** uses `demographicCategories` and `stateDemographics` - iterates categories/groups, uses `categoryWeights`, `groups[group.id]`
 - Compatible with 12 archetypes
 
 ### State Page Demographics Tab
 
-- **StatePageTabsDemographics** iterates `categories` from API, maps `demographics.groups[g.id]` — works with any category structure
+- **StatePageTabsDemographics** iterates `categories` from API, maps `demographics.groups[g.id]` - works with any category structure
 - Shows group name, population %, economic/social lean
 
 ### Admin Demographics Manager
 
 - Fetches categories from DB, initializes defaults for single category (voterGroups: 100)
-- **Reseed button** calls `/api/admin/demographics/reseed` — upserts categories and state demographics from seed
+- **Reseed button** calls `/api/admin/demographics/reseed` - upserts categories and state demographics from seed
 
 ### Debug & Utils
 
-- **`/api/debug/demographics`** uses `calculateStateLean` with categories — works with voterGroups
+- **`/api/debug/demographics`** uses `calculateStateLean` with categories - works with voterGroups
 - **`calculateStateLean`**, **`validateCategoryWeights`** support flexible `CategoryWeights` (voterGroups: 100)
 - **demographics.test.ts** has voterGroups test case
 
@@ -55,7 +55,7 @@
 
 ### 2. **Actions page still says "Full Demographic Poll"**
 
-**Location:** `src/app/actions/page.tsx` lines 114–122
+**Location:** `src/app/actions/page.tsx` lines 114-122
 
 **Current:** `label: "Full Demographic Poll"`, `flavor: "A comprehensive breakdown across every demographic category..."`, `effect: "Full demographic breakdown"`
 
@@ -77,9 +77,9 @@
 
 **Fix:** "Commissioned a full poll for $..."
 
-### 5. **pollHelpers.ts — legacy CATEGORY_ICONS**
+### 5. **pollHelpers.ts - legacy CATEGORY_ICONS**
 
-**Location:** `src/app/actions/poll/pollHelpers.ts` lines 58–60
+**Location:** `src/app/actions/poll/pollHelpers.ts` lines 58-60
 
 **Current:** `race: "👥", gender: "⚧", education: "🎓", wealth: "💰", age: "📅", ideology: "🧭", voterGroups: "🗳️"`
 
@@ -95,9 +95,9 @@
 
 **Impact:** None. Type allows both; schema mismatch detection in poll uses string arrays. Fine to keep for migration/backward compatibility.
 
-### 7. **StatePageTabsDemographics — "demographic" wording**
+### 7. **StatePageTabsDemographics - "demographic" wording**
 
-**Location:** `src/components/state/StatePageTabsDemographics.tsx` lines 40–42
+**Location:** `src/components/state/StatePageTabsDemographics.tsx` lines 40-42
 
 **Current:** "No demographic data available", "Demographic information has not been configured"
 
@@ -122,19 +122,19 @@
 ## 📋 Recommended Fixes (Priority)
 
 1. **High:** Update reseed API and `seed-demographics` to also upsert `demographicDefaults`
-2. **Medium:** Actions page — "Full Poll", voter group wording
-3. **Low:** Dashboard, poll API message, StatePageTabsDemographics — terminology tweaks
+2. **Medium:** Actions page - "Full Poll", voter group wording
+3. **Low:** Dashboard, poll API message, StatePageTabsDemographics - terminology tweaks
 4. **Optional:** Clean up CATEGORY_ICONS legacy keys
 
 ---
 
 ## Partisan Lean Display
 
-**Yes — already uses the new system.** `calculateStateLean(demographics, categories)` is category-agnostic: it iterates over whatever categories exist in the DB. With 12 archetypes (voterGroups + 12 groups), it computes economic/social lean from those groups. Used by:
+**Yes - already uses the new system.** `calculateStateLean(demographics, categories)` is category-agnostic: it iterates over whatever categories exist in the DB. With 12 archetypes (voterGroups + 12 groups), it computes economic/social lean from those groups. Used by:
 
-- State page (`/state/[id]`) — fresh calculation when demographics exist
-- Map overview API — same
-- Admin demographics PATCH — caches result to state document
+- State page (`/state/[id]`) - fresh calculation when demographics exist
+- Map overview API - same
+- Admin demographics PATCH - caches result to state document
 
 ---
 

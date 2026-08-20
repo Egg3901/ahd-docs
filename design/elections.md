@@ -101,9 +101,9 @@ When `primaryEndTime` passes, `resolvePrimariesIfNeeded()` in `src/lib/turn/prim
 
    **Presidential** (national, no state-position component):
    - **Alignment**: `40 − (|econ − partyEcon| + |social − partySocial|) × 2.0`, max 40 pts
-   - **Party Organization** (candidate's home state): `(partyOrganization / 100) × 25`, max 25 pts
-   - **National Influence**: `normalizeNationalReachPresidentialPrimary(nationalInfluence) × 25`, max 25 pts (linear-up-to-cap, NPI ≥ 100 saturates at 1.0)
-   - **Favorability**: `(favorability / 100) × 10`, max 10 pts
+   - **Party Influence** (candidate's accumulated party clout): `normalizePartyInfluencePresidentialPrimary(partyInfluence) × 20`, weight 20 (`PRESIDENT_PRIMARY_PARTY_INFLUENCE_WEIGHT`)
+   - **National Influence**: `normalizeNationalReachPresidentialPrimary(nationalInfluence) × 15`, max 15 pts (linear-up-to-cap, NPI ≥ 100 saturates at 1.0)
+   - **Favorability**: `(favorability / 100) × 25`, max 25 pts
 
 3. Highest score per party advances; others marked `withdrawn`
 4. Win/loss notifications sent to player candidates
@@ -560,9 +560,9 @@ State-level results for presidential, governor, and senate elections can be expl
 
 ## Related Documentation
 
-- [[Core Systems]], Turn structure, term cycles
-- [[NPP System]], NPP entry, dropout, spawn
-- [[Demographics]], Demographic groups, policy preferences
-- [[Campaign Strategy]], Fundraising, campaign operations, endorsements
-- [[Technical Architecture]], Implementation status
+- [Core Systems](./core-systems.md), Turn structure, term cycles
+- [NPP System](./npp-system.md), NPP entry, dropout, spawn
+- [Demographics](./demographics.md), Demographic groups, policy preferences
+- [Campaign Strategy](./campaign-strategy.md), Fundraising, campaign operations, endorsements
+- [Technical Architecture](./technical-architecture.md), Implementation status
 - [Cabinet](./cabinet.md), Cabinet nominations use Senate confirmation (related process)

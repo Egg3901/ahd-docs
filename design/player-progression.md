@@ -47,7 +47,7 @@ When a player first joins the game:
 ### Phase 2: Join Party
 
 - Join Democrat, Republican, or a custom party (required before running for office)
-- Party membership starts building **Party Influence** — the higher your party influence relative to other members, the more bonus actions you receive each turn from the party pool
+- Party membership starts building **Party Influence** - the higher your party influence relative to other members, the more bonus actions you receive each turn from the party pool
 - Policy alignment to the party platform amplifies how efficiently your party influence converts to bonus actions
 - Can switch parties later (with stat penalties: Favorability and PI drop)
 
@@ -58,7 +58,7 @@ When a player first joins the game:
   - State races (House, Senate, Governor, State Senate): uses **Political Influence (PI)**
   - Presidential race: uses **National Political Influence (NPI)**
 - Highest primary score per party advances to the general
-- See [[Election Mechanics]]
+- See [Election Mechanics](./elections.md)
 
 ### Phase 4: General Election
 
@@ -66,7 +66,7 @@ When a player first joins the game:
 - Vote accumulation each turn; final 4 turns worth 25% of pool
 - Sustained campaigning matters; policy alignment and Favorability affect votes
 - **State races**: Political Influence (PI) drives reach and appeal
-- **Presidential race**: NPI drives reach and appeal — uncapped, logarithmic scaling rewards long-term accumulation
+- **Presidential race**: NPI drives reach and appeal - uncapped, logarithmic scaling rewards long-term accumulation
 - Winner takes office
 
 #### Presidential Candidate: Travel
@@ -105,7 +105,7 @@ During a presidential **general election**, active candidates can **Travel** to 
 ### Phase 2: Commons Election
 
 - UK players run in **regional Commons elections** for England, Scotland, Wales, or Northern Ireland
-- Multi-seat proportional allocation — more than one candidate per party can win seats in the same region
+- Multi-seat proportional allocation - more than one candidate per party can win seats in the same region
 - Candidacy limited to your home region
 
 ### Phase 3: Hold an MP Seat
@@ -176,7 +176,7 @@ Party Influence accrues passively each turn you're a member and accumulates rela
 - Staying active and invested in party operations keeps your standing high
 - Leaving and rejoining a party resets your Party Influence to 0
 
-Party Influence is visible on your profile (Party Standing section) and in the party members table. See [[Parties]] for the full calculation.
+Party Influence is visible on your profile (Party Standing section) and in the party members table. See [Political Parties](./parties.md) for the full calculation.
 
 ---
 
@@ -206,22 +206,22 @@ When not holding office, players can:
 
 | Stat                | Starting   | How to Increase                               | Notes                                            |
 | ------------------- | ---------- | --------------------------------------------- | ------------------------------------------------ |
-| Political Influence | 0          | Campaign (+1%)                                | 0–100, decays each turn                          |
+| Political Influence | 0          | Campaign (+1%)                                | 0-100, decays each turn                          |
 | National Influence  | 0          | +state PI/100 per turn                        | Uncapped; logarithmic scaling in president races |
-| Favorability        | 50         | Ads, Campaign, Travel (+1%/turn while active) | 0–100, drained by Infamy >20%, attacks           |
-| Infamy              | 0          | Attack or NPP lower actions                   | 0–100, decays 5%/turn                            |
+| Favorability        | 50         | Ads, Campaign, Travel (+1%/turn while active) | 0-100, drained by Infamy >20%, attacks           |
+| Infamy              | 0          | Attack or NPP lower actions                   | 0-100, decays 5%/turn                            |
 | Campaign Funds      | $250k      | Fundraise, fund gen, donor base               | Spent on campaign actions                        |
 | Cash on Hand        | $0         | Personal campaign donations (50%)             | Wire transfers only                              |
 | Donor Base Level    | 0          | Build Donor Network                           | $50k + $25k×level per level                      |
 | Actions             | 25 initial | +3 base + office bonus + party bonus per turn | Cap 200; hoarding penalty above 100              |
-| Party Influence     | 0          | Passive accrual while party member            | 0–100; drives bonus action share per turn        |
+| Party Influence     | 0          | Passive accrual while party member            | 0-100; drives bonus action share per turn        |
 
 ---
 
 ## Related Documentation
 
-- [[Stats & Actions]] — Action costs, effects, full tables
-- [[Election Mechanics]] — Primary scores, vote accumulation, FPTP vs proportional
-- [[Parties]] — Party influence, leadership, action pool
-- [[NPP System]] — NPP influence and boost
-- [[United Kingdom]] — UK-specific rules: Commons, PM formation, confidence votes
+- [Stats & Actions](./stats-actions.md) - Action costs, effects, full tables
+- [Election Mechanics](./elections.md) - Primary scores, vote accumulation, FPTP vs proportional
+- [Political Parties](./parties.md) - Party influence, leadership, action pool
+- [NPP System](./npp-system.md) - NPP influence and boost
+- [United Kingdom](./united-kingdom.md) - UK-specific rules: Commons, PM formation, confidence votes

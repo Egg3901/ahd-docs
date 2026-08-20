@@ -10,16 +10,16 @@ A House Divided is ultimately a multiplayer game. While NPPs fill most offices, 
 
 ### Within Your Party
 
-- **Coordinate primaries** — Avoid splitting the player vote against NPPs
-- **Trade endorsements** — Support each other's candidates in different states
-- **Share intelligence** — Party members see campaign levels via party intelligence
-- **Pool party resources** — Treasury transfers to support competitive races
+- **Coordinate primaries** - Avoid splitting the player vote against NPPs
+- **Trade endorsements** - Support each other's candidates in different states
+- **Share intelligence** - Party members see campaign levels via party intelligence
+- **Pool party resources** - Treasury transfers to support competitive races
 
 ### Cross-Party Deals
 
-- **Legislative trades** — Vote for their bill in exchange for support on yours
-- **Non-aggression pacts** — Avoid opposing each other's candidates in certain states
-- **Cabinet nominations** — Trade Senate confirmation votes for policy concessions
+- **Legislative trades** - Vote for their bill in exchange for support on yours
+- **Non-aggression pacts** - Avoid opposing each other's candidates in certain states
+- **Cabinet nominations** - Trade Senate confirmation votes for policy concessions
 
 ## Party Control Strategy
 
@@ -44,7 +44,7 @@ A House Divided is ultimately a multiplayer game. While NPPs fill most offices, 
 
 - Most powerful legislative position
 - Requires majority party membership
-- Plurality election — build a coalition within your party
+- Plurality election - build a coalition within your party
 - NPPs vote for the candidate closest to their policy positions
 
 ### Senate Leadership
@@ -56,7 +56,7 @@ A House Divided is ultimately a multiplayer game. While NPPs fill most offices, 
 ### Legislative Coalition Building
 
 - Count votes before proposing bills
-- NPPs vote based on ideology — predict their behavior
+- NPPs vote based on ideology - predict their behavior
 - Use committee positions strategically
 
 ## Presidential Strategy
@@ -71,7 +71,7 @@ A House Divided is ultimately a multiplayer game. While NPPs fill most offices, 
 
 - Win your party's primary with strong base support
 - General election requires broader coalition
-- Party org is crucial — build org in swing states before running
+- Party org is crucial - build org in swing states before running
 
 ### VP Selection
 
@@ -84,7 +84,7 @@ A House Divided is ultimately a multiplayer game. While NPPs fill most offices, 
 As President:
 
 - Nominate allies to cabinet positions
-- Senate must confirm — need majority of voting senators
+- Senate must confirm - need majority of voting senators
 - Use nominations as political favors to build support
 - Can fire cabinet members anytime (no Senate vote needed)
 
@@ -92,7 +92,7 @@ As President:
 
 ### Information Warfare
 
-- Campaign pages have tiered access — opponents can't see your full strategy
+- Campaign pages have tiered access - opponents can't see your full strategy
 - Use the fog-of-war mechanic: your campaign details are hidden from non-party members
 - Monitor opponents' public stats to gauge their strength
 
@@ -119,8 +119,8 @@ Political power in A House Divided compounds:
 
 ## Related Pages
 
-- [[Congress Leadership]] — Legislative power structure
-- [[Campaign Manager]] — Campaign management tools
-- [[Party Building]] — Growing party strength
-- [[Min-Maxing Guide]] — Individual optimization
-- [[Cabinet]] — Presidential nominations
+- [Congress Leadership](./congress-leadership.md) - Legislative power structure
+- [Campaign Manager](./campaign-manager.md) - Campaign management tools
+- [Party Building](./party-building.md) - Growing party strength
+- [Min-Maxing Guide](./min-maxing.md) - Individual optimization
+- [Cabinet](./cabinet.md) - Presidential nominations

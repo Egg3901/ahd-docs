@@ -253,7 +253,7 @@ newDebtInterest = oldDebtInterest + (couponRate / 100) * totalIssued;
 newSurplus = revenue - (spending + newDebtInterest);
 ```
 
-See [[Sovereign Bonds]] for full details.
+See [Sovereign Bonds](./sovereign-bonds.md) for full details.
 
 ## Turn Processing
 
@@ -285,6 +285,6 @@ Every federal- and state-budget money field is stored in the country's currency.
 
 ## Related Documentation
 
-- [[Sovereign Bonds]], Bond issuance, trading, maturity settlement
-- [[Policy System]], How enacted laws affect budget categories
-- [[National Metrics]], GDP, unemployment, inflation aggregation
+- [Sovereign Bonds](./sovereign-bonds.md), Bond issuance, trading, maturity settlement
+- [Policy System](./policy-system.md), How enacted laws affect budget categories
+- [National Metrics](./national-metrics.md), GDP, unemployment, inflation aggregation

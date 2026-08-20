@@ -2,14 +2,14 @@
 
 ## Bill Types
 
-All bills require a **category** and at least one **provision** (legislation type + policy option). There are no category-less or provision-less bills.
+Every bill needs a **category**. Policy bills need at least one **provision** (legislation type + policy option); custom bills may have no provisions.
 
 ### Policy Bills (current implementation)
 
 - **Description**: Bills built from legislation types with named policy options and **economic/social** integer scores (-3 to +3; 0 = center). Each type has 7 options (3 left, 1 center, 3 right) with a primary axis (economic or social) per type.
 - **Creation**: Any sitting Congress/Parliament member, or admins via Admin override
 - **Content**: Title, summary, **category** (required), and **provisions** (1-3 per bill). Each provision is a legislation type + policy option (or effect direction). Provisions can store optional **economic** and **social** integers. Category limits which legislation types can be added (e.g. Healthcare → Medicare, Medicaid; Economy → Tax Policy, Minimum Wage, Social Security).
-- **Categories**: economy, healthcare, education, infrastructure, environment, public safety, social, defense, foreign policy. Defined in `shared/constants/legislation.ts`; each maps to one or more policy domains.
+- **Categories**: defense, economy, education, environment, foreign policy, healthcare, industry, immigration, infrastructure, public safety, social, tax, trade, agriculture, technology, state ownership, custom. Defined in `shared/constants/legislation.ts` (`BILL_CATEGORIES`); each maps to one or more policy domains. Custom is always proposable with no provisions (flavor/roleplay).
 - **Provisions**: 1-3 per bill (`MAX_PROVISIONS = 3` in `shared/constants/legislation.ts`). Each provision is one legislation type plus one policy option (or effect direction). When the bill is signed, every provision’s effect is applied to the relevant state/national metrics.
 - **Cost**: `PROVISION_COSTS = [5, 10, 15]` national influence for the 1st, 2nd, 3rd provision respectively. Admins exempt. Balance shown in propose form; backend deducts on submit for non-admins. Proposing a bill (any bill, national or state) also costs a flat `BILL_PROPOSE_ACTION_COST = 10` action points.
 - **Effects**: When a bill is signed (or pocket-signed), `applyLegislationEffect()` in `src/lib/legislationEffects.ts` applies each provision’s delta to its legislation type’s `effectTarget` metric.
@@ -170,7 +170,7 @@ Each bill has a dedicated page showing:
 
 ### NPP Auto-Voting
 
-See [[NPP System]] for full documentation. Federal and local NPP legislators now use the same deterministic cross-pressure model:
+See [NPP System](./npp-system.md) for full documentation. Federal and local NPP legislators now use the same deterministic cross-pressure model:
 
 - **Forces**: ideology + whip + district/home-region + donors
 - **Federal scope**: House / Senate / Commons / upper-chamber federal votes read the baseline weighting
@@ -251,7 +251,7 @@ Implementation: `DOMAIN_AFFINITIES` and `calculateShiftImpacts()` in `src/lib/ar
 
 - Speaker/Majority Leader controls agenda
 - Decides which bills get voted on
-- **Status**: Speaker of the House, House Majority/Minority Leader, Senate President Pro Tempore, and Senate Majority/Minority Leader are all implemented (24-hour plurality elections). Motion to Vacate the Speaker is also implemented. Leadership control over agenda/committee assignments is still planned. See [[Congress Leadership]].
+- **Status**: Speaker of the House, House Majority/Minority Leader, Senate President Pro Tempore, and Senate Majority/Minority Leader are all implemented (24-hour plurality elections). Motion to Vacate the Speaker is also implemented. Leadership control over agenda/committee assignments is still planned. See [Congress Leadership](./congress-leadership.md).
 
 ### Corporation System
 

@@ -60,6 +60,6 @@ State lean is a turnout-weighted average of all group leans. The display thresho
 
 ## Related Pages
 
-- [[Demographics]], Full demographic system details
-- [[Campaign Strategy]], Action allocation and timing
-- [[Election Mechanics]], How votes are counted
+- [Demographics](./demographics.md), Full demographic system details
+- [Campaign Strategy](./campaign-strategy.md), Action allocation and timing
+- [Election Mechanics](./elections.md), How votes are counted

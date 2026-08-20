@@ -33,7 +33,7 @@ This ensures continuous Senate activity with elections happening at different ti
 
 - **Type**: Continuous server-based world
 - **Players**: Join and leave dynamically
-- **Empty Seats**: Filled by NPPs, Non-Player Politicians automatically enter elections and hold office (see [[NPP System]])
+- **Empty Seats**: Filled by NPPs, Non-Player Politicians automatically enter elections and hold office (see [NPP System](./npp-system.md))
 - **No Resets**: Game runs continuously without seasonal resets
 - **State Data**: Population and GDP data loaded per state (used for campaign costs and donor pools)
 - **Perpetual Elections**: All race types (house, senate, governor, stateSenate) spawn a new cycle immediately after the previous one resolves, no seat ever goes permanently uncontested
@@ -71,7 +71,9 @@ This ensures continuous Senate activity with elections happening at different ti
 
 ## Per-Turn Processing Order
 
-Each turn runs **40+ phases in 14 groups**. Phases within a group marked **(parallel)** execute concurrently via `Promise.all`; all others run sequentially. Each phase is error-isolated via `runPhase()`, a failure logs to Sentry but does not halt subsequent phases.
+Each turn runs about **12 phase groups** and **~105 `runPhase` calls**. Phases within a group marked **(parallel)** execute concurrently via `Promise.all`; all others run sequentially. Each phase is error-isolated via `runPhase()`, a failure logs to Sentry but does not halt subsequent phases.
+
+The numbered table below is a historical outline of the pipeline, not the live 12-adapter registry in `turnPhaseRegistry.ts`.
 
 | Group                    | Phases                                                                                                          | Key constraint                                        |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -134,7 +136,7 @@ See [Campaign Manager](./campaign-manager.md) for full documentation.
 
 ## Player Mail System
 
-Players can send in-game messages to other characters. See [[Mail]] for full documentation.
+Players can send in-game messages to other characters. See [Mail](./mail.md) for full documentation.
 
 - **Access**: "Send Mail" button on character profile pages opens the Mail Composer Modal
 - **Inbox**: Notifications page → Mail tab; unread count shown in navbar badge
@@ -144,7 +146,7 @@ Players can send in-game messages to other characters. See [[Mail]] for full doc
 
 ## Coalition System
 
-National party chairs can form cross-party coalitions. See [[Coalitions]] for full documentation.
+National party chairs can form cross-party coalitions. See [Coalitions](./coalitions.md) for full documentation.
 
 - **Formation**: Any national party chair; requires name, abbreviation, color
 - **Membership**: Invite flow and join request flow

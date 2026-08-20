@@ -133,5 +133,5 @@ If the new contract would over-allocate and `force` is false, the server returns
 
 ## Related Systems
 
-- [[Commodities]]: Pricing engine that consumes extraction output
-- [[Corporations]]: Sectors that produce commodity supply; extraction sectors are the direct consumers of contracts
+- [Commodities](./commodities.md): Pricing engine that consumes extraction output
+- [Corporations](./corporations.md): Sectors that produce commodity supply; extraction sectors are the direct consumers of contracts
