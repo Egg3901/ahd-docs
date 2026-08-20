@@ -13,10 +13,11 @@ env.cacheDir = XENOVA_CACHE;
 env.allowRemoteModels = !fs.existsSync(path.join(XENOVA_CACHE, MODEL_ID));
 
 const SRC = process.env.DOCS_SRC || new URL("..", import.meta.url).pathname;
-const GAME = process.env.GAME_REPO || "../AHDGame";
+const GAME = process.env.GAME_REPO || "/root/projects/AHDGame";
 const OUT = process.env.DOCS_OUT || "/srv/lakeside-docs";
 const LOGO_SRC = `${GAME}/public/ahd-logo.png`;
 const WIKI_JSON = "/tmp/wiki-pages.json";
+const FILE_META_CACHE = new URL("./.file-meta-cache.json", import.meta.url).pathname;
 
 // ---------- source: wiki seed (from the game repo) ----------
 try {
@@ -29,6 +30,56 @@ try {
   console.warn("wiki export failed, using cached JSON");
 }
 const WIKI_PAGES = JSON.parse(fs.readFileSync(WIKI_JSON, "utf8"));
+
+// ---------- AHDGame file manifest (for source-file chips) ----------
+let GAME_HEAD = "";
+let FILE_SET = new Set();
+try {
+  GAME_HEAD = execSync(`git -C "${GAME}" rev-parse origin/main`, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  FILE_SET = new Set(
+    execSync(`git -C "${GAME}" ls-tree -r --name-only origin/main`, { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 32e6 })
+      .toString().split("\n").filter(Boolean),
+  );
+} catch (e) {
+  console.warn("AHDGame file manifest unavailable:", e.message);
+}
+const isChipPath = p => {
+  if (!p || !FILE_SET.has(p)) return false;
+  if (p.startsWith("src/") || p.startsWith("scripts/") || p.startsWith("shared/") || p.startsWith("e2e/")) return true;
+  return /\.(?:ts|tsx|mjs|js|json)$/.test(p);
+};
+const PATH_TOKEN_RE = /(?:src|scripts|shared|e2e)\/[A-Za-z0-9_./\[\]-]+(?:\.(?:ts|tsx|mjs|js|json|md))?|[A-Za-z0-9_.\[\]-]+(?:\/[A-Za-z0-9_.\[\]-]+)+\.(?:ts|tsx|mjs|js|json)/g;
+const extractPaths = md => {
+  const found = [];
+  const seen = new Set();
+  const add = p => {
+    if (!p) return;
+    p = p.replace(/\/+$/, "");
+    if (seen.has(p) || !isChipPath(p)) return;
+    seen.add(p);
+    found.push(p);
+  };
+  for (const m of md.matchAll(/`([^`]+)`/g)) {
+    add(m[1].trim());
+    for (const tok of m[1].split(/[\s,;()]+/)) add(tok.trim());
+  }
+  for (const m of md.matchAll(PATH_TOKEN_RE)) add(m[0]);
+  found.sort((a, b) => a.localeCompare(b));
+  return found;
+};
+const relAge = iso => {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  const sec = Math.round((Date.now() - t) / 1000);
+  if (sec < 3600) return "just now";
+  const hours = Math.round(sec / 3600);
+  if (hours < 24) return hours + "h ago";
+  const days = Math.round(sec / 86400);
+  if (days < 14) return days + "d ago";
+  if (days < 60) return Math.round(days / 7) + "w ago";
+  if (days < 730) return Math.round(days / 30.44) + "mo ago";
+  return Math.round(days / 365.25) + "y ago";
+};
 
 // ---------- grouping ----------
 const WIKI_CATEGORY_LABELS = {
@@ -132,8 +183,8 @@ const wrapGloss = html => {
   let skip = 0;
   return html.split(/(<[^>]+>)/).map(part => {
     if (part[0] === "<") {
-      if (/^<(pre|code|a|h[1-6]|script|style)[\s>]/i.test(part)) skip++;
-      else if (/^<\/(pre|code|a|h[1-6]|script|style)>/i.test(part)) skip = Math.max(0, skip - 1);
+      if (/^<(pre|code|a|h[1-6]|script|style|button)[\s>]/i.test(part)) skip++;
+      else if (/^<\/(pre|code|a|h[1-6]|script|style|button)>/i.test(part)) skip = Math.max(0, skip - 1);
       return part;
     }
     if (skip > 0 || !part.trim()) return part;
@@ -225,6 +276,156 @@ for (const p of pages) {
     p.updated = f ? gitDate(GAME, `src/lib/seeds/wiki/content/${f}`) : (p.slug.startsWith("commodity-") ? commodityDate() : "");
   }
 }
+
+// ---------- source-file chips: scan, freshness, wiki/design counterparts ----------
+for (const p of pages) p.srcFiles = extractPaths(p.md || "");
+
+let fileMetaCache = {};
+try { fileMetaCache = JSON.parse(fs.readFileSync(FILE_META_CACHE, "utf8")); } catch {}
+const fileMetaOf = {};
+const allSrcFiles = [...new Set(pages.flatMap(p => p.srcFiles))];
+let metaHits = 0;
+for (const rel of allSrcFiles) {
+  const key = rel + "@" + GAME_HEAD;
+  if (fileMetaCache[key]) {
+    fileMetaOf[rel] = fileMetaCache[key];
+    metaHits++;
+    continue;
+  }
+  let raw = "";
+  try {
+    raw = execSync(
+      `git -C "${GAME}" log -1 --format='%cI%x09%h%x09%s' origin/main -- ":(literal)${rel}"`,
+      { stdio: ["ignore", "pipe", "ignore"] },
+    ).toString().trim();
+  } catch {}
+  const meta = { date: "", iso: "", sha: "", subject: "", pr: null };
+  if (raw) {
+    const tab = raw.indexOf("\t");
+    const tab2 = raw.indexOf("\t", tab + 1);
+    const iso = tab >= 0 ? raw.slice(0, tab) : raw;
+    meta.iso = iso;
+    meta.date = iso.slice(0, 10);
+    meta.sha = tab2 > tab ? raw.slice(tab + 1, tab2) : "";
+    meta.subject = tab2 > tab ? raw.slice(tab2 + 1) : "";
+    const pr = meta.subject.match(/\(#(\d+)\)\s*$/);
+    meta.pr = pr ? Number(pr[1]) : null;
+  }
+  fileMetaCache[key] = meta;
+  fileMetaOf[rel] = meta;
+}
+if (GAME_HEAD) {
+  const keep = {};
+  for (const rel of allSrcFiles) {
+    const key = rel + "@" + GAME_HEAD;
+    if (fileMetaCache[key]) keep[key] = fileMetaCache[key];
+  }
+  try { fs.writeFileSync(FILE_META_CACHE, JSON.stringify(keep)); } catch (e) {
+    console.warn("file meta cache write failed:", e.message);
+  }
+}
+console.log(`source files: ${allSrcFiles.length} unique paths, ${metaHits} cache hits, head ${GAME_HEAD.slice(0, 12) || "?"}`);
+
+const titleKey = t => t.toLowerCase()
+  .replace(/\(.*?\)/g, " ")
+  .replace(/\b(system design|as shipped|as-shipped|overview|player guide|government structure)\b/g, " ")
+  .replace(/\bnpps\b/g, "npp")
+  .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+const headTitle = t => titleKey(t.split(/[\u2014\u2013:]/)[0]);
+const slugCore = s => s.replace(/\bnpps\b/g, "npp")
+  .replace(/-as-shipped$/, "")
+  .replace(/-(overview|guide|system|service|player-guide)$/, "");
+const wikiPages = pages.filter(p => p.kind === "wiki");
+const designPages = pages.filter(p => p.section === "design");
+const wikiCores = new Map();
+for (const w of wikiPages) {
+  const c = slugCore(w.slug);
+  wikiCores.set(c, (wikiCores.get(c) || 0) + 1);
+}
+const designCores = new Map();
+for (const d of designPages) {
+  const c = slugCore(d.slug);
+  designCores.set(c, (designCores.get(c) || 0) + 1);
+}
+const pairScores = [];
+for (const w of wikiPages) {
+  for (const d of designPages) {
+    let sc = 0;
+    if (w.slug === d.slug) sc = 100;
+    else {
+      const tkW = titleKey(w.title), tkD = titleKey(d.title);
+      if (tkW && tkW === tkD) sc = 92;
+      else {
+        const hW = headTitle(w.title), hD = headTitle(d.title);
+        if (hW.length >= 4 && hW === hD) sc = 90;
+        else {
+          const cW = slugCore(w.slug), cD = slugCore(d.slug);
+          if (cW.length >= 3 && cW === cD && (wikiCores.get(cW) || 0) === 1 && (designCores.get(cD) || 0) === 1) sc = 86;
+        }
+      }
+    }
+    if (sc >= 86) pairScores.push({ w, d, sc });
+  }
+}
+pairScores.sort((a, b) => b.sc - a.sc || a.w.slug.localeCompare(b.w.slug));
+const counterpartOf = new Map();
+const usedW = new Set(), usedD = new Set();
+for (const { w, d } of pairScores) {
+  if (usedW.has(w.id) || usedD.has(d.id)) continue;
+  usedW.add(w.id); usedD.add(d.id);
+  counterpartOf.set(w.id, { href: d.href, title: d.title.replace(/[\u2014\u2013]/g, "-"), label: "Design doc", kind: "doc" });
+  counterpartOf.set(d.id, { href: w.href, title: w.title.replace(/[\u2014\u2013]/g, "-"), label: "Player wiki", kind: "wiki" });
+}
+console.log(`counterparts: ${usedW.size} wiki/design pairs`);
+
+const srcChipHtml = (rel, kind) => {
+  const meta = fileMetaOf[rel] || {};
+  const age = meta.iso ? relAge(meta.iso) : "";
+  const ageSpan = age ? `<span class="src-age">${esc(age)}</span>` : "";
+  return `<button type="button" class="src-chip ${kind}" data-path="${esc(rel)}">${esc(rel)}${ageSpan}</button>`;
+};
+const wrapSrc = (html, paths) => {
+  if (!paths.length) return html;
+  const set = new Set(paths);
+  const wrapChunk = chunk => {
+    chunk = chunk.replace(/<code>([^<]*)<\/code>/g, (m, inner) => {
+      const p = inner.trim();
+      return set.has(p) ? srcChipHtml(p, "inline") : m;
+    });
+    const sorted = [...paths].sort((a, b) => b.length - a.length);
+    const re = new RegExp("(?<![\\w./\\[\\]-])(" + sorted.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![\\w./\\[\\]-])", "g");
+    let skip = 0;
+    return chunk.split(/(<[^>]+>)/).map(part => {
+      if (part[0] === "<") {
+        if (/^<(button|a|code|pre|h[1-6]|script|style)[\s>]/i.test(part)) skip++;
+        else if (/^<\/(button|a|code|pre|h[1-6]|script|style)>/i.test(part)) skip = Math.max(0, skip - 1);
+        return part;
+      }
+      if (skip > 0 || !part.trim()) return part;
+      return part.replace(re, p => srcChipHtml(p, "inline"));
+    }).join("");
+  };
+  return html.split(/(<pre[\s\S]*?<\/pre>)/).map(p => p.startsWith("<pre") ? p : wrapChunk(p)).join("");
+};
+const pageChipsHtml = p => {
+  const counter = counterpartOf.get(p.id);
+  const counterHtml = counter
+    ? `<a class="counter-chip" href="${counter.href}"><span class="k ${counter.kind}">${esc(counter.label)}</span>${esc(counter.title)}</a>`
+    : "";
+  const srcRow = p.srcFiles.length
+    ? `<div class="src-row"><span class="lbl">Source files</span>${p.srcFiles.map(f => srcChipHtml(f, "top")).join("")}</div>`
+    : "";
+  if (!counterHtml && !srcRow) return "";
+  return `<div class="page-chips">${counterHtml}${srcRow}</div>`;
+};
+const pageSrcMeta = p => {
+  const o = {};
+  for (const f of p.srcFiles) {
+    const m = fileMetaOf[f];
+    if (m) o[f] = { date: m.date, sha: m.sha, subject: m.subject, pr: m.pr };
+  }
+  return o;
+};
 
 // ---------- cross-reference graph ----------
 const byWikiSlug = new Map(pages.filter(p => p.kind === "wiki").map(p => [p.slug, p]));
@@ -388,6 +589,46 @@ aside.toc a.on{color:var(--crimson);border-left-color:var(--crimson);font-weight
 .xrefs a.chip .k{font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0}
 .xrefs a.chip .k.wiki{color:#199e70}.xrefs a.chip .k.doc{color:var(--acc-link)}
 @media(max-width:700px){.xrefs .cols{grid-template-columns:1fr}}
+
+.page-chips{margin:-.4rem 0 1.3rem}
+.page-chips .counter-chip{display:inline-flex;align-items:baseline;gap:.4rem;padding:.2rem .6rem;border:1px solid var(--line);
+  border-radius:8px;background:var(--panel);color:var(--ink);font-size:.84rem;margin:0 .4rem .55rem 0;box-shadow:var(--shadow)}
+.page-chips .counter-chip:hover{border-color:var(--acc-link);text-decoration:none}
+.page-chips .counter-chip .k{font-size:.68rem;font-weight:700;letter-spacing:.04em}
+.page-chips .counter-chip .k.wiki{color:#199e70}.page-chips .counter-chip .k.doc{color:var(--acc-link)}
+.src-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin:.15rem 0 .2rem}
+.src-row .lbl{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin-right:.2rem}
+button.src-chip{font-family:ui-monospace,"Cascadia Code",Menlo,monospace;font-size:.78rem;background:var(--panel);color:var(--acc-link);
+  border:1px solid var(--line);border-radius:7px;padding:.12rem .45rem;cursor:pointer;line-height:1.4;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button.src-chip:hover{border-color:var(--acc-link)}
+button.src-chip .src-age{color:var(--mut);font-size:.68rem;margin-left:.35rem;font-family:ui-sans-serif,system-ui,sans-serif}
+button.src-chip.inline{font-size:.85em;padding:.08em .35em;border-radius:5px;background:var(--code-bg);vertical-align:baseline;
+  white-space:normal;overflow:visible;text-overflow:clip;line-height:inherit}
+button.src-chip.inline .src-age{font-size:.72em}
+
+#src-modal{position:fixed;inset:0;z-index:80;background:rgba(10,18,32,.55);display:flex;align-items:flex-start;justify-content:center;padding:3.5vh 1rem 1.5rem}
+#src-modal[hidden]{display:none}
+#src-modal .sm-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+  width:min(980px,96vw);max-height:93vh;display:flex;flex-direction:column;overflow:hidden}
+.sm-head{padding:.8rem 1rem .7rem;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:.35rem 1rem;align-items:flex-start}
+.sm-path{font-family:ui-monospace,Menlo,monospace;font-size:.88rem;font-weight:600;color:var(--ink);word-break:break-all}
+.sm-meta{font-size:.78rem;color:var(--mut);margin-top:.2rem;line-height:1.45}
+.sm-meta a{font-weight:600}
+.sm-actions{margin-left:auto;display:flex;gap:.5rem;align-items:center;flex-shrink:0}
+.sm-gh{font-size:.82rem;font-weight:600;white-space:nowrap}
+.sm-body{overflow:auto;flex:1;background:var(--code-bg);font-family:ui-monospace,"Cascadia Code",Menlo,monospace}
+.sm-load{padding:1.2rem 1rem;color:var(--mut);font:15px/1.5 ui-sans-serif,system-ui,sans-serif}
+.sm-line{display:flex;align-items:flex-start;min-height:1.45em;line-height:1.45}
+.sm-line .ln{flex:0 0 3.4em;text-align:right;padding:0 .75em 0 .4em;color:var(--mut);font-size:.75rem;user-select:none;text-decoration:none}
+.sm-line .ln:hover{color:var(--acc-link);text-decoration:none}
+.sm-line code{border:0;background:none;padding:0 .9em 0 0;font-size:.8rem;white-space:pre;flex:1;min-width:0;color:var(--ink);border-radius:0}
+.sm-line.on{background:color-mix(in srgb,var(--crimson) 14%,transparent)}
+.sm-line.on .ln{color:var(--crimson);font-weight:700}
+.sm-kw{color:#6d28d9}.sm-str{color:#0f766e}.sm-com{color:var(--mut);font-style:italic}.sm-num{color:#b45309}.sm-typ{color:#1d4ed8}
+@media(prefers-color-scheme:dark){
+  .sm-kw{color:#c4b5fd}.sm-str{color:#5eead4}.sm-num{color:#fbbf24}.sm-typ{color:#93c5fd}
+}
 
 .pager{display:flex;gap:1rem;margin-top:2rem}
 .pager a{flex:1;border:1px solid var(--line);border-radius:12px;padding:.7rem 1rem;background:var(--panel);box-shadow:var(--shadow)}
@@ -617,6 +858,143 @@ const glossJs = String.raw`
 })();
 `.replace("__GLOSS__", JSON.stringify(glossClient));
 
+// Live source-file viewer: fetch from GitHub raw at click time, highlight, line-link.
+const srcJs = String.raw`
+(function(){
+  var RAW='https://raw.githubusercontent.com/Egg3901/AHDGame/main/';
+  var GH='https://github.com/Egg3901/AHDGame/blob/main/';
+  var PR='https://github.com/Egg3901/AHDGame/pull/';
+  var modal=document.getElementById('src-modal'); if(!modal) return;
+  var metaEl=document.getElementById('src-meta');
+  var META={}; try{META=JSON.parse(metaEl?metaEl.textContent:'{}');}catch(e){}
+  var body=document.getElementById('sm-body');
+  var pathEl=document.getElementById('sm-path');
+  var metaLine=document.getElementById('sm-fresh');
+  var gh=document.getElementById('sm-gh');
+  var closeBtn=document.getElementById('sm-close');
+  var currentPath='', currentLine=0;
+  var BQ=String.fromCharCode(96);
+  function esc(s){return (s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function encodePath(p){return p.split('/').map(encodeURIComponent).join('/');}
+  var KW=/^(abstract|async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|from|function|if|implements|import|in|instanceof|interface|let|new|null|of|return|static|super|switch|this|throw|true|try|type|typeof|undefined|var|void|while|with|yield|as|satisfies|keyof|infer|never|unknown|any|boolean|number|string|symbol|bigint|module|namespace|declare|readonly|public|private|protected|override)$/;
+  function hiLine(s, st){
+    var out='', i=0, n=s.length;
+    if(st==='c'){
+      var end=s.indexOf('*/');
+      if(end<0) return {html:'<span class="sm-com">'+esc(s)+'</span>', state:'c'};
+      out+='<span class="sm-com">'+esc(s.slice(0,end+2))+'</span>'; i=end+2; st='n';
+    }
+    function isIdent(c){return /[A-Za-z0-9_$]/.test(c);}
+    while(i<n){
+      var c=s.charAt(i), n2=s.slice(i,i+2);
+      if(n2==='//'){ out+='<span class="sm-com">'+esc(s.slice(i))+'</span>'; i=n; break; }
+      if(n2==='/*'){
+        var end=s.indexOf('*/',i+2);
+        if(end<0){ out+='<span class="sm-com">'+esc(s.slice(i))+'</span>'; i=n; st='c'; break; }
+        out+='<span class="sm-com">'+esc(s.slice(i,end+2))+'</span>'; i=end+2; continue;
+      }
+      if(c==='"'||c==="'"||c===BQ){
+        var q=c, j=i+1;
+        while(j<n){
+          if(s.charAt(j)==='\\'){ j+=2; continue; }
+          if(s.charAt(j)===q){ j++; break; }
+          j++;
+        }
+        out+='<span class="sm-str">'+esc(s.slice(i,j))+'</span>'; i=j; continue;
+      }
+      if(/[0-9]/.test(c)&&(i===0||!isIdent(s.charAt(i-1)))){
+        var j=i+1; while(j<n&&/[0-9_.xXa-fA-F]/.test(s.charAt(j))) j++;
+        out+='<span class="sm-num">'+esc(s.slice(i,j))+'</span>'; i=j; continue;
+      }
+      if(/[A-Za-z_$]/.test(c)){
+        var j=i+1; while(j<n&&isIdent(s.charAt(j))) j++;
+        var id=s.slice(i,j);
+        var cls=KW.test(id)?'sm-kw':(/^[A-Z]/.test(id)?'sm-typ':'');
+        out+=(cls?('<span class="'+cls+'">'+esc(id)+'</span>'):esc(id)); i=j; continue;
+      }
+      out+=esc(c); i++;
+    }
+    return {html:out, state:st};
+  }
+  function parseHash(){
+    var h=(location.hash||'').replace(/^#/, '');
+    if(!h||h.indexOf('file=')<0) return null;
+    var file='', line=0;
+    h.split('&').forEach(function(part){
+      if(part.indexOf('file=')===0) file=decodeURIComponent(part.slice(5));
+      else if(part.charAt(0)==='L') line=parseInt(part.slice(1),10)||0;
+    });
+    return file?{file:file,line:line}:null;
+  }
+  function setHash(path, line){
+    var h='#file='+encodeURIComponent(path)+(line?('&L'+line):'');
+    if(location.hash!==h) history.replaceState(null,'',location.pathname+location.search+h);
+  }
+  function open(path, line){
+    currentPath=path; currentLine=line||0;
+    pathEl.textContent=path;
+    var m=META[path]||{};
+    var fresh='';
+    if(m.date){
+      fresh='last touched '+esc(m.date);
+      if(m.pr) fresh+=' in <a href="'+PR+m.pr+'" target="_blank" rel="noopener">#'+m.pr+'</a>';
+      else if(m.sha) fresh+=' in '+esc(m.sha);
+      if(m.subject){
+        var sub=String(m.subject).replace(/\s*\(#\d+\)\s*$/,'');
+        fresh+=' '+esc(sub);
+      }
+    }
+    metaLine.innerHTML=fresh;
+    gh.href=GH+encodePath(path)+(currentLine?('#L'+currentLine):'');
+    modal.hidden=false;
+    body.innerHTML='<div class="sm-load">Loading '+esc(path)+'...</div>';
+    setHash(path, currentLine);
+    fetch(RAW+encodePath(path)).then(function(r){
+      if(!r.ok) throw new Error(r.status+' '+r.statusText);
+      return r.text();
+    }).then(function(text){
+      var st='n', html='', lines=text.split('\n');
+      for(var i=0;i<lines.length;i++){
+        var r=hiLine(lines[i], st); st=r.state;
+        var n=i+1, on=currentLine===n?' on':'';
+        html+='<div class="sm-line'+on+'" id="L'+n+'"><a class="ln" href="#file='+encodeURIComponent(path)+'&L'+n+'">'+n+'</a><code>'+r.html+'</code></div>';
+      }
+      body.innerHTML=html;
+      gh.href=GH+encodePath(path)+(currentLine?('#L'+currentLine):'');
+      if(currentLine){
+        var el=document.getElementById('L'+currentLine);
+        if(el) el.scrollIntoView({block:'center'});
+      }
+    }).catch(function(e){
+      body.innerHTML='<div class="sm-load">Could not load this file ('+esc(String(e.message||e))+'). <a href="'+GH+encodePath(path)+'" target="_blank" rel="noopener">View on GitHub</a></div>';
+    });
+  }
+  function close(){
+    modal.hidden=true;
+    if((location.hash||'').indexOf('file=')>=0) history.replaceState(null,'',location.pathname+location.search);
+  }
+  document.addEventListener('click', function(e){
+    var chip=e.target.closest?e.target.closest('button.src-chip'):null;
+    if(chip){ e.preventDefault(); open(chip.getAttribute('data-path'), 0); return; }
+    var ln=e.target.closest?e.target.closest('#src-modal a.ln'):null;
+    if(ln){
+      e.preventDefault();
+      var n=parseInt(ln.textContent,10)||0;
+      currentLine=n;
+      setHash(currentPath, n);
+      gh.href=GH+encodePath(currentPath)+'#L'+n;
+      modal.querySelectorAll('.sm-line.on').forEach(function(x){x.classList.remove('on');});
+      var row=document.getElementById('L'+n); if(row) row.classList.add('on');
+      return;
+    }
+    if(e.target===modal) close();
+  });
+  if(closeBtn) closeBtn.addEventListener('click', close);
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&!modal.hidden){ e.preventDefault(); close(); } });
+  var init=parseHash(); if(init) open(init.file, init.line);
+})();
+`;
+
 // ---------- nav ----------
 const NAV_SECTIONS = [
   { key: "wiki", label: "Player Wiki" },
@@ -641,7 +1019,7 @@ const navHtml = activeHref => NAV_SECTIONS.map(s => {
   return `<details class="sec"${open}><summary>${s.label} <span class="n">${secPages.length}</span></summary>${inner}</details>`;
 }).join("");
 
-const shell = ({ title, body, activeHref, toc, desc }) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
+const shell = ({ title, body, activeHref, toc, desc, srcMeta }) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} · A House Divided Docs</title>
 <meta name="description" content="${esc(desc || "Player wiki, design, and engineering documentation for A House Divided.")}">
@@ -686,7 +1064,23 @@ ${toc || ""}</div>
   </div>
 </div>
 <div id="gloss-pop"></div>
-<script>${js}</script><script>${searchJs}</script><script>${reportJs}</script><script>${glossJs}</script></body></html>`;
+<div id="src-modal" role="dialog" aria-modal="true" aria-label="Source file" hidden>
+  <div class="sm-card">
+    <div class="sm-head">
+      <div>
+        <div class="sm-path" id="sm-path"></div>
+        <div class="sm-meta" id="sm-fresh"></div>
+      </div>
+      <div class="sm-actions">
+        <a id="sm-gh" class="sm-gh" href="https://github.com/Egg3901/AHDGame" target="_blank" rel="noopener">View on GitHub</a>
+        <button type="button" id="sm-close" class="rm-ghost" aria-label="Close">Close</button>
+      </div>
+    </div>
+    <div class="sm-body" id="sm-body"></div>
+  </div>
+</div>
+<script type="application/json" id="src-meta">${JSON.stringify(srcMeta || {}).replace(/</g, "\\u003c")}</script>
+<script>${js}</script><script>${searchJs}</script><script>${reportJs}</script><script>${glossJs}</script><script>${srcJs}</script></body></html>`;
 
 // ---------- render ----------
 fs.rmSync(OUT, { recursive: true, force: true });
@@ -727,6 +1121,7 @@ for (let i = 0; i < pages.length; i++) {
       byDocFile.has(name + ".md") ? `href="${byDocFile.get(name + ".md").href}${h || ""}"` : m)
     .replace(/href="\.\.\/(design|engineering|api)\/([\w-]+)\.md(#[\w-]*)?"/g, 'href="/$1/$2.html$3"');
   html = wrapGloss(html);
+  html = wrapSrc(html, p.srcFiles);
   const h2s = [...p.md.matchAll(/^##\s+(.+)$/gm)].map(m => m[1].replace(/[*`]/g, ""));
   const toc = h2s.length >= 2
     ? `<aside class="toc"><div class="t">On this page</div>${h2s.map(t => `<a href="#${anchor(t)}">${esc(t)}</a>`).join("")}</aside>`
@@ -738,10 +1133,10 @@ for (let i = 0; i < pages.length; i++) {
     prev ? `<a href="${prev.href}"><div class="lbl">Previous</div><div class="nt">${esc(prev.title)}</div></a>` : "<span style='flex:1'></span>"}${
     next ? `<a class="next" href="${next.href}"><div class="lbl">Next</div><div class="nt">${esc(next.title)}</div></a>` : "<span style='flex:1'></span>"}</div>`;
   const updated = p.updated ? `<div class="updated">Last updated ${p.updated}</div>` : "";
-  const body = `<div class="crumb">${esc(secLabel(p))}<span class="sep">/</span>${esc(p.group)}</div><h1>${esc(p.title)}</h1>${updated}${html}${xrefsHtml(p)}${pager}`;
+  const body = `<div class="crumb">${esc(secLabel(p))}<span class="sep">/</span>${esc(p.group)}</div><h1>${esc(p.title)}</h1>${updated}${pageChipsHtml(p)}${html}${xrefsHtml(p)}${pager}`;
   const outPath = path.join(OUT, p.kind === "wiki" ? `wiki/${p.slug}.html` : `${p.section}/${p.slug}.html`);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, shell({ title: p.title, body, activeHref: p.href, toc, desc: p.desc }));
+  fs.writeFileSync(outPath, shell({ title: p.title, body, activeHref: p.href, toc, desc: p.desc, srcMeta: pageSrcMeta(p) }));
 }
 
 // ---------- semantic search index ----------
