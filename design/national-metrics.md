@@ -2,13 +2,13 @@
 
 ## Overview
 
-The national metrics system tracks 47 socioeconomic indicators across 10 categories for every state/region in the game. Each state has a `stateMetrics` document; population-weighted national averages are derived from those documents each turn and stored as special national-scope documents (`"federal"` for the US, `"uk_national"` for the UK).
+The national metrics system has two layers. Schema and approval still use 10 `MetricCategoryId` buckets (including `population`) on each `stateMetrics` document. The live metric-engine registry (`METRIC_REGISTRY` in `src/lib/metricEngine/registry/index.ts`) is 74 nodes in 9 categories; there is no population registry file, and extra engine nodes include country-specific ones (`gcseAttainment`, `nhsWaitingTime`, `bbcTrust`, `bundeswehrReadiness`, and others). Each state has a `stateMetrics` document; population-weighted national averages are derived from those documents each turn and stored as special national-scope documents (`"federal"` for the US, `"uk_national"` for the UK).
 
-National metrics serve two purposes: they power the national metrics page (rankings, distribution, approval ratings) and they feed into the government approval calculation. Government approval, in turn, influences vote accumulation during elections. For the approval formula and named modifier conditions, see [[Government Approval]].
+National metrics serve two purposes: they power the national metrics page (rankings, distribution, approval ratings) and they feed into the government approval calculation. Approval still walks all 10 categories but skips some population/cohort metrics as approval terms (`populationGrowth`, `medianAge`, `sexRatio`, `dependencyRatio`); `migrationRate` is kept. Government approval, in turn, influences vote accumulation during elections. For the approval formula and named modifier conditions, see [Government Approval](./government-approval.md).
 
 ## Metric Categories
 
-There are 10 categories, each with 4-6 constituent metrics.
+Approval `CATEGORIES` and the `stateMetrics` document still use 10 buckets. The lists below are the original seeded US-shaped fields on the document, not the full engine registry.
 
 ### Economic (6 metrics)
 
@@ -199,7 +199,7 @@ Government approval feeds into the vote accumulation phase of general elections.
 
 ## Related pages
 
-- [[Government Approval]], Formulas and modifiers
-- [[National Budget & Treasury]], Treasury panels and fiscal display
-- [[Bills & Legislation]], How laws move metrics
-- [[Election Mechanics]], Vote pool scaling by approval
+- [Government Approval](./government-approval.md), Formulas and modifiers
+- [National Budget](./national-budget.md), Treasury panels and fiscal display
+- [Bills & Legislation](./bills-legislation.md), How laws move metrics
+- [Elections](./elections.md), Vote pool scaling by approval

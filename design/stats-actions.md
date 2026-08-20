@@ -55,7 +55,7 @@
 
 - **Starting Value**: $250,000
 - **Increased by**: Fundraise, per-turn fund generation (base + donor base + office bonus)
-- **Office fund bonus**: Governor +$20k, Senate +$15k, VP +$25k, President +$50k, House +$5k, State Senate +$3k
+- **Office fund bonus**: Governor +$15k, Senate +$15k, VP +$25k, President +$50k, House +$5k, State Senate +$3k
 - **Decreased by**: Ads, Build Donor Base, polls, NPP influence, party taxes, personal campaign donations
 - **Used for**: All campaign activities and actions with fund costs
 - **Note**: Separate from Cash on Hand - the two pools do not mix

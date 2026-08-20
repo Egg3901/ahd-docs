@@ -86,7 +86,7 @@ Each turn, characters receive funds from:
 
 - **Base rate**: By state population tier (small <2M: $5k/hr, medium: $10k, large: $20k, mega >20M: $40k)
 - **Donor base bonus**: +$500-$4,000/hr per level (scaled by state tier)
-- **Office bonus**: House +$5k, State Senate +$3k, Senate +$15k, Governor +$20k, VP +$25k, President +$50k
+- **Office bonus**: House +$5k, State Senate +$3k, Senate +$15k, Governor +$15k, VP +$25k, President +$50k
 
 **Party members** pay taxes (0-33% each):
 
