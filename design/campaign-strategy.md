@@ -220,7 +220,7 @@ Fog applies to all four upgrade categories independently.
 
 ## Related Pages
 
-- [[Election Mechanics]] - How elections actually work
-- [[Demographics & Targeting]] - Understanding voter groups
-- [[Stats & Actions]] - Action costs and stat effects
-- [[Campaign Manager]] - Using the campaign page
+- [Election Mechanics](./elections.md) - How elections actually work
+- [Demographics & Targeting](./demographics-targeting.md) - Understanding voter groups
+- [Stats & Actions](./stats-actions.md) - Action costs and stat effects
+- [Campaign Manager](./campaign-manager.md) - Using the campaign page

@@ -133,7 +133,7 @@ Read-only at request time. Eligibility resolution looks up the authenticated cha
 
 ## Related Documentation
 
-- [[Demographics]] - Turnout system, modifier decay, GOTV mechanics, `deriveGroupTurnout`
-- [[Campaign Strategy]] - Overall campaign planning
-- [[Fundraising & Ads]] - Alternative fund expenditures
-- [[Stats & Actions]] - Action point costs and refresh
+- [Demographics](./demographics.md) - Turnout system, modifier decay, GOTV mechanics, `deriveGroupTurnout`
+- [Campaign Strategy](./campaign-strategy.md) - Overall campaign planning
+- [Fundraising & Ads](./fundraising-ads.md) - Alternative fund expenditures
+- [Stats & Actions](./stats-actions.md) - Action point costs and refresh

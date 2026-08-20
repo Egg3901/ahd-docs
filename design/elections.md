@@ -560,9 +560,9 @@ State-level results for presidential, governor, and senate elections can be expl
 
 ## Related Documentation
 
-- [[Core Systems]], Turn structure, term cycles
-- [[NPP System]], NPP entry, dropout, spawn
-- [[Demographics]], Demographic groups, policy preferences
-- [[Campaign Strategy]], Fundraising, campaign operations, endorsements
-- [[Technical Architecture]], Implementation status
+- [Core Systems](./core-systems.md), Turn structure, term cycles
+- [NPP System](./npp-system.md), NPP entry, dropout, spawn
+- [Demographics](./demographics.md), Demographic groups, policy preferences
+- [Campaign Strategy](./campaign-strategy.md), Fundraising, campaign operations, endorsements
+- [Technical Architecture](./technical-architecture.md), Implementation status
 - [Cabinet](./cabinet.md), Cabinet nominations use Senate confirmation (related process)

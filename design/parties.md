@@ -35,7 +35,7 @@
 
 ### NPP Endorsements
 
-- Players can influence NPPs to **endorse candidates** via the NPP Influence system (see [[NPP System]])
+- Players can influence NPPs to **endorse candidates** via the NPP Influence system (see [NPP System](./npp-system.md))
 - **Effect**: NPP publicly endorses a candidate in an election; boosts that candidate's appeal
 - **Cost**: 5 actions, success chance based on relationship, stubbornness, etc.
 
@@ -55,7 +55,7 @@
 
 ### Primary Timeline
 
-- Duration varies by race type (see [[Election Mechanics]])
+- Duration varies by race type (see [Election Mechanics](./elections.md))
 - **House**: 12h primary / 48h total
 - **Senate / Governor**: 48h primary / 144h total
 - **State Senate**: 24h primary / 96h total
@@ -267,7 +267,7 @@ The Speaker is elected by the full House of Representatives using a real-life mu
 
 ### NPP Voting
 
-See [[NPP System]] for full documentation. US congressional leadership voting is
+See [NPP System](./npp-system.md) for full documentation. US congressional leadership voting is
 currently **player-only** in live NPP behavior.
 
 - NPPs do not autonomously vote in Speaker, House leadership, or Senate
@@ -282,7 +282,7 @@ currently **player-only** in live NPP behavior.
 
 ## NPP Influence
 
-See [[NPP System]] for full documentation.
+See [NPP System](./npp-system.md) for full documentation.
 
 ### Player Actions
 
@@ -432,7 +432,7 @@ Current intended caucus systems:
 - caucus health surfaces
 - relationship-driven NPP recruitment and retention
 
-See [[Caucuses]] for the dedicated system doc.
+See [Caucuses](./caucuses.md) for the dedicated system doc.
 
 ## Coalitions
 
@@ -527,8 +527,8 @@ transfer controls.
 
 ## Related
 
-- [[Coalitions]] - Full coalition system documentation (formation, priorities,
+- [Coalitions](./coalitions.md) - Full coalition system documentation (formation, priorities,
   invites, disband votes, chair mechanics)
-- [[Getting Started]] - Party membership overview for new players
-- [[Elections]] - How party affiliation affects primaries and generals
-- [[Core Systems]] - Turn processing, party elections phase
+- [Getting Started](./getting-started.md) - Party membership overview for new players
+- [Elections](./elections.md) - How party affiliation affects primaries and generals
+- [Core Systems](./core-systems.md) - Turn processing, party elections phase

@@ -295,7 +295,7 @@ Inflation, GDP-growth, and unemployment math reads and writes money fields in ea
 | Inflation multipliers / coefficients / ratios          | dimensionless, storage-agnostic                                          |
 | Cross-country totals (global GDP, global money supply) | computed in ₳ via `sumAsAnchor`; displayed via wallet preference         |
 
-See [[Currency Exchange]] §"Currency storage (v0.2.6)" for the full cross-system invariant table, helper index, and migration scripts. The Phillips-curve and fiscal-coefficient math is currency-agnostic: it operates on ratios (unemployment rate, debt-to-GDP, deficit-to-GDP) that cancel currency units, so no changes were required to the inflation formulas themselves.
+See [Currency Exchange](./currency-exchange.md) §"Currency storage (v0.2.6)" for the full cross-system invariant table, helper index, and migration scripts. The Phillips-curve and fiscal-coefficient math is currency-agnostic: it operates on ratios (unemployment rate, debt-to-GDP, deficit-to-GDP) that cancel currency units, so no changes were required to the inflation formulas themselves.
 
 ## Related Systems
 

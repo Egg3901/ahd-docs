@@ -104,7 +104,7 @@ Winning party chair/VC gives you NPP influence actions:
 
 ## Related Pages
 
-- [[Campaign Strategy]] - Foundation strategy guide
-- [[Formula Deep-Dive]] - Exact formulas for optimization
-- [[Demographics & Targeting]] - Voter group mechanics
-- [[State-Level Power]] - State office strategy
+- [Campaign Strategy](./campaign-strategy.md) - Foundation strategy guide
+- [Formula Deep-Dive](./formula-deep-dive.md) - Exact formulas for optimization
+- [Demographics & Targeting](./demographics-targeting.md) - Voter group mechanics
+- [State-Level Power](./state-level-power.md) - State office strategy

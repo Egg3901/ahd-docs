@@ -351,6 +351,6 @@ Crises are created and managed via admin routes (not yet documented in public AP
 
 ## Related Documentation
 
-- [[Policy System]], State metrics that crises can modify
-- [[Corporations]], Profit margin effects on corporate sectors
-- [[National Metrics]], Government approval affected by crises
+- [Policy System](./policy-system.md), State metrics that crises can modify
+- [Corporations](./corporations.md), Profit margin effects on corporate sectors
+- [National Metrics](./national-metrics.md), Government approval affected by crises

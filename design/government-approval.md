@@ -147,7 +147,7 @@ State government approval is used in the **party strength** modifier during gene
 - **Formula**: `(1 + approval/100) × officeStrength`
 - **Office strength** by race type: Governor 1.0, House 0.9, Senate 0.8, State Senate 0.85
 
-So in high-approval states, more votes are allocated per turn; governor races get the full effect, House and Senate are scaled down. When state metrics are missing, approval is treated as 50%. See [[Election Mechanics]] for the full appeal and vote-accumulation pipeline.
+So in high-approval states, more votes are allocated per turn; governor races get the full effect, House and Senate are scaled down. When state metrics are missing, approval is treated as 50%. See [Election Mechanics](./elections.md) for the full appeal and vote-accumulation pipeline.
 
 ## Implementation
 

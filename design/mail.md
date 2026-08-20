@@ -113,6 +113,6 @@ CEOs can broadcast a message to all current shareholders of their corporation.
 
 ## Related
 
-- [[Getting Started]] - Overview of player features
-- [[Corporations]] - Shareholder Address feature
-- [[Core Systems]] - News system (similar player-content system)
+- [Getting Started](./getting-started.md) - Overview of player features
+- [Corporations](./corporations.md) - Shareholder Address feature
+- [Core Systems](./core-systems.md) - News system (similar player-content system)

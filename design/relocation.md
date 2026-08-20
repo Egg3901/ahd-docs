@@ -50,7 +50,7 @@ There is **no** block for active candidacies or office-holding: those are handle
 
 - By default, any relocation removes you as CEO if you hold the role; the corporation enters CEO vacancy.
 - Exception: National Corporation CEOs have relaxed country-level residency. A same-country relocation does not unseat them; a cross-country move still does. See `src/lib/character/performRelocation.ts` step 3.
-- To accept a CEO role, your home state must match the corporation's headquarters state. See [[Corporations]].
+- To accept a CEO role, your home state must match the corporation's headquarters state. See [Corporations](./corporations.md).
 
 ## Combined character + corporation relocation
 
@@ -77,7 +77,7 @@ When a HQ moves via the CEO Office (not the combined flow) and the CEO does not 
 
 ## Related pages
 
-- [[Getting Started]]: Creating a character and first steps
-- [[Corporations]]: Founding, HQ, CEO eligibility
-- [[State-Level Power]]: Governor and state offices
-- [[United Kingdom]]: UK regions as home "state"
+- [Getting Started](./getting-started.md): Creating a character and first steps
+- [Corporations](./corporations.md): Founding, HQ, CEO eligibility
+- [State-Level Power](./state-level-power.md): Governor and state offices
+- [United Kingdom](./united-kingdom.md): UK regions as home "state"

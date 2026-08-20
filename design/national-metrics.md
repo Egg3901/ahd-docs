@@ -122,7 +122,7 @@ A lightweight endpoint optimised for the approval chart widget (`src/app/api/cou
 
 The response is served with `Cache-Control: no-store, no-transform`, approval reflects the latest turn snapshot, so it is explicitly kept off any shared/CDN cache, matching the sibling metrics route.
 
-Note: this endpoint calculates approval differently from `/api/country/[code]/metrics`. Here, national approval is the population-weighted average of state approvals (each state vs its own national average). The `/api/country/[code]/metrics` endpoint uses the country-vs-global-average approach instead. The `/api/country/[code]/approval` history reflects whichever method `snapshotApprovalHistory` uses at turn time, see [[Government Approval]] for the approval formula details.
+Note: this endpoint calculates approval differently from `/api/country/[code]/metrics`. Here, national approval is the population-weighted average of state approvals (each state vs its own national average). The `/api/country/[code]/metrics` endpoint uses the country-vs-global-average approach instead. The `/api/country/[code]/approval` history reflects whichever method `snapshotApprovalHistory` uses at turn time, see [Government Approval](./government-approval.md) for the approval formula details.
 
 ## Turn Processing
 
@@ -183,7 +183,7 @@ Read by `getMetricHistory(db, stateId, category, metricId)` for chart rendering.
 
 ## Election Impact
 
-Government approval feeds into the vote accumulation phase of general elections. See [[Government Approval]] for how approval is calculated and used. In brief: each turn, the vote pool for a race is scaled by `(1 + (approvalDecimal − 0.5) × 0.2) × officeStrength` (`tallyManagement.ts`), where `approvalDecimal` is state government approval as a 0-1 fraction and `officeStrength` varies by office type (Governor 1.0, House 0.9, Senate 0.8, State Senate 0.85). Centering on 0.5 approval keeps the multiplier from dominating the pool, the presidential path uses a steeper coefficient (0.5 instead of 0.2) for the same shape. Higher state approval means more votes allocated per turn; missing metrics default to 50% approval.
+Government approval feeds into the vote accumulation phase of general elections. See [Government Approval](./government-approval.md) for how approval is calculated and used. In brief: each turn, the vote pool for a race is scaled by `(1 + (approvalDecimal − 0.5) × 0.2) × officeStrength` (`tallyManagement.ts`), where `approvalDecimal` is state government approval as a 0-1 fraction and `officeStrength` varies by office type (Governor 1.0, House 0.9, Senate 0.8, State Senate 0.85). Centering on 0.5 approval keeps the multiplier from dominating the pool, the presidential path uses a steeper coefficient (0.5 instead of 0.2) for the same shape. Higher state approval means more votes allocated per turn; missing metrics default to 50% approval.
 
 ## Key Implementation Files
 

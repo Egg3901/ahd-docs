@@ -77,7 +77,7 @@ Each state has a unique demographic profile:
 
 ## Related Pages
 
-- [[Government Approval]] - How approval affects elections
-- [[Demographics & Targeting]] - State demographic profiles
-- [[Political Parties]] - Party system mechanics
-- [[Election Mechanics]] - How state elections work
+- [Government Approval](./government-approval.md) - How approval affects elections
+- [Demographics & Targeting](./demographics-targeting.md) - State demographic profiles
+- [Political Parties](./parties.md) - Party system mechanics
+- [Election Mechanics](./elections.md) - How state elections work

@@ -1,6 +1,6 @@
 # Commodity pricing v2 - design note
 
-This document captures the **agreed migration plan** from the current two-layer blend (global + state) to a **three-layer** model with **tariff-sensitive weights** and **decomposed storage**. It supplements [[commodities]]; once implemented, fold the stable parts into `commodities.md` and keep this file as history or delete it.
+This document captures the **agreed migration plan** from the current two-layer blend (global + state) to a **three-layer** model with **tariff-sensitive weights** and **decomposed storage**. It supplements [commodities](./commodities.md); once implemented, fold the stable parts into `commodities.md` and keep this file as history or delete it.
 
 ## Goals
 
@@ -88,4 +88,4 @@ v2 adds fields (exact names TBD) for **national** S/D and/or implied national pr
 
 ---
 
-_See also: [[commodities]] - current shipped behavior until v2 is merged._
+_See also: [commodities](./commodities.md) - current shipped behavior until v2 is merged._

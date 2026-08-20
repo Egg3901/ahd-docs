@@ -77,6 +77,6 @@ The campaign page budget tab shows:
 
 ## Related Pages
 
-- [[Campaign Strategy]], Overall campaign planning
-- [[Stats & Actions]], Action costs
-- [[Campaign Manager]], Using the campaign page budget tab
+- [Campaign Strategy](./campaign-strategy.md), Overall campaign planning
+- [Stats & Actions](./stats-actions.md), Action costs
+- [Campaign Manager](./campaign-manager.md), Using the campaign page budget tab

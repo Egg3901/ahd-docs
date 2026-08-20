@@ -21,7 +21,7 @@ UK gameplay uses **12 playable regions** (`UK_REGIONS` in `src/lib/constants/uk.
 | WAL  | Wales                    | WAL    | 32             |
 | NIR  | Northern Ireland         | NIR    | 18             |
 
-Your character's **home state** field uses these region codes for UK players. Many actions (e.g. [[Canvassing]]) are restricted to that home region.
+Your character's **home state** field uses these region codes for UK players. Many actions (e.g. [Canvassing](./canvassing.md)) are restricted to that home region.
 
 ## House of Commons elections
 
@@ -103,7 +103,7 @@ await db.collection<ParliamentaryGovernment>("parliamentaryGovernments").updateO
 
 ### Confidence Vote Trigger
 
-After majority formation or successful no-confidence, `triggerNextPMConfidenceVote()` initiates the confidence vote process (see [[uk-pm-no-confidence]]).
+After majority formation or successful no-confidence, `triggerNextPMConfidenceVote()` initiates the confidence vote process (see [uk-pm-no-confidence](./uk-pm-no-confidence.md)).
 
 ## UK Bill Lifecycle
 
@@ -168,9 +168,9 @@ Timing and exact costs for some motions may be tuned in balance passes, rely on 
 
 ## Related pages
 
-- [[Getting Started]], Onboarding for any country
-- [[Election Mechanics]], Shared primary/general concepts where applicable
-- [[State-Level Power]], Analogies to governors / regional power
-- [[Government Approval]], National and regional approval
-- [[National Budget & Treasury]], UK treasury panels and public corporations
-- [[Corporations]], FTSE-listed firms and UK sectors
+- [Getting Started](./getting-started.md), Onboarding for any country
+- [Election Mechanics](./elections.md), Shared primary/general concepts where applicable
+- [State-Level Power](./state-level-power.md), Analogies to governors / regional power
+- [Government Approval](./government-approval.md), National and regional approval
+- [National Budget & Treasury](./national-budget.md), UK treasury panels and public corporations
+- [Corporations](./corporations.md), FTSE-listed firms and UK sectors

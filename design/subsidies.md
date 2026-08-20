@@ -232,6 +232,6 @@ const effectiveMargin = Math.min(100, sector.profitMargin + totalMarginMod);
 
 ## Related Documentation
 
-- [[Tariffs]] - Trade barriers (counterpart to subsidies)
-- [[Corporations]] - Profit margin modifiers, sector processing
-- [[Legislation System]] - Bill enactment process
+- [Tariffs](./tariffs.md) - Trade barriers (counterpart to subsidies)
+- [Corporations](./corporations.md) - Profit margin modifiers, sector processing
+- [Legislation System](./bills-legislation.md) - Bill enactment process

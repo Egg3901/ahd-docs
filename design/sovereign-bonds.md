@@ -243,6 +243,6 @@ POST /api/admin/sovereign-debt/
 
 ## Related Documentation
 
-- [[Corporations]], Corporate bonds (credit rating, trading, defaults)
-- [[National Budget & Treasury]], Federal budget, debt, deficit mechanics
-- [[Stock Market]], NYSE/FTSE listings where sovereign bonds appear
+- [Corporations](./corporations.md), Corporate bonds (credit rating, trading, defaults)
+- [National Budget & Treasury](./national-budget.md), Federal budget, debt, deficit mechanics
+- [Stock Market](./stock-market.md), NYSE/FTSE listings where sovereign bonds appear

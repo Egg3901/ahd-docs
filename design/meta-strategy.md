@@ -119,8 +119,8 @@ Political power in A House Divided compounds:
 
 ## Related Pages
 
-- [[Congress Leadership]] - Legislative power structure
-- [[Campaign Manager]] - Campaign management tools
-- [[Party Building]] - Growing party strength
-- [[Min-Maxing Guide]] - Individual optimization
-- [[Cabinet]] - Presidential nominations
+- [Congress Leadership](./congress-leadership.md) - Legislative power structure
+- [Campaign Manager](./campaign-manager.md) - Campaign management tools
+- [Party Building](./party-building.md) - Growing party strength
+- [Min-Maxing Guide](./min-maxing.md) - Individual optimization
+- [Cabinet](./cabinet.md) - Presidential nominations

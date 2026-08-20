@@ -58,7 +58,7 @@ When a player first joins the game:
   - State races (House, Senate, Governor, State Senate): uses **Political Influence (PI)**
   - Presidential race: uses **National Political Influence (NPI)**
 - Highest primary score per party advances to the general
-- See [[Election Mechanics]]
+- See [Election Mechanics](./elections.md)
 
 ### Phase 4: General Election
 
@@ -176,7 +176,7 @@ Party Influence accrues passively each turn you're a member and accumulates rela
 - Staying active and invested in party operations keeps your standing high
 - Leaving and rejoining a party resets your Party Influence to 0
 
-Party Influence is visible on your profile (Party Standing section) and in the party members table. See [[Political Parties]] for the full calculation.
+Party Influence is visible on your profile (Party Standing section) and in the party members table. See [Political Parties](./parties.md) for the full calculation.
 
 ---
 
@@ -220,8 +220,8 @@ When not holding office, players can:
 
 ## Related Documentation
 
-- [[Stats & Actions]] - Action costs, effects, full tables
-- [[Election Mechanics]] - Primary scores, vote accumulation, FPTP vs proportional
-- [[Political Parties]] - Party influence, leadership, action pool
-- [[NPP System]] - NPP influence and boost
-- [[United Kingdom]] - UK-specific rules: Commons, PM formation, confidence votes
+- [Stats & Actions](./stats-actions.md) - Action costs, effects, full tables
+- [Election Mechanics](./elections.md) - Primary scores, vote accumulation, FPTP vs proportional
+- [Political Parties](./parties.md) - Party influence, leadership, action pool
+- [NPP System](./npp-system.md) - NPP influence and boost
+- [United Kingdom](./united-kingdom.md) - UK-specific rules: Commons, PM formation, confidence votes

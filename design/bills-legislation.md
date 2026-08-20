@@ -170,7 +170,7 @@ Each bill has a dedicated page showing:
 
 ### NPP Auto-Voting
 
-See [[NPP System]] for full documentation. Federal and local NPP legislators now use the same deterministic cross-pressure model:
+See [NPP System](./npp-system.md) for full documentation. Federal and local NPP legislators now use the same deterministic cross-pressure model:
 
 - **Forces**: ideology + whip + district/home-region + donors
 - **Federal scope**: House / Senate / Commons / upper-chamber federal votes read the baseline weighting
@@ -251,7 +251,7 @@ Implementation: `DOMAIN_AFFINITIES` and `calculateShiftImpacts()` in `src/lib/ar
 
 - Speaker/Majority Leader controls agenda
 - Decides which bills get voted on
-- **Status**: Speaker of the House, House Majority/Minority Leader, Senate President Pro Tempore, and Senate Majority/Minority Leader are all implemented (24-hour plurality elections). Motion to Vacate the Speaker is also implemented. Leadership control over agenda/committee assignments is still planned. See [[Congress Leadership]].
+- **Status**: Speaker of the House, House Majority/Minority Leader, Senate President Pro Tempore, and Senate Majority/Minority Leader are all implemented (24-hour plurality elections). Motion to Vacate the Speaker is also implemented. Leadership control over agenda/committee assignments is still planned. See [Congress Leadership](./congress-leadership.md).
 
 ### Corporation System
 

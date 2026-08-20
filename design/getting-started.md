@@ -40,7 +40,7 @@ Campaign Funds are built by fundraising and per-turn generation. Cash on Hand is
 - **National Political Influence (NPI)** - Uncapped. Accrues passively (+state influence / 100 per turn). Only used in **presidential races**.
 - **Infamy (0-100)** - Reputation damage from attacking others. Above 20% it drains your Favorability; it also makes your own attacks more likely to backfire. Decays 5% per turn.
 - **Actions** - Your activity budget. Base 4/turn; office holders earn more. Accumulate up to 200 (hoarding penalty above 100).
-- **Party Influence (0-100)** - How active and aligned you are within your party. Earns you **bonus actions every turn** proportional to your share of the party's total influence pool. See [[Political Parties]] for the full mechanic.
+- **Party Influence (0-100)** - How active and aligned you are within your party. Earns you **bonus actions every turn** proportional to your share of the party's total influence pool. See [Political Parties](./parties.md) for the full mechanic.
 
 ## Joining a Party - More Than Just a Ballot Line
 
@@ -94,13 +94,13 @@ UK players compete for seats in the **House of Commons** via multi-seat proporti
 
 ## Where to Go Next
 
-- [[Core Systems]] - Turn structure, term lengths, full action economy
-- [[Player Progression]] - Career path from creation through re-election
-- [[Stats & Actions]] - Every stat and action with exact costs
-- [[Election Mechanics]] - Primary scores, vote accumulation, FPTP vs proportional
-- [[Political Parties]] - Party influence, leadership, treasury, NPP operations
-- [[Coalitions]] - Cross-party alliances and disband mechanics
-- [[Mail]] - In-game messaging between characters
-- [[Corporations]] - Business founding, sectors, shares, bonds
-- [[United Kingdom]] - UK-specific rules: Commons elections, PM formation, confidence votes
+- [Core Systems](./core-systems.md) - Turn structure, term lengths, full action economy
+- [Player Progression](./player-progression.md) - Career path from creation through re-election
+- [Stats & Actions](./stats-actions.md) - Every stat and action with exact costs
+- [Election Mechanics](./elections.md) - Primary scores, vote accumulation, FPTP vs proportional
+- [Political Parties](./parties.md) - Party influence, leadership, treasury, NPP operations
+- [Coalitions](./coalitions.md) - Cross-party alliances and disband mechanics
+- [Mail](./mail.md) - In-game messaging between characters
+- [Corporations](./corporations.md) - Business founding, sectors, shares, bonds
+- [United Kingdom](./united-kingdom.md) - UK-specific rules: Commons elections, PM formation, confidence votes
 - [Election History](/wiki/elections) - Browse past elections

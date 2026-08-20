@@ -27,11 +27,11 @@ The **Stats** tab summarizes equity by sector (from the current listing set), a 
   - **Insider-concentration discount**, a quadratic penalty (up to -30%) on public corps where the character CEO holds more than 65% of shares.
   - **Index-inclusion premium**, a bounded premium for corps with a broad passive (index fund) holder base; mirrors the concentration discount.
   - **Per-turn rate limiter**, caps the fundamental price move to ±35% of the previous price per turn (skipped during post-split smoothing, which has its own cooldown blend).
-  - **IMF bailout multiplier**, a stored ×0.85 while `imfBailoutActive` (see [[IMF Corporate Bailout]]).
-  (See [[Corporations]] for the balance-sheet and earnings context behind these inputs.)
-- **Bonds**, Corporate bonds link to issuer credit; sovereign bonds link to national finance ([[Sovereign Bonds]], [[National Budget & Treasury]]).
-- **Commodities**, Summary and deep links into `/commodity/[type]` ([[Commodities]]).
-- **Forex**, Exchange-rate table and order-book summary from `/api/forex/exchange`, with deep links into `/country/[code]/forex/[currency]` ([[Currency Exchange & Multi-Currency System]]).
+  - **IMF bailout multiplier**, a stored ×0.85 while `imfBailoutActive` (see [IMF Corporate Bailout](./imf-corporate-bailout.md)).
+  (See [Corporations](./corporations.md) for the balance-sheet and earnings context behind these inputs.)
+- **Bonds**, Corporate bonds link to issuer credit; sovereign bonds link to national finance ([Sovereign Bonds](./sovereign-bonds.md), [National Budget & Treasury](./national-budget.md)).
+- **Commodities**, Summary and deep links into `/commodity/[type]` ([Commodities](./commodities.md)).
+- **Forex**, Exchange-rate table and order-book summary from `/api/forex/exchange`, with deep links into `/country/[code]/forex/[currency]` ([Currency Exchange & Multi-Currency System](./currency-exchange.md)).
 
 ## Discord Integration
 
@@ -39,7 +39,7 @@ The **Stats** tab summarizes equity by sector (from the current listing set), a 
 
 ## Related pages
 
-- [[Corporations]], Founding, sectors, shares, CEO, corporate bonds
-- [[Commodities]], Supply, demand, and pricing
-- [[Sovereign Bonds]], Government debt listings
-- [[National Budget & Treasury]], Treasury context
+- [Corporations](./corporations.md), Founding, sectors, shares, CEO, corporate bonds
+- [Commodities](./commodities.md), Supply, demand, and pricing
+- [Sovereign Bonds](./sovereign-bonds.md), Government debt listings
+- [National Budget & Treasury](./national-budget.md), Treasury context

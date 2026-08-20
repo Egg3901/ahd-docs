@@ -61,7 +61,7 @@ The general election pits party nominees against each other.
 
 ## Related Pages
 
-- [[Election Mechanics]] - Detailed election system
-- [[Campaign Strategy]] - Action allocation
-- [[Demographics & Targeting]] - Understanding voter groups
-- [[NPP Opponents Guide]] - Dealing with AI competition
+- [Election Mechanics](./elections.md) - Detailed election system
+- [Campaign Strategy](./campaign-strategy.md) - Action allocation
+- [Demographics & Targeting](./demographics-targeting.md) - Understanding voter groups
+- [NPP Opponents Guide](./npp-opponents.md) - Dealing with AI competition

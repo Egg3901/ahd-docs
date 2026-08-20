@@ -362,6 +362,6 @@ couponRate = primeRate + CREDIT_RATING_SPREADS[rating] + CORPORATE_BOND_SPREAD_P
 
 ## Related Documentation
 
-- [[Corporations]], Bond issuance, sector NPV, corporate finance
-- [[Sovereign Bonds]], Government debt (cannot default)
-- [[Stock Market]], Bond trading interface, market dynamics
+- [Corporations](./corporations.md), Bond issuance, sector NPV, corporate finance
+- [Sovereign Bonds](./sovereign-bonds.md), Government debt (cannot default)
+- [Stock Market](./stock-market.md), Bond trading interface, market dynamics

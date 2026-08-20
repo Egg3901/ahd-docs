@@ -258,6 +258,6 @@ await db.collection<Tariff>("tariffs").updateOne(
 
 ## Related Documentation
 
-- [[Commodities]], Commodity pricing, blend weights, margin modifiers
-- [[Subsidies]], Domestic industry support (counterpart to tariffs)
-- [[Legislation System]], Bill enactment process
+- [Commodities](./commodities.md), Commodity pricing, blend weights, margin modifiers
+- [Subsidies](./subsidies.md), Domestic industry support (counterpart to tariffs)
+- [Legislation System](./bills-legislation.md), Bill enactment process

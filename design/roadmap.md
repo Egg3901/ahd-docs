@@ -134,7 +134,7 @@ The `coming-soon` roster covers most of the eastern-bloc and western-European te
 
 ## Related
 
-- [[Mail]] - Player-to-player messaging
-- [[Coalitions]] - Cross-party alliances
-- [[Election Mechanics]] - Primary scores, vote accumulation, FPTP vs proportional
-- [[Technical Architecture]] - Implementation details
+- [Mail](./mail.md) - Player-to-player messaging
+- [Coalitions](./coalitions.md) - Cross-party alliances
+- [Election Mechanics](./elections.md) - Primary scores, vote accumulation, FPTP vs proportional
+- [Technical Architecture](./technical-architecture.md) - Implementation details

@@ -182,7 +182,7 @@ From NPP profile pages (`/npp/[id]`), players can use the deterministic direct-i
 
 These actions are deterministic once their action/fund/relationship gates are met.
 
-See [[NPP System]] for full documentation.
+See [NPP System](./npp-system.md) for full documentation.
 
 ---
 
@@ -190,7 +190,7 @@ See [[NPP System]] for full documentation.
 
 Party Chairs and Vice Chairs can use the **party action pool** to run influence operations targeting NPPs in their state (or nationally for National Chair). The action pool refills each turn based on party member contributions.
 
-See [[Political Parties]] and [[Party Building]] for details.
+See [Political Parties](./parties.md) and [Party Building](./party-building.md) for details.
 
 ---
 
@@ -208,8 +208,8 @@ See [[Political Parties]] and [[Party Building]] for details.
 
 ## Related Documentation
 
-- [[Core Systems]] - Turn structure, action refresh, office bonuses
-- [[Player Progression]] - Career path, when each stat matters
-- [[NPP System]] - NPP influence details, success formulas
-- [[Political Parties]] - Party influence, action pool, bonus actions
-- [[Election Mechanics]] - How PI, NPI, Favorability feed into vote calculations
+- [Core Systems](./core-systems.md) - Turn structure, action refresh, office bonuses
+- [Player Progression](./player-progression.md) - Career path, when each stat matters
+- [NPP System](./npp-system.md) - NPP influence details, success formulas
+- [Political Parties](./parties.md) - Party influence, action pool, bonus actions
+- [Election Mechanics](./elections.md) - How PI, NPI, Favorability feed into vote calculations

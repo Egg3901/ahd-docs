@@ -277,6 +277,6 @@ Demographic turnout processing occurs in **sequential order** during turn proces
 
 ## Related Documentation
 
-- [[Election Mechanics]], Vote accumulation, primary score
-- [[Stats & Actions]], Poll actions
-- [[Technical Architecture]], Collections: demographicCategories, stateDemographics
+- [Election Mechanics](./elections.md), Vote accumulation, primary score
+- [Stats & Actions](./stats-actions.md), Poll actions
+- [Technical Architecture](./technical-architecture.md), Collections: demographicCategories, stateDemographics

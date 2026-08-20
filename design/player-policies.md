@@ -1,13 +1,13 @@
 # Player Policies
 
-Your character has personal **economic** and **social** policy positions on a −5 to +5 scale. These are separate from the **legislative status quo** tracked for each policy area in government (see [[Bills & Legislation]]).
+Your character has personal **economic** and **social** policy positions on a −5 to +5 scale. These are separate from the **legislative status quo** tracked for each policy area in government (see [Bills & Legislation](./bills-legislation.md)).
 
 ## Personal positions
 
 - **Economic axis** - Left (negative) to right (positive) on fiscal and regulatory questions.
 - **Social axis** - Progressive (negative) to conservative (positive) on cultural and rights questions.
 
-You set starting positions at **character creation**. They matter for **election appeal**: candidates closer to a demographic group's lean tend to earn higher appeal with that group during vote calculation (see [[Election Mechanics]] and [[Demographics & Targeting]]).
+You set starting positions at **character creation**. They matter for **election appeal**: candidates closer to a demographic group's lean tend to earn higher appeal with that group during vote calculation (see [Election Mechanics](./elections.md) and [Demographics & Targeting](./demographics-targeting.md)).
 
 ## Changing your positions - policy shift
 
@@ -32,8 +32,8 @@ The **Policy** page (`/policy`) shows current **government** positions by legisl
 
 ## Related pages
 
-- [[Bills & Legislation]] - Provisions, votes, archetype approval impacts
-- [[Election Mechanics]] - How appeal and vote share work
-- [[Demographics & Targeting]] - Groups, leans, and turnout
-- [[Stats & Actions]] - Action economy and costs
-- [[National Metrics]] - Outcomes from enacted policy over time
+- [Bills & Legislation](./bills-legislation.md) - Provisions, votes, archetype approval impacts
+- [Election Mechanics](./elections.md) - How appeal and vote share work
+- [Demographics & Targeting](./demographics-targeting.md) - Groups, leans, and turnout
+- [Stats & Actions](./stats-actions.md) - Action economy and costs
+- [National Metrics](./national-metrics.md) - Outcomes from enacted policy over time
