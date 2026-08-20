@@ -57,13 +57,15 @@ Each country's rate moves toward a target derived from macroeconomic data, measu
 The forex phase reads only from `centralBanks`, the budget mirror keeps it to one collection read per country.
 
 ```
-macroTarget = baseRate × (1
-  + (primeRate - baselinePrime) × 0.02          // higher rates → stronger currency
-  - (inflationRate - baselineInflation) × 0.015  // higher inflation → weaker currency
-  + (gdpGrowth - baselineGDP) × 0.01            // higher growth → stronger currency
-  + (tradeGrowth - baselineTrade) × 0.005        // trade surplus → stronger currency
+macroTarget = baseRate × max(0.01, 1
+  - (primeRate - baselinePrime) × 0.02          // higher rates → stronger currency (lower rate value)
+  + (inflationRate - baselineInflation) × 0.015  // higher inflation → weaker currency
+  - (gdpGrowth - baselineGDP) × 0.01            // higher growth → stronger currency
+  - (tradeGrowth - baselineTrade) × 0.005        // trade surplus → stronger currency
 )
 ```
+
+Rate is "local currency per internal unit," so a lower rate means a stronger currency. Each sensitivity term above is signed so that the described real-world effect (higher rates/growth/trade surplus → stronger currency) comes out of the subtraction, not the addition.
 
 The rate drifts toward the macro target rather than snapping to it:
 
@@ -82,8 +84,10 @@ netVolume = buyVolume24 - sellVolume24   // Sum of internal-unit values of all t
 rawPressure = netVolume × VOLUME_PRESSURE_SENSITIVITY
 volumePressure = clamp(rawPressure, -VOLUME_PRESSURE_CAP, +VOLUME_PRESSURE_CAP)
 
-finalRate = newRate × (1 + volumePressure × VOLUME_DIRECTION_WEIGHT)
+finalRate = newRate × (1 - volumePressure × VOLUME_DIRECTION_WEIGHT)
 ```
+
+Positive volume pressure (net buying) lowers the rate, since buying a currency strengthens it.
 
 Volume pressure is calculated using the total internal-unit value of trades. To prevent a single "whale" trade from instantly hitting the cap, each individual trade's contribution to the 24-turn volume is capped at a specific threshold (e.g., 10x the average trade size).
 
@@ -91,7 +95,7 @@ Volume pressure is weighted by `VOLUME_DIRECTION_WEIGHT = 0.2`, meaning trade vo
 
 Volume pressure is capped at ±5% (`VOLUME_PRESSURE_CAP = 0.05`) to prevent extreme rate swings from outsized trades. The cap is a tunable constant, can be loosened as the player base and trade volume grow. The sensitivity constant may also need tuning based on observed trade volumes at launch.
 
-Heavy yen buying pushes the yen rate above fundamentals temporarily. As volume normalizes, macro drift pulls it back, classic overshoot/correction cycle that rewards well-timed speculation.
+Heavy yen buying pushes the yen rate below fundamentals temporarily (the yen strengthens more than the macro picture alone would justify). As volume normalizes, macro drift pulls it back, classic overshoot/correction cycle that rewards well-timed speculation.
 
 #### 3. Random Noise
 
@@ -102,11 +106,13 @@ Small per-turn jitter (up to ±0.4%, `RATE_NOISE_MAX = 0.004`) prevents perfectl
 Each country has baseline values representing a "neutral" economic state. These anchor the rate math so no country is structurally advantaged:
 
 | Country | Baseline prime | Baseline inflation | Baseline GDP growth | Baseline trade growth |
-| ------- | -------------- | ------------------ | ------------------- | --------------------- |
-| US      | 2.5%           | 2.0%               | 2.5%                | 0% (neutral)          |
-| UK      | 2.0%           | 2.0%               | 1.5%                | 0% (neutral)          |
-| JP      | 0.1%           | 0.5%               | 1.0%                | 0% (neutral)          |
-| DE      | 2.0%           | 2.0%               | 1.5%                | 0% (neutral)          |
+| ------- | -------------- | ------------------- | -------------------- | ---------------------- |
+| US      | 3.0%           | 2.0%                 | 2.5%                  | 0% (neutral)            |
+| UK      | 3.0%           | 2.0%                 | 1.5%                  | 0% (neutral)            |
+| JP      | 1.0%           | 1.0%                 | 1.0%                  | 0% (neutral)            |
+| DE      | 3.0%           | 2.0%                 | 1.5%                  | 0% (neutral)            |
+
+Prime rate and inflation baselines come from `MONETARY_BASELINES`; GDP and trade growth baselines come from a separate `ECONOMIC_BASELINES` constant (`src/lib/constants/currencies.ts`). A third module, `monetaryEra.ts`, layers era-specific overrides on top of `MONETARY_BASELINES` for pre-1999 worlds (e.g. JP's 1953-era neutral prime rate is 5.5%, not the modern 1.0%), keyed on the current in-game year so a long-lived world graduates through eras as its clock advances.
 
 Values reflect real-world historical norms. Tunable during playtesting.
 
@@ -281,7 +287,7 @@ interface ExchangeRate {
   rate: number; // local currency per 1 internal unit
   baseRate: number; // initial calibration (never changes)
   macroTarget: number; // current fundamental target rate
-  rateHistory: TurnSnapshot[]; // per-turn snapshots for charting, pruned to last 48 via .slice(-48) each turn
+  rateHistory: TurnSnapshot[]; // per-turn snapshots for charting, pruned to last 240 turns (5 in-game years, FOREX_AND_MACRO_CHART_HISTORY_TURNS) each turn
   /** Gross buy volume for this currency over the past 24 turns, in internal units.
    *  Recomputed each turn by the forex phase from tradeHistory. */
   buyVolume24: number;
@@ -537,12 +543,19 @@ const INFLATION_SENSITIVITY = 0.015;
 const GDP_GROWTH_SENSITIVITY = 0.01;
 const TRADE_GROWTH_SENSITIVITY = 0.005;
 
-// Baselines (neutral economic state)
+// Baselines (neutral economic state), split across two constants in source
+const MONETARY_BASELINES: Record<CountryId, MonetaryBaseline> = {
+  US: { targetInflation: 2.0, neutralPrimeRate: 3.0 },
+  UK: { targetInflation: 2.0, neutralPrimeRate: 3.0 },
+  JP: { targetInflation: 1.0, neutralPrimeRate: 1.0 },
+  DE: { targetInflation: 2.0, neutralPrimeRate: 3.0 },
+};
+
 const ECONOMIC_BASELINES: Partial<Record<CountryId, EconomicBaseline>> = {
-  US: { primeRate: 2.5, inflation: 2.0, gdpGrowth: 2.5, tradeGrowth: 0 }, // 0 = neutral
-  UK: { primeRate: 2.0, inflation: 2.0, gdpGrowth: 1.5, tradeGrowth: 0 }, // 0 = neutral
-  JP: { primeRate: 0.1, inflation: 0.5, gdpGrowth: 1.0, tradeGrowth: 0 }, // 0 = neutral
-  DE: { primeRate: 2.0, inflation: 2.0, gdpGrowth: 1.5, tradeGrowth: 0 }, // 0 = neutral
+  US: { gdpGrowth: 2.5, tradeGrowth: 0 }, // 0 = neutral
+  UK: { gdpGrowth: 1.5, tradeGrowth: 0 }, // 0 = neutral
+  JP: { gdpGrowth: 1.0, tradeGrowth: 0 }, // 0 = neutral
+  DE: { gdpGrowth: 1.5, tradeGrowth: 0 }, // 0 = neutral
 };
 
 // Initial exchange rates (local currency per 1 internal unit)

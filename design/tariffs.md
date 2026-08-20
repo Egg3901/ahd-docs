@@ -68,7 +68,7 @@ export function isFtaActive(pairs: FtaPairSet, a: string, b: string): boolean {
 **Critical:** Only tariffs where `tariff.countryId === sectorCountryId` are consulted. A tariff imposed by the US on Chinese corps only applies to sectors operating **in the US**, not to Chinese sectors operating in third countries.
 
 ```typescript
-// getEffectiveTariffRate():25
+// getEffectiveTariffRate():51
 if (t.countryId !== sectorCountryId) continue;
 ```
 
@@ -95,7 +95,7 @@ return -rate / 2;
 Domestic corporations pay a smaller **supply-chain friction malus** from economy-wide and sector tariffs only:
 
 ```typescript
-// getDomesticTariffMalus():118-136
+// getDomesticTariffMalus():324-352
 let total = 0;
 for (const t of tariffs) {
   if (t.countryId !== sectorCountryId) continue;
@@ -120,7 +120,7 @@ return -(T / 100) * 10; // -0 to -10pp
 The effective rate is the sum of all applicable tariffs:
 
 ```typescript
-// getEffectiveTariffRate():12-43
+// getEffectiveTariffRate():33-70
 if (sectorCountryId === corpHqCountryId) return 0; // Domestic corps pay no tariff
 
 for (const t of tariffs) {
@@ -144,10 +144,10 @@ return Math.min(100, total);
 
 ## Commodity Blend Weights
 
-Tariffs shift commodity margin calculation toward local (state-level) prices:
+Commodity margin calculation blends three price sources: global, national, and local (state-level). Tariffs shift weight from **global to national**, not to local; the local weight is fixed:
 
 ```typescript
-// getTariffBlendWeights():54-83
+// getTariffBlendWeights():194-244
 let blendRate = 0;
 for (const t of tariffs) {
   if (t.countryId !== sectorCountryId) continue;
@@ -165,25 +165,29 @@ for (const t of tariffs) {
 }
 
 const T = Math.min(100, blendRate);
-const localWeight = 0.25 + (T / 100) * 0.25; // 0.25 → 0.50
-const globalWeight = 1 - localWeight; // 0.75 → 0.50
+const tariffEffect = T / 100;
+const localWeight = 0.25; // fixed
+const nationalWeight = 0.25 + tariffEffect * 0.25; // 0.25 → 0.50
+const globalWeight = 0.5 - tariffEffect * 0.25; // 0.50 → 0.25
 ```
 
-| Tariff Rate | Local Weight | Global Weight |
-| ----------- | ------------ | ------------- |
-| 0%          | 0.25         | 0.75          |
-| 25%         | 0.3125       | 0.6875        |
-| 50%         | 0.375        | 0.625         |
-| 100%        | 0.50         | 0.50          |
+| Tariff Rate | Global Weight | National Weight | Local Weight |
+| ----------- | -------------- | ---------------- | ------------- |
+| 0%          | 0.50           | 0.25              | 0.25          |
+| 25%         | 0.4375         | 0.3125            | 0.25          |
+| 50%         | 0.375          | 0.375             | 0.25          |
+| 100%        | 0.25           | 0.50              | 0.25          |
 
-**Rationale:** Tariffs make local commodity markets more relevant to margin calculation, reflecting that import costs push buyers toward domestic alternatives.
+**Rationale:** Tariffs make national commodity markets more relevant to margin calculation, reflecting that import costs push buyers toward domestically-priced goods; the local/state component is held fixed and does not move with tariff pressure.
+
+FTA coverage scales the broad scopes (`economy_wide`, `sector`) down by `(1 - partner-exposure share)` and zeroes out narrow scopes (`origin_country`, `corporation`) targeting an FTA partner, the same treatment used by the corporate-margin and inflation-pressure channels.
 
 ## Market Capture (Split Attacks)
 
 Tariffs affect market capture during sector split attacks:
 
 ```typescript
-// getSplitCaptureMultiplier():148-157
+// getSplitCaptureMultiplier():364-373
 const T = Math.max(0, Math.min(100, effectiveTariffRate));
 if (isDomesticSplittingForeign) {
   return 1.0 + (T / 100) * 0.5; // 1.0 → 1.5× (domestic bonus)
@@ -205,7 +209,7 @@ return 1.0 - (T / 100) * 0.5; // 1.0 → 0.5× (foreign penalty)
 Tariffs are enacted via legislation:
 
 ```typescript
-// applyTariffProvision():164-189
+// applyTariffProvision():392-424 (upsert; the surrounding function runs 392-492)
 const filter = {
   countryId,
   scopeType: provision.scopeType,

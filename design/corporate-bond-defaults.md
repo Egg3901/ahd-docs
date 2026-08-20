@@ -6,8 +6,8 @@ Corporate bond defaults occur when a corporation cannot meet its debt obligation
 
 ## Overview
 
-- **Trigger:** Corporation `liquidCapital < 0` after coupon payments
-- **Penalty:** 96 turns (4 game-days) credit rating floor at CCC
+- **Trigger:** Corporation `liquidCapital < 0` after coupon payments, AND a solvency gate confirms assets (valued on the same basis the restructure planner uses) cannot cover the debt. A corp that can cover its shortfall from a positive bond buyback escrow, or whose assets exceed its debt, does not default merely for being cash-negative that turn.
+- **Penalty:** 96 turns credit rating floor at CCC
 - **Trading:** Defaulted bonds trade at 10% recovery value
 - **CEO options:** Retire debt at face value, refinance defaulted principal
 - **Dissolution:** Bond holders paid first from remaining assets
@@ -17,28 +17,29 @@ Corporate bond defaults occur when a corporation cannot meet its debt obligation
 Defaults are checked each turn during bond processing:
 
 ```typescript
-// src/lib/turn/bondTurn.ts:134-165
+// src/lib/turn/bondTurn.ts:511-596 (Phase 3 / 3.5 / 3.6)
 
-// Phase 3: Check for defaults (negative liquidCapital after coupon payments)
-const defaultedCorps = new Set<string>();
-for (const [corpIdStr, liquidCapital] of corpLiquidCapitalMap) {
-  if (liquidCapital < 0) {
-    defaultedCorps.add(corpIdStr);
-  }
-}
+// Phase 3: candidates are corps with liquidCapital < 0 after coupon payments.
+// A positive bond buyback escrow can cover the shortfall first
+// (coverBondShortfallsFromEscrow); survivors then pass a solvency gate
+// (filterInsolventCorps) that checks whether the corp's assets, valued on the
+// same exit basis the restructure planner uses, could cover its debt. Only
+// corps that fail BOTH checks are added to defaultedCorps.
+const stillNegative = await coverBondShortfallsFromEscrow(db, negativeNonNatcorp, now);
+const solvencyChecked = await filterInsolventCorps(db, stillNegative, { ... });
+for (const idStr of solvencyChecked) defaultedCorps.add(idStr);
 
-// Apply credit penalty
+// Phase 3.5: cascade, rolling back a defaulted issuer's maturity flows can
+// push its own bondholders negative, adding them to defaultedCorps too.
+await rollbackDefaultedIssuerMaturityFlows({ db, bondMaturityFlows, defaultedCorps, ... });
+
+// Phase 3.6: apply credit penalty once, after cascade resolution, to every
+// corp in defaultedCorps (initial + cascaded).
 for (const corpIdStr of defaultedCorps) {
   const nextUntil = turn + BOND_DEFAULT_CREDIT_PENALTY_TURNS; // 96 turns
   const prevUntil = c.bondDefaultCreditPenaltyUntilTurn ?? 0;
   const newUntil = Math.max(prevUntil, nextUntil);
-
-  await db
-    .collection("corporations")
-    .updateOne(
-      { _id: new ObjectId(corpIdStr) },
-      { $set: { bondDefaultCreditPenaltyUntilTurn: newUntil, updatedAt: now } }
-    );
+  // ...bulkWrite bondDefaultCreditPenaltyUntilTurn: newUntil
 }
 ```
 
@@ -47,7 +48,7 @@ for (const corpIdStr of defaultedCorps) {
 Bonds are marked as defaulted in the same turn:
 
 ```typescript
-// src/lib/turn/bondTurn.ts:169-194
+// src/lib/turn/bondTurn.ts:608-628
 
 const isDefaulted = isCorporateBond(bond) ? defaultedCorps.has(corpIdStr) || bond.defaulted : false;
 
@@ -58,20 +59,22 @@ if (isDefaulted && !bond.defaulted) {
       $set: {
         defaulted: true,
         defaultedAtTurn: turn,
-        publicFloat: bond.totalIssued, // All units go to public float
-        holders: [],
+        marketPrice: 0.1,
+        updatedAt: now,
       },
     }
   );
 }
 ```
 
+Note: unlike a matured bond (which clears `holders`/`publicFloat` on redemption), a defaulted bond keeps its existing `holders` array; holders are not automatically moved to the public float.
+
 ## Credit Penalty
 
 After default, the corporation's credit rating is floored for 96 turns:
 
 ```typescript
-// src/lib/constants/bonds.ts:142-145
+// src/lib/constants/bonds.ts:237-240
 
 if (options?.bondDefaultCreditPenaltyActive) {
   rating = "CCC";
@@ -81,7 +84,7 @@ if (options?.bondDefaultCreditPenaltyActive) {
 
 | Metric           | Value                                       |
 | ---------------- | ------------------------------------------- |
-| **Duration**     | 96 turns (4 game-days)                      |
+| **Duration**     | 96 turns (4 real days at 1 turn/hour)       |
 | **Rating floor** | CCC (lowest tier)                           |
 | **Score cap**    | 12 (below CCC threshold of 15)              |
 | **Extension**    | Multiple defaults extend the penalty window |
@@ -95,7 +98,7 @@ The penalty prevents corporations from immediately re-accessing credit markets a
 Defaulted bonds trade at a fixed recovery value:
 
 ```typescript
-// src/lib/constants/bonds.ts:187
+// src/lib/constants/bonds.ts:314
 
 if (defaulted) return 0.1; // 10 cents on the dollar
 ```
@@ -108,17 +111,26 @@ if (defaulted) return 0.1; // 10 cents on the dollar
 
 ### CEO Self-Buy Block
 
-CEOs cannot purchase their own corporation's defaulted bonds:
+This is not specific to defaulted bonds: a CEO, pending CEO, or a character who was CEO within the last `EX_CEO_BOND_PURCHASE_BLOCK_TURNS` (120 turns) cannot purchase ANY of their own corporation's bonds, defaulted or not (CEO ⊥ bondholder invariant):
 
 ```typescript
-// src/app/api/bonds/[bondId]/buy/route.ts
+// src/app/api/bonds/[bondId]/buy/route.ts:456-473
 
-if (bond.defaulted && isCeo) {
-  return NextResponse.json({ error: "CEOs cannot buy their own defaulted bonds" }, { status: 403 });
+if (
+  issuingCorp?.ceoId?.toString() === character._id.toString() ||
+  issuingCorp?.pendingCeoCharacterId?.toString() === character._id.toString()
+) {
+  return NextResponse.json({ error: "Cannot buy your own corporation's bonds" }, { status: 400 });
+}
+if (wasCeoWithinTurns(issuingCorp, character._id, currentTurn, EX_CEO_BOND_PURCHASE_BLOCK_TURNS)) {
+  return NextResponse.json(
+    { error: "Previous CEOs cannot buy bonds in this corporation at this time." },
+    { status: 400 }
+  );
 }
 ```
 
-**Rationale:** Prevents CEOs from profiting off their own distress by buying debt cheaply and retiring it at face value.
+**Rationale:** Prevents CEOs (current, pending, or recently departed) from profiting off their own corporation's distress by buying its debt cheaply, including retiring defaulted debt at face value via buyback.
 
 ### CEO Debt Retirement
 
@@ -141,16 +153,19 @@ const totalCost = units * costPerUnit;
 CEOs can refinance defaulted principal by issuing new bonds:
 
 ```typescript
-// src/lib/bonds/corporateBondDefault.ts:82-124
+// src/lib/bonds/corporateBondDefault.ts:166-232 (previewRefinanceIssuance)
 
 export function previewRefinanceIssuance(params: {
   corporation: Corporation;
+  liquidCapitalAnchor: number; // ₳-normalized, caller-converted
   allNonMaturedBonds: Bond[];
-  actualFaceValue: number;
+  actualFaceAnchor: number; // new-bond face value in ₳
   sectorNpv: number;
   annualIncome: number;
   primeRate: number;
   currentTurn: number;
+  fxByCurrency: ReadonlyMap<CurrencyCode, number>;
+  maturityTurns?: BondMaturityTurns;
 }): {
   creditRating: ReturnType<typeof calculateCreditScore>;
   couponRate: number;
@@ -160,7 +175,7 @@ export function previewRefinanceIssuance(params: {
 ### Eligibility Check
 
 ```typescript
-// src/lib/bonds/corporateBondDefault.ts:126-141
+// src/lib/bonds/corporateBondDefault.ts:244-258 (canRefinanceDefaultedDebt)
 
 export function canRefinanceDefaultedDebt(params: {
   equity: number;
@@ -178,7 +193,7 @@ const maxAllowed = maxNewIssuanceFaceValue(params.equity, params.existingDebtAll
 New bond issuance is capped at 2× equity minus existing debt:
 
 ```typescript
-// src/lib/bonds/corporateBondDefault.ts:73-76
+// src/lib/bonds/corporateBondDefault.ts:152-155 (maxNewIssuanceFaceValue)
 
 export function maxNewIssuanceFaceValue(equity: number, existingDebt: number): number {
   const cap = Math.max(0, equity * MAX_BOND_ISSUANCE_FRACTION - existingDebt);
@@ -199,22 +214,32 @@ When a corporation dissolves, bond holders have priority claims on remaining ass
 ### Settlement Preview
 
 ```typescript
-// src/lib/bonds/corporateBondDefault.ts:153-174
+// src/lib/bonds/corporateBondDefault.ts:278
 
 export function previewDissolveSettlement(
   corp: Corporation,
   sectorNpv: number,
-  bonds: Bond[]
+  bonds: Bond[],
+  liquidCapitalAnchor: number,
+  fxByCurrency: ReadonlyMap<CurrencyCode, number>,
+  options?: { plantsEnabled?: boolean; sectorBookAnchor?: number }
 ): DissolveSettlementPreview {
-  const liquidCapital = Math.max(0, corp.liquidCapital);
-  const totalAssets = liquidCapital + Math.max(0, sectorNpv);
-  const totalBondClaims = sumNonMaturedBondPrincipal(bonds);
+  const lc = Math.max(0, liquidCapitalAnchor);
+  // Only a salvage fraction of sector value is recoverable on dissolution
+  // (sectors are abandoned to the unowned market, no buyer at going-concern price).
+  const salvageBasis =
+    options?.plantsEnabled === true ? (options.sectorBookAnchor ?? 0) : sectorNpv;
+  const salvagedSectorNpv = DISSOLUTION_SECTOR_SALVAGE_FRACTION * Math.max(0, salvageBasis); // 0.2
+  const totalAssets = lc + salvagedSectorNpv;
+  const totalBondClaims = sumNonMaturedBondPrincipal(bonds, fxByCurrency);
   const bondRecoveryPool = Math.min(totalAssets, totalBondClaims);
   const shareholderPool = Math.max(0, totalAssets - bondRecoveryPool);
   const bondRecoveryPct =
     totalBondClaims > 0 ? Math.round((bondRecoveryPool / totalBondClaims) * 10_000) / 100 : 100;
 }
 ```
+
+Sector value counts at only **20%** on dissolution (`DISSOLUTION_SECTOR_SALVAGE_FRACTION`, `src/lib/constants/corporations.ts:91`), not at full NPV. Assets available for bond recovery are `liquidCapital + 0.2 x sectorValue`, not `liquidCapital + sectorValue`.
 
 ### Payout Priority
 
@@ -230,17 +255,18 @@ export function previewDissolveSettlement(
 ### Shareholder Allocation
 
 ```typescript
-// src/lib/bonds/corporateBondDefault.ts:183-203
+// src/lib/bonds/corporateBondDefault.ts:375
 
 export function allocateShareholderPool(
   corp: Corporation,
   shareholderPool: number,
-  nameByCharacterId: Map<string, string>
-): ShareholderPayoutRow[] {
+  nameById: Map<string, string>
+): ShareholderAllocation {
   const totalShares = corp.totalShares ?? 0;
   for (const sh of corp.shareholders ?? []) {
     const payout = Math.floor((shareholderPool * sh.shares) / totalShares);
-    rows.push({ characterId, name, shares, payout });
+    // routed into characterRows, corporationRows, fundRows, or publicFloatRow
+    // depending on the holder type
   }
 }
 ```
@@ -250,10 +276,11 @@ export function allocateShareholderPool(
 When multiple bonds default, holder positions are merged for consolidated tracking:
 
 ```typescript
-// src/lib/bonds/corporateBondDefault.ts:210-237
+// src/lib/bonds/corporateBondDefault.ts:449-483 (mergeDefaultedBondHolders)
 
 export function mergeDefaultedBondHolders(defaultedBonds: Bond[]): {
   holderUnits: Map<string, { characterId: ObjectId; units: number }>;
+  imperialHolderUnits: Map<string, { imperialCharacterId: ObjectId; units: number }>;
   corpHolderUnits: Map<string, { corporationId: ObjectId; units: number }>;
   publicFloat: number;
 };
@@ -266,7 +293,7 @@ export function mergeDefaultedBondHolders(defaultedBonds: Bond[]): {
 The composite credit score uses four weighted components:
 
 ```typescript
-// src/lib/constants/bonds.ts:39-44
+// src/lib/constants/bonds.ts:122-127 (CREDIT_RATING_WEIGHTS)
 
 export const CREDIT_RATING_WEIGHTS = {
   debtToEquity: 0.3, // Lower ratio = better
@@ -290,7 +317,7 @@ export const CREDIT_RATING_WEIGHTS = {
 Credit scores blend 75% new + 25% previous to prevent single-turn volatility:
 
 ```typescript
-// src/lib/constants/bonds.ts:127-131
+// src/lib/constants/bonds.ts:220-224 (inertia smoothing)
 
 if (options?.previousCompositeScore != null && options.previousCompositeScore > 0) {
   compositeScore = Math.round(0.75 * rawComposite + 0.25 * options.previousCompositeScore);

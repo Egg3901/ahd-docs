@@ -284,13 +284,13 @@ The `validation.ts` module provides:
 
 ### Turn Processing
 
-Fiscal year processing runs in **Group 10** (turn 40 of 48):
+Fiscal year processing runs in the `fiscalYearBoundary` phase (turn 40 of 48):
 
 ```typescript
-// src/lib/turnSystem.ts
-if (turn === 40) {
-  // October
-  await processFiscalYear(db, newFiscalYear);
+// simulation/phases/turnPhaseRegistry.ts
+if (isFiscalYearEnd(newTurn)) {
+  const newFiscalYear = calculateFiscalYear(currentYear, newTurn);
+  await processFiscalYear(db, newFiscalYear, newTurn);
 }
 ```
 

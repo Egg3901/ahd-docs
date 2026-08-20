@@ -74,13 +74,14 @@ const couponRate = primeRate + termPremium + credibilitySpread;
 When bonds are issued, the federal budget is updated:
 
 ```typescript
-// src/lib/bonds/sovereign.ts:74-102 applySovereignDebtAdjustment()
-newPrincipal = oldPrincipal + bond.totalIssued;
-newDebtInterest = oldDebtInterest + (couponRate / 100) * totalIssued;
-newSurplus = revenue - (spending + newDebtInterest);
-debtToGdpRatio = newPrincipal / GDP;
-creditRating = calculateCreditRating(debtToGdpRatio);
-interestRate = calculateInterestRate(debtToGdpRatio);
+// src/lib/bonds/sovereign.ts:171 applySovereignDebtAdjustment()
+newPrincipal = Math.max(0, oldPrincipal + principalDelta);
+newDebtInterest = Math.max(0, oldDebtInterest + annualInterestDelta);
+newSurplus = revenue.total - (spending.total + annualInterestDelta);
+debtToGdpRatio = newPrincipal / gdpSmoothed; // falls back to raw gdp if unset
+creditRating = calculateCreditRating(debtToGdpRatio, sovereignRiskAnchor);
+interestRate = calculateInterestRate(debtToGdpRatio, imfSovereignBailoutActive, sovereignRiskAnchor)
+  + getSovereignConfidencePremium(investorConfidence);
 ```
 
 ### Per-Turn Processing
@@ -97,11 +98,10 @@ In `processBondTurn()` (`src/lib/turn/bondTurn.ts`):
 When sovereign bonds mature:
 
 ```typescript
-// src/lib/bonds/sovereign.ts:264-289 settleSovereignBondMaturity()
-const annualCouponCost = (couponRate / 100) * totalIssued;
-budget.debt.principal -= totalIssued;
-budget.spending.debtInterest -= annualCouponCost;
-budget.surplus += annualCouponCost; // Lower interest = higher surplus
+// src/lib/bonds/sovereign.ts:696 settleSovereignBondMaturity()
+const annualCouponCost = (bond.couponRate / 100) * bond.totalIssued;
+const budgetUpdate = applySovereignDebtAdjustment(budget, -bond.totalIssued, -annualCouponCost);
+// budgetUpdate.debt.principal, spending.debtInterest, and surplus are written back
 ```
 
 ## Turn Processing Pipeline
@@ -126,11 +126,18 @@ Sovereign default is a full crisis subsystem (`src/lib/sovereignDefault/`), alwa
 
 Auction demand is evaluated once per fiscal year (turn 40) as a demand ratio: >=1.0 is subscribed (healthy), 0.7-1.0 is undersubscribed (warning), below 0.7 is a failed auction. A default crisis triggers after **3 consecutive failed auctions**.
 
-Demand ratio is `BASE_DEMAND (1.2)` minus three stacking penalties, floored at 0.6:
+Demand ratio starts from `BASE_DEMAND (1.2)` and sums several components, floored at 0 overall (not 0.6):
 
-- **Debt-to-GDP:** `-0.3` per unit of debt/GDP up to 2.0x, then `-0.4` per unit above that (cliff).
-- **Inflation:** `-max(inflation x 2.0, 0.05)`.
-- **FX depreciation:** `-depreciation x 1.5`.
+- **Debt-to-GDP:** once debt/GDP exceeds 0.6, penalty is `-(debtToGdp - 0.6) x 0.3`.
+- **Debt-to-GDP cliff:** once debt/GDP exceeds 2.0, an additional `-(debtToGdp - 2.0) x 0.4` stacks on top.
+- **Inflation:** once inflation exceeds 5%, penalty is `-(inflation - 0.05) x 2.0`.
+- **FX depreciation:** `-depreciation x 1.5` (10-turn lookback), only ever a penalty, never a bonus.
+- **Default scar:** while inside the 100-turn scar window, `-(100 - turnsSinceLastDefault) x 0.01`.
+- **Trust modifier:** `(trust - 0.5) x 0.4`, can be positive or negative.
+- **Coupon premium:** offering yield above the 4% global benchmark buys demand, `(couponRate/100 - 0.04) x 5.0`.
+- **Entity holdings (Model B):** domestic/foreign holders of existing bonds prop up demand, capped at `+0.4`.
+
+(`src/lib/sovereignDefault/marketDemand.ts`, `src/lib/sovereignDefault/constants.ts`)
 
 ### Warning and decision windows
 

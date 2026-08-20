@@ -12,20 +12,20 @@ The 12 US voter archetypes described below are **legacy authoring vocabulary, no
 
 One category `voterGroups` with 12 mutually exclusive archetypes:
 
-| ID                    | Name                  | Econ | Social | Turnout |
-| --------------------- | --------------------- | ---- | ------ | ------- |
-| young_renters         | Young Renters         | -4   | -4     | 38%     |
-| evangelicals          | Evangelicals          | +4   | +5     | 72%     |
-| rural_traditionalists | Rural Traditionalists | +4   | +4     | 68%     |
-| union_trades          | Union & Trades        | -3   | +1     | 52%     |
-| soccer_moms           | Soccer Moms           | 0    | -1     | 58%     |
-| college_liberals      | College Liberals      | -5   | -5     | 68%     |
-| small_business        | Small Business        | +4   | +2     | 72%     |
-| public_sector         | Public Sector Workers | -3   | -2     | 70%     |
-| retirees              | Retirees              | +2   | +3     | 72%     |
-| libertarians          | Libertarians          | +5   | +2     | 68%     |
-| new_immigrants        | New Americans         | -2   | -1     | 42%     |
-| secular_professionals | Secular Professionals | -3   | -4     | 74%     |
+| ID                    | Name                  | Econ  | Social | Turnout |
+| --------------------- | --------------------- | ----- | ------ | ------- |
+| young_renters         | Young Renters         | -4    | -4     | 46%     |
+| evangelicals          | Evangelicals          | +4    | +5     | 73%     |
+| rural_traditionalists | Rural Traditionalists | +4    | +4     | 71%     |
+| union_trades          | Union & Trades        | -3    | +1     | 63%     |
+| soccer_moms           | Soccer Moms           | -1    | -0.5   | 60%     |
+| college_liberals      | College Liberals      | -4.5  | -5     | 67%     |
+| small_business        | Small Business        | +4    | +2     | 72%     |
+| public_sector         | Public Sector Workers | -3    | -3     | 67%     |
+| retirees              | Retirees              | +1    | +2     | 76%     |
+| libertarians          | Libertarians          | +5    | -3     | 68%     |
+| new_immigrants        | New Americans         | -3    | -2     | 42%     |
+| secular_professionals | Secular Professionals | -3    | -4.5   | 68%     |
 
 > **Note:** State ideology composition modulates leans for retirees, soccer moms, union & trades, and rural traditionalists, their actual values shift slightly based on how conservative or progressive each state is.
 
@@ -76,7 +76,7 @@ Candidates have `policies.economic` and `policies.social` (-5 to +5). Compared t
 
 ### Default Category Weights
 
-Default weights (sum to 100): Education 25%, Wealth 20%, Race 15%, Ideology 15%, Age 12.5%, Gender 12.5%.
+There is a single category, `voterGroups`, weighted 100% (`categoryWeights: { voterGroups: 100 }` in `src/lib/seeds/stateDemographics.ts`). There is no per-category weighting across race/wealth/education/ideology/age, and no gender dimension exists in the Layer-1 census dimensions (`src/lib/demographics/usDemographics.ts` has race, age, education, wealth, ideology only).
 
 ## State Political Lean
 
@@ -115,14 +115,14 @@ The turnout system allows strategic manipulation of voter participation through 
 
 ### Party GOTV (Passive)
 
-Each party budget (national or state-level) has `gotvBudgetPerTurn` that is spent automatically each turn:
+Each party budget (national or state-level) targets a single chosen demographic (`gotvTargetCategory` / `gotvTargetGroup`) and spends automatically each turn:
 
-1. **Eligible Demographics**: Only boosts demographics within 2 points of party position on **both** economic and social axes
-2. **Allocation**: Budget divided equally among eligible demographics
-3. **Boost**: Each eligible demographic receives `budgetPerDemo × 0.01%` turnout boost (before diminishing returns)
-4. **Treasury**: Party treasury is debited by `gotvBudgetPerTurn` each turn
+1. **Spend**: `gotvBudgetPercent` (0-25% of hourly revenue) is the primary path; a legacy flat `gotvBudgetPerTurn` amount is used only when the percent field is 0.
+2. **Alignment**: A continuous multiplier scales the boost by how close the party's position is to the target demographic's lean, `max(0.1, 1.0 - distance × 0.15)` where `distance` is the Manhattan distance on economic + social axes (same curve as canvassing). There is no binary "within 2 points" eligibility cutoff, the multiplier degrades smoothly from 1.0 (perfect alignment) to a floor of 0.1.
+3. **Boost**: `(spend / DOLLARS_PER_TURNOUT_POINT) × alignmentMultiplier`, where `DOLLARS_PER_TURNOUT_POINT = 5000` (`src/lib/utils/demographicAlignment.ts`). National spend is divided evenly across all states first; state-scoped spend applies in full to one state.
+4. **Treasury**: Party treasury is debited by the computed GOTV spend each turn.
 
-**Example**: DEM party at (-4, -4) with $100 GOTV budget would boost Progressives (-5, -5), Environmentalists (-3, -4), etc., but NOT Evangelicals (+4, +5).
+Source: `src/lib/turn/demographicTurnoutTurn.ts` and `src/lib/turn/demographicTurnoutCalculations.ts`.
 
 ### Player Canvassing (Active)
 

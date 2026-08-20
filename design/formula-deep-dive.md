@@ -40,7 +40,7 @@ weight = appeal × reach × approval × org × regResistance × regBaseline × s
 
 Not part of the vote-share formula above but stack into it as `stateOrgMult` / `homeStateMult` (`src/lib/electionEngine/constants.ts`):
 
-- `MAX_STATE_ORG_BONUS_PRIMARY = 0.25` (primary path cap; scales linearly with org level: `1 + (level / STATE_ORG_MAX_LEVEL) × 0.25`)
+- `MAX_STATE_ORG_BONUS_PRIMARY = 0.25` (primary path cap; the fraction of it delivered follows an uncapped exponential-approach curve, `1 − (1 − 0.75)^(level / 10)`, not a linear ramp, level 10 buys 75% of the max bonus, level 20 buys 93.8%, approaching but never reaching 100%)
 - `MAX_STATE_ORG_BONUS_GENERAL = 0.15` (general path cap, smaller so it doesn't dominate lean × party position)
 - `HOME_STATE_BONUS_PRIMARY = 0.1` (flat bonus in a candidate's home state during a primary)
 - `HOME_STATE_BONUS_GENERAL` (smaller general-election equivalent)

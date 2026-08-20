@@ -54,7 +54,10 @@ The appeal function (`calcAppeal()` in `src/lib/utils/demographicAppeal.ts`) cal
 
 ```typescript
 positionRaw = max(0, 50 - |demoEP - charEP| × 5 - |demoSP - charSP| × 5)
-positionScore = positionRaw² / 100 + APPEAL_POSITION_FLOOR  // floor keeps appeal > 0
+// APPEAL_POSITION_EXPONENT = 1.5 is the live default (softened from the legacy
+// squared curve, γ=2, which is still supported as a special case but not used).
+// Endpoint-matched for any γ: positionRaw=0 → 0, positionRaw=50 → 25.
+positionScore = 25 × (positionRaw / 50) ^ 1.5 + APPEAL_POSITION_FLOOR  // floor keeps appeal > 0
 
 directionBonus = DIRECTION_BONUS_PER_AXIS × (directionFactor(EP) + directionFactor(SP))
 // directionFactor rewards a candidate leaning the same way as the group's lean,
@@ -76,7 +79,7 @@ Candidates receive approval bonuses based on archetype alignment:
 
 ```typescript
 effectiveFav = clamp(favorability + (archetypeApproval × 0.5), 0, 100)  // calcEffectiveFavorability()
-approvalScalar = clamp(effectiveFav / 100, 0, 1)  // Range: 0 to 1. "If voters don't approve of you they won't vote for you."
+approvalScalar = clamp(effectiveFav / 100, 0, 1) ^ APPROVAL_SCALAR_EXPONENT  // APPROVAL_SCALAR_EXPONENT = 0.8, "If voters don't approve of you they won't vote for you."
 ```
 
 ### Party Organization Weight

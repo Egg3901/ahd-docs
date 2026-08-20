@@ -121,7 +121,7 @@ Handled by `src/lib/electionEngine.ts` and `accumulateVoteTurn()`.
   - **Ramp band**: the `RAMP_TURNS = 8` turns before election day get `RAMP_POOL_SHARE = 0.2` of the pool
   - **Final band**: the last `ELECTION_DAY_TURNS = 4` turns get `FINAL_POOL_SHARE = 0.3` of the pool
   - Shares sum to 1. Very short races (`totalTurns <= 4`) spread the pool evenly instead.
-- **Party strength**: The turn pool is scaled by `(1 + stateGovernmentApproval) × officeStrength` (see below)
+- **Party strength**: The turn pool is scaled by `(1 + (approval − 0.5) × 0.2) × officeStrength` for state races, `(1 + (approval − 0.5) × 0.5) × officeStrength` for president (see below)
 - **Distribution**: Each turn, the **effective** pool is distributed proportionally to each candidate's **vote potential**
 
 ### FPTP & RCV, Vote-Splitting System
@@ -181,8 +181,8 @@ The full pipeline from candidate and state to votes per turn (shared with poll a
 4. **Approval scalar**, `favorability / 100`: voters won't support candidates they don't approve of. 0% approval = 0 votes.
 5. **Party org scalar**, General elections: `normalizedOrgShare ^ ORG_WEIGHT_EXPONENT` (`ORG_WEIGHT_EXPONENT = 0.2`), the party's normalized share of statewide Org among all parties, with diminishing returns; no Org data anywhere falls back to a neutral 1×. Primaries use a uniform neutral 1× (intra-party Org cancels). This retired the older flat `0.5 + (org/100)×0.5` scalar (2026-06-18).
 6. **Infamy scalar**, `1 − 0.05 × (infamy/100)`: player characters lose up to 5% of their per-group weight at infamy=100. NPPs leave infamy unset and are unaffected.
-7. **Party strength modifier**, `(1 + stateGovernmentApproval) × officeStrength`:
-   - **State government approval**: 0-100% from state metrics vs. national averages (see [Government Approval](./government-approval.md)). When metrics are missing, 50% is used.
+7. **Party strength modifier**, `(1 + (approvalDecimal − 0.5) × 0.2) × officeStrength` for state races (`× 0.5` in place of `× 0.2` for president, so presidential races feel state approval 2.5x more strongly):
+   - **State government approval**: 0-100% from state metrics vs. national averages (see [Government Approval](./government-approval.md)). When metrics are missing, 50% is used. At 50% approval the modifier is 1.0x baseline regardless of office; state races swing ±10% (0% approval → 0.9x, 100% → 1.1x) before the office-strength factor, president swings ±25% (0.75x-1.25x).
    - **Office strength**: Governor 1.0, House 0.9, Senate 0.8, State Senate 0.85.
 8. **Effective turn pool**, Base turn pool × party strength modifier. Same modifier for all candidates in that election; relative shares are unchanged.
 9. **Distribution**, For each group, its share of the effective turn pool is split among candidates by relative (appeal × reach × approval × partyOrg × infamyMult). Votes per candidate are summed across all groups.
@@ -391,10 +391,10 @@ Admin → Elections → NPP Management: spawn 1-500 NPPs per party with weightin
 
 During the general election phase, presidential candidates can travel to specific states to campaign in person.
 
-- **Cost**: 5 actions per travel
-- **Passive bonus**: +1% Favorability per turn while traveling in a state
+- **Cost**: `getTravelActionCost()` scales with the target state's electoral votes: EV ≤ 5 → 3 actions, EV ≤ 10 → 5, EV ≤ 20 → 7, EV > 20 → 10 (small states are cheap, big states are expensive)
+- **Effect**: Traveling to a state is a gate, not a passive bonus. It is the eligibility requirement for the character's canvassing actions in that state; there is no automatic per-turn favorability gain from travel alone
 - **Visibility**: Travel state shown on the electoral map as a badge
-- **Strategy**: Lets candidates focus campaign presence in swing states for sustained favorability gains
+- **Strategy**: Lets candidates focus campaign presence (canvassing) in swing states
 - **Restrictions**: Only active presidential candidates can travel; one state at a time
 
 **API:** `POST /api/elections/[id]/travel`
@@ -402,12 +402,12 @@ During the general election phase, presidential candidates can travel to specifi
 ```typescript
 // src/app/api/elections/[id]/travel/route.ts
 
-const TRAVEL_ACTION_COST = 5;
+const actionCost = getTravelActionCost(stateId, gameState?.preset);
 
 // Validates:
 // - Election is presidential and active
 // - User is an active candidate
-// - Has enough actions (5)
+// - Has enough actions (cost varies by state EV)
 // - State is a valid US state
 
 await db
@@ -421,7 +421,7 @@ Travel is a presidential-only mechanic. State-level races use standard campaign/
 
 ### Building Support
 
-- **Campaign**: Raises **Political Influence** (+1% per action), name recognition / reach. Cost scales with current PI and state GDP per capita.
+- **Campaign**: Raises **Political Influence** (up to +1% per action, diminishing returns above 50% PI), name recognition / reach. Cost scales with current PI and state GDP per capita.
 - **Advertise**: Raises **Favorability** (+1-3 per action, diminishing returns above 70%). Cost scales with current favorability and state GDP.
 - **Build Donor Network**: Increases donor base level (unlocks higher fundraising yields). One-time unlock; L0→L75 costs ~₳4.4M at national-average GDP.
 - **Fundraise**: Converts donor base level into campaign funds. ₳50K floor + ₳2K per donor level, scaled by state PI.
@@ -542,7 +542,7 @@ State-level results for presidential, governor, and senate elections can be expl
 ### County Maps
 
 - **Visualization**: Interactive SVG map showing county-level vote distribution
-- **Data**: 3,047 US counties with real population and partisan lean data
+- **Data**: 3,142 US counties (and county-equivalents) with real population and partisan lean data
 - **Hover**: Tooltips showing candidate vote breakdown, margin, and partisan lean per county
 - **Algorithm**: Vote distribution is derived from county partisan lean and population; more partisan counties vote more heavily for aligned candidates
 

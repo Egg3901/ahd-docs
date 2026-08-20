@@ -66,7 +66,7 @@ This ensures continuous Senate activity with elections happening at different ti
 
 ### Out-of-State Costs
 
-- Campaign, Ads, and Attack cost more when targeting a state other than your home state
+- The state-adjacency multiplier applies to interpersonal actions (Support, Attack, Barnstorm), not to Campaign or Advertise, which use GDP-based fund scaling instead
 - Home state: 1.0× | Neighboring state: 1.25× | Non-neighboring: 1.5×
 
 ## Per-Turn Processing Order
@@ -110,7 +110,7 @@ See `technical-architecture.md` for the full implementation details of each phas
 
 The President nominates advisors to cabinet positions; the Senate confirms or rejects.
 
-- **Positions**: 18 principal officer roles (Secretary of State, Defense, Treasury, Interior, Agriculture, Commerce, Labor, HHS, HUD, Transportation, Energy, Education, Veterans Affairs, Homeland Security, EPA, OMB, UN Ambassador, USTR)
+- **Positions**: 15 principal officer roles (Secretary of State, Treasury, Defense, Attorney General, Interior, Agriculture, Commerce, Labor, HHS, HUD, Transportation, Energy, Education, Veterans Affairs, Homeland Security)
 - **Nomination**: President selects any character and a cabinet position via `/whitehouse/cabinet`
 - **Senate vote**: Senators vote For / Against / Abstain within a 24-hour window; simple majority confirms
 - **Confirmed**: Character added to `cabinetMembers`; appears on the cabinet page

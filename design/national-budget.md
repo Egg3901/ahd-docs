@@ -148,12 +148,14 @@ Inflation is **dynamic** (not static), calculated from economic conditions:
 
 Inflation = Target + Demand-Pull + Monetary + Fiscal + Cost-Push
 
-| Component       | Formula                                                  | Description                                   |
-| --------------- | -------------------------------------------------------- | --------------------------------------------- |
-| **Demand-pull** | `(NAIRU - unemployment) × 0.3 + (GDP growth - 2%) × 0.2` | Tight labor/hot GDP → inflation               |
-| **Monetary**    | `(3.0% - effectivePrimeRate) × 0.4`                      | Low rates → inflation; high rates → deflation |
-| **Fiscal**      | `deficitToGdp × 0.15`                                    | Deficits → inflation; surpluses → deflation   |
-| **Cost-push**   | `(tariffs - 3%) × 0.1 + (wages - 2.5%) × 0.15`           | Input costs → inflation                       |
+All four components are two-sided with asymmetric coefficients: pressure above baseline (inflationary) uses a stronger coefficient than pressure below baseline (deflationary), because prices are stickier on the way down.
+
+| Component       | Formula (above baseline / below baseline)                                                  | Description                                   |
+| --------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Demand-pull** | `(NAIRU - unemployment) × 0.3` (tight) or `× 0.2` (slack), plus `(GDP growth - 2%) × 0.2` (hot) or `× 0.15` (recession) | Tight labor/hot GDP → inflation               |
+| **Monetary**    | `(3.0% - effectivePrimeRate) × 0.4` (below neutral) or `× 1.2` (above neutral)               | Low rates → inflation; high rates → deflation (3× stronger) |
+| **Fiscal**      | `deficitToGdp × 0.15` (deficit) or `× 0.08` (surplus), deficit/GDP clamped to [-30, 50] before the coefficient | Deficits → inflation; surpluses → deflation   |
+| **Cost-push**   | `(tariffs - 3%) × 0.05` (above) or `× 0.025` (below), plus `(wages - 2.5%) × 0.15` (above) or `× 0.08` (below) | Input costs → inflation                       |
 
 **Constants:**
 
@@ -161,9 +163,9 @@ Inflation = Target + Demand-Pull + Monetary + Fiscal + Cost-Push
 - `NAIRU = 5.0%` (Non-Accelerating Inflation Rate of Unemployment)
 - `NEUTRAL_RATE = 3.0%`
 - `MONETARY_LAG_TURNS = 12` (rate changes propagate over 12 turns)
-- `INERTIA = 0.2` (20% previous inflation + 80% new = smoothing)
+- `INERTIA = 0.35` (35% previous inflation + 65% new = smoothing)
 
-**Clamps:** `[-2.0%, 15.0%]`
+**Clamps:** `[-2.0%, 100.0%]` (the 100% ceiling is a hard backstop; mean-reversion and the deficit/GDP clamp keep normal play far below it)
 
 ### Monetary Policy Lag
 
