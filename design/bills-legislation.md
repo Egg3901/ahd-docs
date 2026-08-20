@@ -251,7 +251,7 @@ Implementation: `DOMAIN_AFFINITIES` and `calculateShiftImpacts()` in `src/lib/ar
 
 - Speaker/Majority Leader controls agenda
 - Decides which bills get voted on
-- **Status**: Speaker of the House is implemented (declare candidacy, vote, majority wins). Other House and all Senate leadership roles are planned. See [[Congress Leadership]].
+- **Status**: Speaker of the House, House Majority/Minority Leader, Senate President Pro Tempore, and Senate Majority/Minority Leader are all implemented (24-hour plurality elections). Motion to Vacate the Speaker is also implemented. Leadership control over agenda/committee assignments is still planned. See [[Congress Leadership]].
 
 ### Corporation System
 

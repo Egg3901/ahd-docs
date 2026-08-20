@@ -88,7 +88,9 @@ Every turn (24 turns per game-day), each corporation is processed:
 
 ### Sector Calculations
 
-For each sector:
+The steps below are the legacy growth-slider model. It is still the mechanic under the earlier `marketSystemMode` tiers, but the **live market mode is `"plants"`**, the top tier of `src/lib/market/modes.ts`: a sector no longer earns from a self-compounding growth rate at all. It owns priced, buildable capacity, staffs it with workers, and revenue is derived each turn from what that capacity actually produced and sold into the clearing market. See [[The Capacity Economy (as shipped)]] for the current model end to end (build queue, capacity pricing, the sector turn, staffing, and valuation); it supersedes steps 1-2 below wherever plants is enabled.
+
+For each sector (legacy growth-slider tiers):
 
 1. **Revenue growth:** `newRevenue = revenue × (1 + growthRate / TURNS_PER_DAY / 100)`
 2. **Growth cost:** `calculateDailyGrowthCost(newRevenue, perTurnGrowthRate, primeRate)`, scales with prime rate
@@ -96,6 +98,8 @@ For each sector:
 4. **Effective margin:** `min(100, baseMargin + totalModifier)`, can go negative (loss-making)
 5. **Maintenance:** `hourlyRevenue × (1 - effectiveMargin / 100)`
 6. **Sector NPV:** `yearlyProfit / 0.15` (15% discount rate, `NPV_ANNUAL_DISCOUNT_RATE`), for balance sheet valuation
+
+Under plants, margin modifiers (step 3) still apply, but revenue and maintenance (steps 1, 2, 5) are replaced by the physical production-and-clearing pass described in [[The Capacity Economy (as shipped)]]: `sector.revenue` becomes the nameplate `capitalStock × mixPrice`, and profit is realized revenue minus physical cost lines, not a margin percentage applied to an asserted revenue figure.
 
 ### Corporate Tax
 
