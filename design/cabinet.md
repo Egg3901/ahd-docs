@@ -20,11 +20,11 @@ The President nominates principal officers to cabinet positions. The Senate conf
 | 10    | Secretary of Housing and Urban Development      | `secretary_of_hud`          | 1965         |
 | 11    | Secretary of Transportation                     | `secretary_of_transportation` | 1967       |
 | 12    | Secretary of Energy                             | `secretary_of_energy`       | 1977         |
-| 13    | Secretary of Education                          | `secretary_of_education`    | 1980         |
+| 13    | Secretary of Education                          | `secretary_of_education`    | 9999         |
 | 14    | Secretary of Veterans Affairs                   | `secretary_of_veterans`     | 1989         |
 | 15    | Secretary of Homeland Security                  | `secretary_of_homeland`     | 2002         |
 
-The Secretary of Health and Human Services position was called Secretary of Health, Education, and Welfare from 1953 to 1980 (`namesByYear` in the same file tracks this).
+The Secretary of Health and Human Services position is named Secretary of Health, Education, and Welfare until `secretary_of_education` is enabled via `renameOnDepartmentSplit` (`namesByYear` in the same file tracks this). Education uses `yearEnabled: 9999` and is carved out of HEW only when the Department of Education Act passes (legislation-gated, not calendar 1980).
 
 There is no EPA Administrator, OMB Director, UN Ambassador, or USTR position in the cabinet; those are not implemented.
 

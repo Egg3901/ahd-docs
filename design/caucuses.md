@@ -55,7 +55,7 @@ Current recruitment rules:
 - NPP must not be retired
 - NPP must not already belong to another caucus
 - the Chair must have at least `60` relationship with the NPP
-- the caucus must not be on its `12-hour` recruitment cooldown
+- the caucus must not be on its 12-turn recruitment cooldown
 
 The recruit menu intentionally hides:
 
@@ -67,7 +67,7 @@ recruited once the caucus is off cooldown.
 
 ### Caucus-Wide Recruit Cooldown
 
-Successful NPP recruitment triggers a **caucus-wide** cooldown of `12 real-time hours`.
+Successful NPP recruitment triggers a **caucus-wide** cooldown of 12 turns (12h at standard cadence, freezes if the game is paused).
 
 The UI always shows one of two recruitment states:
 

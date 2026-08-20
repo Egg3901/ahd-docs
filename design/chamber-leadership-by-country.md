@@ -63,12 +63,12 @@ draw from and where the winner lands:
    DE/CN; NG simply doesn't write an officer).
 
 Election duration is `24 * 60 * 60 * 1000` ms (24h) for DE/CN, matching the
-US Speaker's parity constant. The US Speaker ballot itself runs 12h (see
+US Speaker's parity constant. The US Speaker ballot itself runs 24h (see
 `congress-speaker.md`).
 
 ## US: Speaker of the House
 
-Full mechanics documented in `congress-speaker.md`. 12h ballot, `any-seated`
+Full mechanics documented in `congress-speaker.md`. 24h ballot, `any-seated`
 eligibility restricted in practice to the majority party by the route's own checks,
 plurality wins, writes to `congressLeaders` under role `speaker_of_the_house`.
 
