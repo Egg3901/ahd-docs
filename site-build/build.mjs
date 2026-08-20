@@ -123,6 +123,45 @@ for (const s of DOC_SECTIONS) {
   }
 }
 
+// ---------- last-updated dates (git) ----------
+// Map each wiki slug to its backing content/*.ts by parsing the page lists.
+const wikiFileBySlug = new Map();
+try {
+  const dir = path.join(GAME, "src/lib/seeds/wiki/pages");
+  for (const pf of fs.readdirSync(dir)) {
+    if (!pf.endsWith(".ts") || pf.endsWith(".test.ts")) continue;
+    const src = fs.readFileSync(path.join(dir, pf), "utf8");
+    const varToFile = new Map();
+    for (const m of src.matchAll(/import\s*\{\s*(\w+)\s*\}\s*from\s*["']\.\.\/content\/(\w+)["']/g)) varToFile.set(m[1], m[2] + ".ts");
+    for (const m of src.matchAll(/slug:\s*["']([\w-]+)["'][\s\S]*?content:\s*(\w+)/g)) {
+      const f = varToFile.get(m[2]);
+      if (f) wikiFileBySlug.set(m[1], f);
+    }
+  }
+} catch (e) { console.warn("wiki file map failed:", e.message); }
+
+const dateCache = new Map();
+const gitDate = (dir, rel) => {
+  const key = dir + "|" + rel;
+  if (dateCache.has(key)) return dateCache.get(key);
+  let d = "";
+  try { d = execSync(`git -C "${dir}" log -1 --format=%cs -- "${rel}"`, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch {}
+  dateCache.set(key, d);
+  return d;
+};
+const commodityDate = () => {
+  const a = gitDate(GAME, "src/lib/constants/commodities.ts");
+  const b = gitDate(GAME, "src/lib/seeds/wiki/pages/commodities.ts");
+  return a > b ? a : b;
+};
+for (const p of pages) {
+  if (p.kind === "doc") p.updated = gitDate(SRC, `${p.section}/${p.file}`);
+  else {
+    const f = wikiFileBySlug.get(p.slug);
+    p.updated = f ? gitDate(GAME, `src/lib/seeds/wiki/content/${f}`) : (p.slug.startsWith("commodity-") ? commodityDate() : "");
+  }
+}
+
 // ---------- cross-reference graph ----------
 const byWikiSlug = new Map(pages.filter(p => p.kind === "wiki").map(p => [p.slug, p]));
 const byDocFile = new Map(pages.filter(p => p.kind === "doc").map(p => [p.file, p]));
@@ -241,6 +280,7 @@ main{padding:2.4rem 3.2rem 3rem;min-width:0}
 main .crumb{font-size:.78rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--crimson);margin-bottom:.4rem}
 main .crumb .sep{color:var(--mut);margin:0 .35rem}
 main h1{font-size:2.05rem;line-height:1.2;letter-spacing:-.02em;margin:.1rem 0 1rem;color:var(--ink)}
+main .updated{font-size:.76rem;color:var(--mut);margin:-.6rem 0 1.4rem}
 main h2{font-size:1.35rem;letter-spacing:-.01em;margin:2.4rem 0 .8rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}
 main h3{font-size:1.08rem;margin:1.8rem 0 .6rem}
 main h2 a.anchor,main h3 a.anchor{color:var(--mut);opacity:0;margin-left:.4rem;font-weight:400}
@@ -589,7 +629,8 @@ for (let i = 0; i < pages.length; i++) {
   const pager = `<div class="pager">${
     prev ? `<a href="${prev.href}"><div class="lbl">Previous</div><div class="nt">${esc(prev.title)}</div></a>` : "<span style='flex:1'></span>"}${
     next ? `<a class="next" href="${next.href}"><div class="lbl">Next</div><div class="nt">${esc(next.title)}</div></a>` : "<span style='flex:1'></span>"}</div>`;
-  const body = `<div class="crumb">${esc(secLabel(p))}<span class="sep">/</span>${esc(p.group)}</div><h1>${esc(p.title)}</h1>${html}${xrefsHtml(p)}${pager}`;
+  const updated = p.updated ? `<div class="updated">Last updated ${p.updated}</div>` : "";
+  const body = `<div class="crumb">${esc(secLabel(p))}<span class="sep">/</span>${esc(p.group)}</div><h1>${esc(p.title)}</h1>${updated}${html}${xrefsHtml(p)}${pager}`;
   const outPath = path.join(OUT, p.kind === "wiki" ? `wiki/${p.slug}.html` : `${p.section}/${p.slug}.html`);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, shell({ title: p.title, body, activeHref: p.href, toc, desc: p.desc }));
