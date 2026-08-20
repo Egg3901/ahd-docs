@@ -26,13 +26,13 @@ There is **no separate backend repo**: Next.js route handlers are the API. “Us
 
 1. **`src/lib/api/*` does not import turn phases** (`src/lib/turn/**`) for business logic. It may only import types or pure utilities if ever needed; prefer keeping API helpers free of simulation.
 
-2. **Routes may call domain modules** — including `processTurn` from `turnSystem`, `getGameState`, and functions under `src/lib/turn/*` when the endpoint’s job is to run or expose that logic (admin tools, cron, player actions that mirror turn rules). That is **not** a layering violation; duplicating the same rules inside the route **would** be.
+2. **Routes may call domain modules**, including `processTurn` from `turnSystem`, `getGameState`, and functions under `src/lib/turn/*` when the endpoint’s job is to run or expose that logic (admin tools, cron, player actions that mirror turn rules). That is **not** a layering violation; duplicating the same rules inside the route **would** be.
 
 3. **UI and shared display logic** should not import from `src/lib/turn/**` **for tunable constants** that also appear in the turn engine. Those belong in `src/lib/constants/` (or `shared/` when scripts need them). Turn modules may re-export or import from the same constants module so phase code and UI stay aligned.
 
-4. **`src/components/*`** may import from `src/lib/db/types`, `src/lib/constants/*`, `src/lib/utils/*`, `src/lib/seeds/*` (read-only reference data), and similar **non-turn** modules. Importing **behavior** from `src/lib/turn/*` in a component is a red flag — move the behavior behind an API route or into a neutral `src/lib` helper.
+4. **`src/components/*`** may import from `src/lib/db/types`, `src/lib/constants/*`, `src/lib/utils/*`, `src/lib/seeds/*` (read-only reference data), and similar **non-turn** modules. Importing **behavior** from `src/lib/turn/*` in a component is a red flag, move the behavior behind an API route or into a neutral `src/lib` helper.
 
-5. **Scripts** (`scripts/`) use `connectDb()` from `scripts/utils/db.ts` — not `getDb()` — but may import shared constants from `src/lib/constants/` or `shared/` to match production formulas.
+5. **Scripts** (`scripts/`) use `connectDb()` from `scripts/utils/db.ts`, not `getDb()`, but may import shared constants from `src/lib/constants/` or `shared/` to match production formulas.
 
 ---
 
@@ -40,13 +40,13 @@ There is **no separate backend repo**: Next.js route handlers are the API. “Us
 
 ### 3.1 Simulation helpers in routes (acceptable when intentional)
 
-Many routes import `getGameState` from `@/lib/turnSystem` (e.g. `src/app/api/bonds/route.ts`, `src/app/api/game/turn/status/route.ts`). That ties “current turn” reads to the turn module’s public API. **This is acceptable**: `getGameState` is the canonical read of `GameState` and is lightweight compared to `processTurn`.
+Many routes import `getGameState` from `@/lib/gameState` (e.g. `src/app/api/unions/[id]/route.ts`, several `src/app/api/admin/**` routes). `turnSystem.ts` also re-exports `getGameState` for `cron.ts`. That ties “current turn” reads to a canonical read helper. **This is acceptable**: `getGameState` is the canonical read of `GameState` and is lightweight compared to `processTurn`.
 
 Routes that invoke **phase logic** (e.g. `src/app/api/admin/elections/[id]/resolve/route.ts` importing `resolveGeneralElections` from `@/lib/turn/electionResolution`) are **admin-only repair/trigger** endpoints; they intentionally reuse the same functions as the hourly loop.
 
-### 3.2 `src/lib/*` importing `turnSystem` for `getGameState`
+### 3.2 `getGameState` now lives in its own module
 
-Files such as `src/lib/billLifecycle.ts` and `src/lib/stateBillLifecycle.ts` import `getGameState` from `@/lib/turnSystem`. **Risk:** conceptual coupling — bill code depends on the turn orchestrator module for a simple DB read. **Mitigation (deferred):** a tiny `src/lib/gameState.ts` (or re-export from `mongodb` helpers) could own `getGameState` / `initializeGameState` so non-turn domain code does not import `turnSystem`. Not done in this pass to avoid churn.
+`getGameState` is defined in `src/lib/gameState.ts` (not `turnSystem.ts`). Files such as `src/lib/billLifecycle.ts` import it directly from `@/lib/gameState`, avoiding a dependency on the turn orchestrator module. `turnSystem.ts` imports it from `@/lib/gameState` and re-exports it for `cron.ts`. There is no `src/lib/stateBillLifecycle.ts` in the codebase.
 
 ### 3.3 Dumping-ground and naming collisions
 
@@ -54,7 +54,7 @@ Documented in [`repo-operating-map.md`](./repo-operating-map.md) §3: dual seed 
 
 ### 3.4 Circular imports
 
-The codebase relies on TypeScript and careful barrel files. No systematic circular-dependency tooling is enforced in CI. If a new `index.ts` re-exports both high-level and low-level modules, watch for cycles — prefer **direct imports** to ambiguous barrels in hot paths.
+The codebase relies on TypeScript and careful barrel files. No systematic circular-dependency tooling is enforced in CI. If a new `index.ts` re-exports both high-level and low-level modules, watch for cycles, prefer **direct imports** to ambiguous barrels in hot paths.
 
 ---
 
@@ -70,7 +70,7 @@ The codebase relies on TypeScript and careful barrel files. No systematic circul
 
 ## 5. Checklist for contributors and AI sessions
 
-- [ ] Changing hourly behavior? Read the relevant `docs/design/*.md` and `src/lib/turnSystem.ts` phase order.
+- [ ] Changing hourly behavior? Read the relevant design doc in the ops-knowledge MCP and the phase registry order in `src/simulation/phases/turnPhaseRegistry.ts`.
 - [ ] Changing country rules? Use `getCountryConfig` / `CountryConfig` in `src/lib/constants/countries.ts`, not string literals.
 - [ ] Adding an API route? Follow `docs/design/api-conventions.md` and `src/lib/api/*` patterns.
 - [ ] Adding constants shown in UI **and** used in turn math? Put them in `src/lib/constants/` (or `shared/` if scripts need them); do not add new imports from `src/lib/turn/**` in `components/` unless there is no alternative.

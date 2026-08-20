@@ -14,65 +14,45 @@ The UK Cabinet System manages cabinet appointments for the United Kingdom govern
 
 ## Cabinet Positions
 
-Cabinet positions are defined in `UK_CABINET_POSITIONS` (`src/lib/constants/ukCabinet.ts`):
+Cabinet positions are defined in `UK_CABINET_POSITIONS` (`src/lib/constants/ukCabinet.ts`), 18 entries in file order (agriculture_secretary and environment_secretary share `order: 12` because their eras are disjoint: agriculture retires in 2001 and hands off to environment via `succeededBy`):
 
-| Position ID             | Name                           |
-| ----------------------- | ------------------------------ |
-| `deputy_pm`             | Deputy Prime Minister          |
-| `chancellor`            | Chancellor of the Exchequer    |
-| `foreign_secretary`     | Foreign Secretary              |
-| `home_secretary`        | Home Secretary                 |
-| `justice_secretary`     | Justice Secretary              |
-| `defence_secretary`     | Defence Secretary              |
-| `health_secretary`      | Health Secretary               |
-| `education_secretary`   | Education Secretary            |
-| `business_secretary`    | Business Secretary             |
-| `energy_secretary`      | Energy Secretary               |
-| `transport_secretary`   | Transport Secretary            |
-| `environment_secretary` | Environment Secretary          |
-| `ni_secretary`          | Northern Ireland Secretary     |
-| `scotland_secretary`    | Scotland Secretary             |
-| `wales_secretary`       | Wales Secretary                |
-| `commons_leader`        | Leader of the House of Commons |
-| `lords_leader`          | Leader of the House of Lords   |
-| `council_leader`        | Lord President of the Council  |
+| Order | Position ID                | Name (base)                                             | Year Enabled |
+| ----- | --------------------------- | -------------------------------------------------------- | ------------ |
+| 0     | `deputy_prime_minister`     | Deputy Prime Minister                                     | 1775         |
+| 1     | `first_secretary_of_state`  | First Secretary of State                                   | 1962         |
+| 2     | `chancellor`                | Chancellor of the Exchequer                                | 1775         |
+| 3     | `foreign_secretary`         | Foreign Secretary                                          | 1775         |
+| 4     | `home_secretary`            | Home Secretary                                             | 1775         |
+| 5     | `defence_secretary`         | Secretary of State for Defence                              | 1775         |
+| 6     | `justice_secretary`         | Lord Chancellor & Secretary of State for Justice            | 1775         |
+| 7     | `health_secretary`          | Secretary of State for Health and Social Care               | 1775         |
+| 8     | `education_secretary`       | Secretary of State for Education                            | 1775         |
+| 9     | `business_secretary`        | Secretary of State for Business, Energy and Industrial Strategy | 1775     |
+| 10    | `levelling_secretary`       | Secretary of State for Housing, Communities and Local Government | 1775   |
+| 11    | `transport_secretary`       | Secretary of State for Transport                            | 1775         |
+| 12    | `agriculture_secretary`     | Minister of Agriculture, Fisheries and Food (retires 2001, succeeded by `environment_secretary`) | 1775 |
+| 12    | `environment_secretary`     | Secretary of State for Environment, Food and Rural Affairs  | 2001         |
+| 13    | `work_secretary`            | Secretary of State for Work and Pensions                    | 1775         |
+| 14    | `northern_ireland`          | Secretary of State for Northern Ireland                     | 1972         |
+| 15    | `scotland`                  | Secretary of State for Scotland                             | 1775         |
+| 16    | `wales`                     | Secretary of State for Wales                                | 1964         |
+
+Each seat's display name can also change over time within its era (`namesByYear`, resolved against the live game year, e.g. `defence_secretary` reads "Secretary of State for War" before 1964). The base names above are the seat's identity, not necessarily the label shown at every year.
 
 ## Eligibility Rules
 
 ### Prime Minister Authorization
 
-Only the current Prime Minister can appoint or dismiss cabinet ministers.
-
-```typescript
-export async function requireCurrentUKPrimeMinister(
-  db: Db,
-  userId: ObjectId,
-  errorMsg: string
-): Promise<{ gov: UKGovernment; pmCharacter: Character }> {
-  const gov = await getUKGovernment(db);
-  if (!gov || !gov.isFormed || !gov.pmCharacterId) {
-    throw forbidden(errorMsg);
-  }
-
-  const pmCharacter = await db
-    .collection<Character>("characters")
-    .findOne({ _id: gov.pmCharacterId });
-  if (!pmCharacter || pmCharacter.userId !== userId) {
-    throw forbidden(errorMsg);
-  }
-
-  return { gov, pmCharacter };
-}
-```
+Only the current Prime Minister can appoint or dismiss cabinet ministers. This check is enforced by `requireCurrentPrimeMinister` (`src/lib/api/headOfGovernment.ts`), which is **not UK-specific**. It is a shared, country-agnostic guard used by every parliamentary country that has a PM office (UK, JP, DE), keyed on `countryId`. There is no separate UK-only PM guard.
 
 ### Minister Eligibility
 
 To be eligible for cabinet appointment:
 
-1. **Must hold seat in House of Commons** — Lords cannot serve in cabinet
-2. **Must be from governing party or coalition** — Coalition members get cabinet slots
-3. **Cannot already hold cabinet position** — One position per character
-4. **Cannot be the PM themselves** — PM cannot appoint themselves to additional positions
+1. **Must hold seat in House of Commons**, Lords cannot serve in cabinet
+2. **Must be from governing party or coalition**, Coalition members get cabinet slots
+3. **Cannot already hold cabinet position**, One position per character
+4. **Cannot be the PM themselves**, PM cannot appoint themselves to additional positions
 
 ```typescript
 export async function getEligibleUKCabinetCharacters(
@@ -93,7 +73,7 @@ export async function getEligibleUKCabinetCharacters(
     .toArray();
 
   // Filter out PM and current cabinet members
-  const cabinetMemberIds = await getUKCabinetMembersCollection(db)
+  const cabinetMemberIds = await getCabinetMembersCollection(db)
     .find({ countryId: "UK" }, { projection: { characterId: 1 } })
     .toArray();
 
@@ -143,7 +123,7 @@ Response:
 POST /api/uk/cabinet/appoint
 Body: { positionId: string, characterId: string }
 
-Authorization: requireAuth() + requireCurrentUKPrimeMinister()
+Authorization: requireAuth() + requireCurrentPrimeMinister(db, countryId, userId)
 
 Checks:
 1. Position exists in UK_CABINET_POSITIONS
@@ -156,7 +136,7 @@ Checks:
 8. Character doesn't already hold cabinet position
 
 Effects:
-1. Insert record into ukCabinetMembers
+1. Insert record into `cabinetMembers` (shared collection, `countryId: "UK"`)
 2. Add career history entry to character
 3. Reset advocacy toggle for territorial secretaries (NI, Scotland, Wales)
 ```
@@ -167,25 +147,27 @@ Effects:
 POST /api/uk/cabinet/fire
 Body: { positionId: string }
 
-Authorization: requireAuth() + requireCurrentUKPrimeMinister()
+Authorization: requireAuth() + requireCurrentPrimeMinister(db, countryId, userId)
 
 Checks:
 1. Position exists
 2. Position is currently filled
 
 Effects:
-1. Delete record from ukCabinetMembers
-2. Insert record into ukCabinetCooldowns (12-hour cooldown)
+1. Delete record from `cabinetMembers` (shared collection)
+2. Insert record into `ukCabinetCooldowns` (24-turn cooldown)
 ```
 
 ## Cooldown System
 
-When a minister is dismissed, the position enters a 12-hour cooldown:
+When a minister is dismissed, the position enters a 24-turn cooldown (`COOLDOWN_TURNS` in `cabinetApi.ts`; appointment itself is unrestricted and imposes no cooldown):
 
 ```typescript
-const COOLDOWN_HOURS = 12;
-const now = new Date();
-const cooldownUntil = new Date(now.getTime() + COOLDOWN_HOURS * 60 * 60 * 1000);
+const COOLDOWN_TURNS = 24;
+// Locked for COOLDOWN_TURNS turns from this appointment/firing, keyed to turn
+// length so it tracks game time regardless of wall-clock drift.
+const cooldownUntilTurn = appointTurn + COOLDOWN_TURNS;
+const cooldownUntil = new Date(now.getTime() + COOLDOWN_TURNS * turnLengthMinutes * 60_000);
 
 await getUKCabinetCooldownsCollection(db).updateOne(
   { countryId: "UK", positionId },
@@ -224,7 +206,7 @@ if (["northern_ireland", "scotland", "wales"].includes(positionId)) {
 
 | Collection           | Purpose                                 |
 | -------------------- | --------------------------------------- |
-| `ukCabinetMembers`   | Current cabinet ministers               |
+| `cabinetMembers`     | Current cabinet ministers (shared across all countries, keyed by `countryId`) |
 | `ukCabinetCooldowns` | Dismissal cooldowns                     |
 | `cabinetSettings`    | Per-position settings (advocacy toggle) |
 | `characters`         | Career history updates                  |
@@ -233,9 +215,10 @@ if (["northern_ireland", "scotland", "wales"].includes(positionId)) {
 ### Document Types
 
 ```typescript
-interface UKCabinetMember {
+// Shared cabinetMembers doc shape, filtered by countryId: "UK" for this system.
+interface CabinetMember {
   _id: ObjectId;
-  countryId: "UK";
+  countryId: string;
   positionId: string;
   characterId: ObjectId;
   characterName: string;
@@ -254,6 +237,7 @@ interface UKCabinetCooldown {
   firedByPmCharacterId: ObjectId;
   firedAt: Date;
   cooldownUntil: Date;
+  cooldownUntilTurn: number;
   createdAt: Date;
   updatedAt: Date;
 }

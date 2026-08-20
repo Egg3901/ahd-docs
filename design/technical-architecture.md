@@ -8,11 +8,11 @@
 | UI           | React                                        | 19      |
 | Language     | TypeScript                                   | 6       |
 | Styling      | Tailwind CSS                                 | 4       |
-| Database     | MongoDB (native driver)                      | —       |
-| Auth         | Custom JWT via `jose`                        | —       |
-| Testing      | Vitest (unit/integration) + Playwright (E2E) | —       |
-| Deployment   | Railway (Nixpacks build, `next start`)       | —       |
-| File Storage | Cloudflare R2 (prod) / local filesystem (dev)|—       |
+| Database     | MongoDB (native driver)                      |, |
+| Auth         | Custom JWT via `jose`                        |, |
+| Testing      | Vitest (unit/integration) + Playwright (E2E) |, |
+| Deployment   | Railway (Nixpacks build, `next start`)       |, |
+| File Storage | Cloudflare R2 (prod) / local filesystem (dev)|, |
 
 ## Architecture Pattern
 
@@ -24,8 +24,8 @@
 
 ### Turn Processor
 
-- `processTurn()` in `src/lib/turnSystem.ts` is the single entry point. It is fired in-process by `node-cron` (`src/lib/cron.ts`), scheduled from `instrumentation.ts` at server boot — not by an external cron service. Schedule is `0 * * * *` (hourly), or `0,30 * * * *` when `GameState.fastMode` is on. `GET /api/cron/turn` also exists as an HTTP-triggerable fallback (protected by `requireCron()`/`CRON_SECRET`) with a `30 * * * *` backup fire that only runs if the primary missed its slot.
-- The phase list now lives in a registry (`src/simulation/phases/turnPhaseRegistry.ts`, phase names enumerated in `src/simulation/phases/turnPhaseNames.ts`) rather than being inlined in `turnSystem.ts`. `BASE_TURN_PHASE_NAMES` currently has **123 phases**, plus per-country election phases from `COUNTRY_ELECTION_PHASES`. Each phase runs through the shared turn-phase runtime (`src/simulation/engine/turnPhaseRuntime.ts`) — failures log to Sentry but don't halt subsequent phases.
+- `processTurn()` in `src/lib/turnSystem.ts` is the single entry point. It is fired in-process by `node-cron` (`src/lib/cron.ts`), scheduled from `instrumentation.ts` at server boot, not by an external cron service. Schedule is `0 * * * *` (hourly), or `0,30 * * * *` when `GameState.fastMode` is on. `GET /api/cron/turn` also exists as an HTTP-triggerable fallback (protected by `requireCron()`/`CRON_SECRET`) with a `30 * * * *` backup fire that only runs if the primary missed its slot.
+- The phase list now lives in a registry (`src/simulation/phases/turnPhaseRegistry.ts`, phase names enumerated in `src/simulation/phases/turnPhaseNames.ts`) rather than being inlined in `turnSystem.ts`. `BASE_TURN_PHASE_NAMES` currently has **123 phases**, plus per-country election phases from `COUNTRY_ELECTION_PHASES`. Each phase runs through the shared turn-phase runtime (`src/simulation/engine/turnPhaseRuntime.ts`), failures log to Sentry but don't halt subsequent phases.
 - **Election-resolution ordering is critical:** primaries must resolve before vote accumulation; votes must accumulate before timers advance; timers must advance before elections resolve. The table below groups phases by concern; it is illustrative, not an exhaustive phase-by-phase listing (see the registry files for the full current set, which also includes governor/SCOTUS, extraction/prospecting, decolonization, spheres of influence, impeachment, by-elections, and ledger-reconciliation phases not shown below).
 
 | Section                    | Phases                                                                                                                                                                                                                                                                       | Key constraint                                      |
@@ -43,15 +43,15 @@
 | 11. Effects & regional ops | `policyEffects`, `demographicEffects`, `policyReactionDecay`, `archetypeApprovalDecay`, `unownedSectorGrowth`, `metricDecay`, `subsidyBudget`, `regionalBudgetProcessing`, `jpRegionalBudgetProcessing`, `deRegionalBudgetProcessing`, `crisisTurn`, `ministerialOrders`     | Parallel-safe state/regional updates                |
 | 12. National aggregation   | `gdpGrowth`, `nationalMetrics`, `tradeGrowthMirror`, `inflationRecalc`, `forexTurn`, `centralBankChairTurn`, `centralBankChairSelection`                                                                                                                                     | Ordered; forex is gated by `GameState.forexEnabled` |
 | 13. History & health       | `metricHistory`, `approvalSnapshot`, `interestRateSnapshot`, `partyHistorySnapshot`, `gameHealthSnapshot`, `suspiciousDetection`                                                                                                                                             | After metrics and central-bank updates              |
-| 14. Persistence            | `GameState` update, `TurnLog` insert, in-process event emit                                                                                                                                                                                                                  | **Critical — not wrapped in try/catch**             |
+| 14. Persistence            | `GameState` update, `TurnLog` insert, in-process event emit                                                                                                                                                                                                                  | **Critical, not wrapped in try/catch**             |
 
-- Server-enforced `lastTurnProcessed` timestamp prevents clock drift. `getGameTime()` uses this as `effectiveNow` — not `new Date()` — so election phase display stays correct even after batch turns.
-- `src/lib/cabinetTransition.ts` (`clearCabinetOnTransition`) — clears all cabinet members when a new president takes office; called from election resolution, not the turn loop directly.
+- Server-enforced `lastTurnProcessed` timestamp prevents clock drift. `getGameTime()` uses this as `effectiveNow`, not `new Date()`, so election phase display stays correct even after batch turns.
+- `src/lib/cabinetTransition.ts` (`clearCabinetOnTransition`), clears all cabinet members when a new president takes office; called from election resolution, not the turn loop directly.
 
 ### Multi-Country Support
 
-- Country IDs: `US`, `UK`, `JP`, `DE`. All controlled via `COUNTRY_CONFIGS` constants — raw string literals (`"US"`, `"UK"`, etc.) are banned by a custom ESLint rule (`local/no-country-literals`).
-- Each country has its own legislature type (Congress / House of Commons / National Diet), election schedule, and regional structure.
+- 29 country configs in `COUNTRY_CONFIGS` (`src/lib/constants/countries.ts`), covering the US, UK, and Ireland/Scotland/Wales alongside a broader eastern-bloc and western-Europe roster (Japan, China, Nigeria, Brazil, France, Italy, Spain, Sweden, Turkey, Greece, Austria, Finland, and the RU/DD/PL/CS/HU/RO/BG/YU/UKR/BLR/BAL one-party-bloc set). Raw string literals (`"US"`, `"UK"`, etc.) are banned by a custom ESLint rule (`local/no-country-literals`), use `CountryId`/`COUNTRY_CONFIGS`.
+- Each country has its own legislature type (Congress / House of Commons / National Diet / etc.), election schedule, and regional structure, driven by per-country config rather than hardcoded branching.
 - UK: House of Commons (650 seats, 480-turn cycles); constituency MPs stored in `electedOfficials`.
 - JP: National Diet (Shugiin 465 seats + Sangiin 248 seats); full bill lifecycle via `jpBillLifecycle`; snap elections supported.
 - Germany: active configuration with Bundestag/Bundesrat labels, Chancellor executive, EUR/ECB currency mapping, DAX exchange, and DE regional budget processing.
@@ -61,7 +61,7 @@
 ### Notifications
 
 - Stored in MongoDB `notifications` collection; surfaced on next page load.
-- 118 notification types (`NOTIFICATION_TYPES` in `src/lib/db/types/notifications.ts`): election results, leadership events, bill lifecycle, cabinet, party events, NPP influence, achievements, and more.
+- 129 notification types (`NOTIFICATION_TYPES` in `src/lib/db/types/notifications.ts`): election results, leadership events, bill lifecycle, cabinet, party events, NPP influence, achievements, and more.
 - UI: paginated list, type filter, search, bulk delete, mark-all-read, URL-based filters, date grouping.
 
 ### Hero Image System
@@ -146,7 +146,7 @@
 | --------------- | ---------------------------------------------------- |
 | `newsPosts`     | News posts created by players                        |
 | `newsReactions` | Reactions and comments on news posts                 |
-| `notifications` | Per-player notification queue (37+ types, paginated) |
+| `notifications` | Per-player notification queue (129 types, paginated) |
 | `feedback`      | Bug reports and suggestions (with captured context)  |
 
 ### NPP Relations
@@ -175,7 +175,7 @@
 
 - **App**: Deployed on Railway (`railway.toml`, Nixpacks build, `next start`). Any Node.js-compatible host would work in principle, but the boot path (`instrumentation.ts` starting `node-cron`, `NODE_OPTIONS=--max-old-space-size` heap cap, `/api/health` healthcheck) is tuned for Railway specifically.
 - **Database**: MongoDB Atlas or self-hosted.
-- **Cron**: `node-cron` (`src/lib/cron.ts`) runs inside the Next.js process, started from `instrumentation.ts` at boot — the same in every environment, not just locally. `GET /api/cron/turn` exists as an HTTP-triggerable fallback protected by `CRON_SECRET`, but the primary turn cron is in-process, not an external scheduler.
+- **Cron**: `node-cron` (`src/lib/cron.ts`) runs inside the Next.js process, started from `instrumentation.ts` at boot, the same in every environment, not just locally. `GET /api/cron/turn` exists as an HTTP-triggerable fallback protected by `CRON_SECRET`, but the primary turn cron is in-process, not an external scheduler.
 
 ### Scaling
 
@@ -203,7 +203,7 @@
 
 | Route                                                | Method              | Purpose                                             |
 | ---------------------------------------------------- | ------------------- | --------------------------------------------------- |
-| `/api/cron/turn`                                     | GET                 | Hourly turn processor (Vercel cron)                 |
+| `/api/cron/turn`                                     | GET                 | Hourly turn processor (in-process `node-cron`; this route is the HTTP-triggerable fallback) |
 | `/api/cron/fog-update`                               | GET                 | Campaign fog-of-war visibility update               |
 | `/api/auth/me`                                       | GET                 | Current user + character                            |
 | `/api/elections`                                     | GET                 | All elections (filter by type/state/status)         |
@@ -252,9 +252,9 @@
 | Map view (real geographic paths, Political Lean mode)                              | ✅ Complete    |
 | Player bio + profile page                                                          | ✅ Complete    |
 | Achievements system (58 achievements, rarity tiers)                                | ✅ Complete    |
-| Notifications (118 types, pagination, filtering)                                   | ✅ Complete    |
+| Notifications (129 types, pagination, filtering)                                   | ✅ Complete    |
 | Discord integration                                                                | ✅ Complete    |
-| Multi-country support (US, UK, JP, DE)                                             | ✅ Complete    |
+| Multi-country support (29 configured countries)                                    | ✅ Complete    |
 | UK House of Commons (composition, bills, leadership)                               | ✅ Complete    |
 | Roadmap system (admin-managed, public wiki page)                                   | ✅ Complete    |
 | Public + developer changelog page                                                  | ✅ Complete    |

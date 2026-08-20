@@ -40,7 +40,7 @@ weight = appeal × reach × approval × org × regResistance × regBaseline × s
 
 Not part of the vote-share formula above but stack into it as `stateOrgMult` / `homeStateMult` (`src/lib/electionEngine/constants.ts`):
 
-- `MAX_STATE_ORG_BONUS_PRIMARY = 0.25` (primary path cap; scales linearly with org level: `1 + (level / STATE_ORG_MAX_LEVEL) × 0.25`)
+- `MAX_STATE_ORG_BONUS_PRIMARY = 0.25` (primary path cap; the fraction of it delivered follows an uncapped exponential-approach curve, `1 − (1 − 0.75)^(level / 10)`, not a linear ramp, level 10 buys 75% of the max bonus, level 20 buys 93.8%, approaching but never reaching 100%)
 - `MAX_STATE_ORG_BONUS_GENERAL = 0.15` (general path cap, smaller so it doesn't dominate lean × party position)
 - `HOME_STATE_BONUS_PRIMARY = 0.1` (flat bonus in a candidate's home state during a primary)
 - `HOME_STATE_BONUS_GENERAL` (smaller general-election equivalent)
@@ -66,10 +66,10 @@ NPPs cannot decay below 10% Political Influence.
 ### Primary Score
 
 ```
-score = alignmentScore(0-40) + partyInfluenceScore(0-30) + nationalReachScore(0-20) + favorabilityScore(0-10)
+score = alignmentScore(0-40) + partyInfluenceScore(0-20) + nationalReachScore(0-15) + favorabilityScore(0-25)
 ```
 
-Weights are `PRESIDENT_PRIMARY_ALIGNMENT_WEIGHT = 40`, `PRESIDENT_PRIMARY_PARTY_INFLUENCE_WEIGHT = 30`, `PRESIDENT_PRIMARY_NATIONAL_REACH_WEIGHT = 20`, `PRESIDENT_PRIMARY_FAVORABILITY_WEIGHT = 10` (`src/lib/primaryScore.ts`). Party influence, not "party org," is the second term; it scales linearly and is uncapped above the reference scale (party influence 150).
+Weights are `PRESIDENT_PRIMARY_ALIGNMENT_WEIGHT = 40`, `PRESIDENT_PRIMARY_PARTY_INFLUENCE_WEIGHT = 20`, `PRESIDENT_PRIMARY_NATIONAL_REACH_WEIGHT = 15`, `PRESIDENT_PRIMARY_FAVORABILITY_WEIGHT = 25` (`src/lib/primaryScore.ts`, rebalanced 2026-08-19). Party influence, not "party org," is the second term; it scales linearly and is uncapped above the reference scale (party influence 150). Favorability was raised from 10 to 25 because it is the single most decisive variable in the general election (`approvalScalar` measured at ~0.45 vote-share points per favorability point) while party influence never enters the general-vote formula at all, the old weighting let parties nominate candidates the electorate had already rejected.
 
 ### Electoral College
 
@@ -108,7 +108,7 @@ Where:
 
 ### Party GOTV
 
-Automatically boosts demographics within 2 points of party position on both economic and social axes.
+Party budgets have a GOTV allocation (`gotvBudgetPerTurn`, `gotvBudgetPercent`) targeted at a specific category or group (`gotvTargetCategory` / `gotvTargetGroup`), which feeds turnout for the tally. There is no verified "auto-boost demographics within 2 points of party position" rule in code, that claim is unconfirmed and removed rather than guessed at.
 
 ## Fund Generation
 
@@ -124,7 +124,7 @@ income = statePopulationTier × donorLevelMultiplier + officeBonus
 | --------- | ----------- |
 | House     | +$5,000/hr  |
 | Senate    | +$15,000/hr |
-| Governor  | +$20,000/hr |
+| Governor  | +$15,000/hr |
 | VP        | +$25,000/hr |
 | President | +$50,000/hr |
 
@@ -147,31 +147,21 @@ All standard actions cost 1 action point.
 - Neighboring state: 1.25x
 - Non-neighboring: 1.5x
 
-## Attack Mechanics
-
-```
-failureChance = infamy / 100
-```
-
-Failed attacks still cost actions and gain infamy.
-
 ## State Lean Calculation
 
 ```
 stateLean = weightedAverage(groupLeans, groupPopulations × groupTurnout)
 ```
 
-Display thresholds:
+Lean is stored on an integer **-5 to +5** scale per axis (economic, social), not a -1..1 float. Display labels (`getEconomicPositionName` / `getSocialPositionName`, `src/lib/utils/politics.ts`) use 11 discrete buckets, one per integer value:
 
-- Very Left: < -0.6
-- Left: -0.6 to -0.2
-- Center: -0.2 to +0.2
-- Right: +0.2 to +0.6
-- Very Right: > +0.6
+Economic axis: Far Left (-5), Strong Left (-4), Left (-3), Lean Left (-2), Center-Left (-1), Centrist (0), Center-Right (1), Lean Right (2), Right (3), Strong Right (4), Far Right (5).
+
+Social axis: Far Liberal (-5), Strong Liberal (-4), Liberal (-3), Lean Liberal (-2), Center-Liberal (-1), Moderate (0), Center-Trad (1), Lean Trad (2), Traditional (3), Strong Trad (4), Far Traditional (5).
 
 ## Related Pages
 
-- [[Election Mechanics]] — Election system overview
-- [[Demographics & Targeting]] — Demographic details
-- [[Stats & Actions]] — Action costs and stats
-- [[Government Approval]] — Approval system
+- [[Election Mechanics]], Election system overview
+- [[Demographics & Targeting]], Demographic details
+- [[Stats & Actions]], Action costs and stats
+- [[Government Approval]], Approval system

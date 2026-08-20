@@ -51,7 +51,7 @@ Groups execute strictly in registry order:
 | 7 | `fiscalYearBoundary` | `fiscalYear`, only on year-boundary turns (`isFiscalYearEnd`); marked skipped otherwise. |
 | 8 | `stateEffectsAndNationalAggregation` (`src/simulation/phases/stateEffectsPhase.ts`) | The largest group: `crisisTurn`, `ministerialOrders`, `policyEffects`, `demographicEffects` (followed sequentially by the era-checkpoint pull, see the granular-electorate doc), decay phases, regional budgets, `metricEngine`, `demographicFlows`, `census`, `eraCrossing`, `nationalMetrics`, `economicModel`, `inflationRecalc`, `commandEconomy`, `forexTurn`, central-bank/FOMC phases, `referendumLifecycle`, then the snapshot battery (`metricHistory`, `approvalSnapshot`, portfolio/stock-exchange/wealth snapshots), `auditAnomalyScan`, `suspiciousDetection`, `gameHealthSnapshot`. |
 | 9 | `indexFunds`, `moneySupplySnapshot` | Index-fund NAV/rebalance cron (flag-gated) and the per-currency money-supply snapshot. |
-| 10 | `ledgerBalanceSnapshot`, `ledgerReconcile` | Shadow ledger, registered last so it snapshots after every value-affecting phase. Flag-gated (`ledgerShadow`, off in prod seeds). |
+| 10 | `ledgerBalanceSnapshot`, `ledgerReconcile` | Shadow ledger, registered last so it snapshots after every value-affecting phase. Flag-gated (`ledgerShadow`, on by default in prod seeds). |
 
 ## Parallelism and its constraints
 

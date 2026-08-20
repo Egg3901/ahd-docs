@@ -26,7 +26,7 @@ exactly the per-revenue slope of `impliedOutputUnits` in `src/lib/market/capital
 Two derived anchors, both scale-free and both pinned by tests against the legacy tables:
 
 - **Identity B (price).** `capacityPricePerUnit(type, year, unitScale) = GROWTH_COST_MULTIPLIER × RPU × capacityEraPriceIndex(year)`, with `GROWTH_COST_MULTIPLIER` = 3.0 (`src/lib/constants/corporations.ts`). At the 1953 calibration anchor the era index is exactly 1.0, so building through the queue costs exactly what the legacy growth slider charged for the same increment.
-- **Identity A (labour).** `laborIntensity(type, year, unitScale) = RPU / CAPACITY_REVENUE_PER_WORKER × capacityEraLaborIndex(year)`, with `CAPACITY_REVENUE_PER_WORKER` = ₳2,000 (mirroring the module-private `REVENUE_PER_WORKER` behind `calculateWorkers`). At 1953 the labour index is 1.0, so capacity staffed from this table carries exactly the headcount `calculateWorkers` gives it.
+- **Identity A (labour).** `laborIntensity(type, year, unitScale) = RPU / CAPACITY_REVENUE_PER_WORKER × capacityEraLaborIndex(year)`, with `CAPACITY_REVENUE_PER_WORKER` = ₳20 (mirroring the module-private `REVENUE_PER_WORKER` behind `calculateWorkers`, also ₳20). At 1953 the labour index is 1.0, so capacity staffed from this table carries exactly the headcount `calculateWorkers` gives it.
 
 ## How a build is priced
 
@@ -61,7 +61,7 @@ The base-price tables are 2019-calibrated. Each world carries an era unit scale,
 
 ## Staffing and the labour market
 
-Headcount is `calculateWorkers(revenue, workforceSkill)`: `revenue / 2,000` at neutral skill 50, with a skill multiplier down to 0.70× at skill 100. When the labour system is on (`labourSystemMode >= "wages"`), a labour cost is carved out of maintenance as workers × wage-per-worker, scaled by the CEO wage slider, the minimum-wage Kaitz floor, tech automation, and the union premium; the split is profit-invariant at baseline. Unionization trends toward a condition-driven target each turn (wages vs cost of living, unemployment, union law, owned-union membership pressure), and strikes trigger with hysteresis and cooldowns (`src/lib/labour/strikes.ts`), throttling revenue and hitting margin (`STRIKE_MARGIN_PENALTY_PP`) while active. Per-state wage and automation indices are accumulated during the sector pass and feed the state labour metrics.
+Headcount is `calculateWorkers(revenue, workforceSkill)`: `revenue / 20` at neutral skill 50, with a skill multiplier down to 0.70× at skill 100. When the labour system is on (`labourSystemMode >= "wages"`), a labour cost is carved out of maintenance as workers × wage-per-worker, scaled by the CEO wage slider, the minimum-wage Kaitz floor, tech automation, and the union premium; the split is profit-invariant at baseline. Unionization trends toward a condition-driven target each turn (wages vs cost of living, unemployment, union law, owned-union membership pressure), and strikes trigger with hysteresis and cooldowns (`src/lib/labour/strikes.ts`), throttling revenue and hitting margin (`STRIKE_MARGIN_PENALTY_PP`) while active. Per-state wage and automation indices are accumulated during the sector pass and feed the state labour metrics.
 
 ## Market share and dominance
 

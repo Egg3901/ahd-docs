@@ -30,25 +30,30 @@ There is no EPA Administrator, OMB Director, UN Ambassador, or USTR position in 
 
 ## UK Cabinet Positions
 
-| Order | Position                                         | ID                      |
-| ----- | ------------------------------------------------ | ----------------------- |
-| 1     | Chancellor of the Exchequer                      | `chancellor`            |
-| 2     | Foreign Secretary                                | `foreign_secretary`     |
-| 3     | Home Secretary                                   | `home_secretary`        |
-| 4     | Secretary of State for Defence                   | `defence_secretary`     |
-| 5     | Lord Chancellor & Secretary of State for Justice | `justice_secretary`     |
-| 6     | Secretary of State for Health and Social Care    | `health_secretary`      |
-| 7     | Secretary of State for Education                 | `education_secretary`   |
-| 8     | Secretary of State for Business and Trade        | `business_secretary`    |
-| 9     | Secretary of State for Levelling Up              | `levelling_secretary`   |
-| 10    | Secretary of State for Transport                 | `transport_secretary`   |
-| 11    | Secretary of State for Environment               | `environment_secretary` |
-| 12    | Secretary of State for Work and Pensions         | `work_secretary`        |
-| 13    | Secretary of State for Northern Ireland          | `northern_ireland`      |
-| 14    | Secretary of State for Scotland                  | `scotland`              |
-| 15    | Secretary of State for Wales                     | `wales`                 |
+18 seats, defined in `UK_CABINET_POSITIONS` (`src/lib/constants/ukCabinet.ts`), in file order. `agriculture_secretary` and `environment_secretary` share order 12; agriculture retires in 2001 and hands off to environment via `succeededBy` since their eras never overlap.
 
-**Key UK difference:** The Prime Minister appoints cabinet ministers directly — there is no parliamentary confirmation vote. Once the PM names a minister, they are immediately a confirmed cabinet member. This contrasts with the US system where every nomination requires a Senate majority vote before the member is seated.
+| Order | Position (base name)                                              | ID                          |
+| ----- | ------------------------------------------------------------------- | ---------------------------- |
+| 0     | Deputy Prime Minister                                                | `deputy_prime_minister`     |
+| 1     | First Secretary of State                                             | `first_secretary_of_state`  |
+| 2     | Chancellor of the Exchequer                                          | `chancellor`                |
+| 3     | Foreign Secretary                                                    | `foreign_secretary`         |
+| 4     | Home Secretary                                                       | `home_secretary`            |
+| 5     | Secretary of State for Defence                                       | `defence_secretary`         |
+| 6     | Lord Chancellor & Secretary of State for Justice                    | `justice_secretary`         |
+| 7     | Secretary of State for Health and Social Care                        | `health_secretary`          |
+| 8     | Secretary of State for Education                                     | `education_secretary`       |
+| 9     | Secretary of State for Business, Energy and Industrial Strategy      | `business_secretary`        |
+| 10    | Secretary of State for Housing, Communities and Local Government     | `levelling_secretary`       |
+| 11    | Secretary of State for Transport                                     | `transport_secretary`       |
+| 12    | Minister of Agriculture, Fisheries and Food (retires 2001)           | `agriculture_secretary`     |
+| 12    | Secretary of State for Environment, Food and Rural Affairs (from 2001) | `environment_secretary`   |
+| 13    | Secretary of State for Work and Pensions                             | `work_secretary`            |
+| 14    | Secretary of State for Northern Ireland                              | `northern_ireland`          |
+| 15    | Secretary of State for Scotland                                      | `scotland`                  |
+| 16    | Secretary of State for Wales                                         | `wales`                     |
+
+**Key UK difference:** The Prime Minister appoints cabinet ministers directly, there is no parliamentary confirmation vote. Once the PM names a minister, they are immediately a confirmed cabinet member. This contrasts with the US system where every nomination requires a Senate majority vote before the member is seated.
 
 ## Lifecycle
 
@@ -96,7 +101,7 @@ PM fires anytime                Government transition occurs
 - Only the **President** (character holding the `president` office) may nominate
 - One active nomination per cabinet position at a time
 - The nominee must be an existing character; NPPs are not eligible
-- No party restriction — President may nominate anyone
+- No party restriction, President may nominate anyone
 
 ## Senate Confirmation
 
@@ -126,7 +131,7 @@ When a government changes hands, the entire cabinet is automatically cleared:
 
 1. All confirmed cabinet members for the affected country are deleted from `cabinetMembers`
 2. All pending nominations with status `proposed` or `active` are set to `withdrawn`
-3. Player characters who held cabinet seats receive an in-app notification — title: **"Cabinet Resigned"**, message: _"Your cabinet appointment has ended due to a change in government."_
+3. Player characters who held cabinet seats receive an in-app notification, title: **"Cabinet Resigned"**, message: _"Your cabinet appointment has ended due to a change in government."_
 4. NPP cabinet members are dismissed silently (no notification sent)
 
 **Implementation:** `src/lib/cabinetTransition.ts` → `clearCabinetOnTransition(db, countryId)`
@@ -137,10 +142,10 @@ The function accepts a `CountryId` and resolves the correct set of position IDs 
 
 ### Cabinet Page (`/whitehouse/cabinet`)
 
-- **Hero header** — Cabinet image with stats strip: Positions filled (X / Y) and Pending Votes count
-- **"Vote in Senate" banner** — Shown when active nominations exist; links to Congress Senate tab
-- **Vote section** — When the current player is a Senator and nominations are pending, inline vote UI appears (For / Against / Abstain buttons with current tallies)
-- **Positions grid** — All 15 positions displayed as cards:
+- **Hero header**, Cabinet image with stats strip: Positions filled (X / Y) and Pending Votes count
+- **"Vote in Senate" banner**, Shown when active nominations exist; links to Congress Senate tab
+- **Vote section**, When the current player is a Senator and nominations are pending, inline vote UI appears (For / Against / Abstain buttons with current tallies)
+- **Positions grid**, All 15 positions displayed as cards:
   - Filled positions show member name, party, and "Fire" button (President only)
   - Vacancies show "Nominate" button (President only)
   - Active nominations show vote status
@@ -175,6 +180,6 @@ Active cabinet nominations also appear in the Congress page Senate tab so senato
 
 ## Related Documentation
 
-- [Congress Leadership](./congress-leadership.md) — Senate role in nominations
-- [Core Systems](./core-systems.md) — Cabinet system overview
-- [Technical Architecture](./technical-architecture.md) — Collections and API routes
+- [Congress Leadership](./congress-leadership.md), Senate role in nominations
+- [Core Systems](./core-systems.md), Cabinet system overview
+- [Technical Architecture](./technical-architecture.md), Collections and API routes

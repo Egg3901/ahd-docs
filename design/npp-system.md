@@ -56,14 +56,17 @@ ambition roll.
 - NPP must not already be in another active race
 - NPP must belong to the same `countryId` as the election
 - NPP must match the race geography for subnational offices
-- US presidential primaries are **not** part of current autonomous NPP entry
+- Presidential entry is blocked by default; the SP3 autonomy work lifts the bar
+  only in autonomy-active, non-player-enabled countries (no player to contest
+  the presidency there). See `src/lib/nppAutonomy/featureFlag.ts` (autonomy
+  levels v0-v4) and `src/lib/nppAutonomy/appointNppPresident.ts`.
 
 ### Geographic Scope
 
 - `house`, `senate`, `governor`, `stateSenate`: `homeState` must match the race
 - `commons`, `regionalCouncil`, `shugiin`, `sangiin`: home geography must match
   the race geography
-- Presidential auto-entry is currently blocked
+- Presidential auto-entry is blocked outside the SP3 autonomy-active case above
 
 ### Entry Order
 

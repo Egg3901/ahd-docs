@@ -10,7 +10,7 @@ This document summarizes **who calls what** for reference data and world bootstr
 | **Per-target seeders** (`src/lib/admin/seed/*.ts`)               | Granular operations used by the admin Universal Seeder and by `bootstrapGameWorld` for UK and follow-on datasets (e.g. `seedUKRegions`, `seedBudgets`, `seedSeats`).                                                                                                   |
 | **`POST /api/admin/seed`** (`src/app/api/admin/seed/route.ts`)   | Admin-only HTTP API: validates targets, calls lib seeders only (no handler logic in the route).                                                                                                                                                                        |
 | **`POST /api/seed`** (`src/app/api/seed/route.ts`)               | Token-protected shortcut to **`runSeed`** only (full US core, not UK partial targets).                                                                                                                                                                                 |
-| **`scripts/seed.ts`**                                            | CLI: `connectDb` / `closeDb` + **`runSeed`**. Re-exports `runSeed` for legacy imports.                                                                                                                                                                                 |
+| **`scripts/seed/seed.ts`**                                            | CLI: `connectDb` / `closeDb` + **`runSeed`**. Re-exports `runSeed` for legacy imports.                                                                                                                                                                                 |
 | **`instrumentation.ts`**                                         | Optional auto-seed on startup: `getDb()` + **`runSeed({ db })`** when the Node runtime loads.                                                                                                                                                                          |
 | **`/api/admin/setup`**                                           | Readiness checks and scoped repair seeds (separate from full bootstrap; see that route’s GET/POST).                                                                                                                                                                    |
 | **`bootstrapGameWorld`** (`src/lib/admin/bootstrapGameWorld.ts`) | Reset/bootstrap orchestration: **`runSeed`** → UK + US extended seeders → `initializeGameState` → officials (historical or vacant) → perpetual / UK elections → regional council. Used by **`POST /api/admin/reset`** and scripts such as `scripts/bootstrap-full.ts`. |
@@ -19,7 +19,7 @@ This document summarizes **who calls what** for reference data and world bootstr
 
 ```mermaid
 flowchart TD
-  CLI[scripts/seed.ts] --> runSeed[runSeed in runCoreSeed.ts]
+  CLI[scripts/seed/seed.ts] --> runSeed[runSeed in runCoreSeed.ts]
   ApiSeed[POST /api/seed] --> runSeed
   Auto[instrumentation.ts] --> runSeed
   Bootstrap[bootstrapGameWorld] --> runSeed
