@@ -99,7 +99,7 @@ Database scripts, seeds, migrations, audits, and debug utilities.
 | Sub-path                                 | Purpose                                                                      |
 | ---------------------------------------- | ---------------------------------------------------------------------------- |
 | `seed.ts`, `seed-*.ts`, `seedBudgets.ts` | Database seeding (idempotent)                                                |
-| `seeds/` (~21 files)                     | Seed data organized by country (US, UK, CA, DE)                              |
+| `seeds/` (~21 files)                     | Seed data organized by country (US, UK, DE, JP, and other per-country folders) |
 | `migrations/`                            | Database migrations                                                          |
 | `audit/`                                 | Automated audit suites (~9 suites across elections, demographics, etc.) |
 | `utils/db.ts`                            | Script-specific DB connection (`connectDb()`/`closeDb()`)                    |

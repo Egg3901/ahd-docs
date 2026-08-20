@@ -95,7 +95,7 @@ The `statePolicies` position (economic, social) is an integer pair, not a named 
 
 ## Policy to Demographics (Elections)
 
-Character policy positions are compared to the leans of each demographic group when calculating vote appeal. The formula uses the squared difference across both axes. For the exact formula and pipeline, see [elections.md](./elections.md) - specifically the **Appeal** step in the Total Appeal System.
+Character policy positions are compared to the leans of each demographic group when calculating vote appeal. The live appeal curve uses exponent 1.5 (`APPEAL_POSITION_EXPONENT`), not the retired squared/gamma=2 curve. For the exact formula and pipeline, see [elections.md](./elections.md) - specifically the **Appeal** step in the Total Appeal System.
 
 Summary: candidates closer to a demographic group's lean on the economic and social axes receive higher appeal scores with that group, which translates to a larger share of that group's votes per turn during general elections.
 

@@ -4,7 +4,7 @@ This document captures **known high-impact execution paths**, **recent optimizat
 
 ## Turn processing (`src/lib/turnSystem.ts`)
 
-- **Orchestrator:** `processTurn()` loads all `characters` once per turn (`find({})`), then runs 40+ phases. That full scan is load-bearing for action refresh and fund generation; reducing it would require semantic changes (e.g. “active only” definitions) and broader tests.
+- **Orchestrator:** `processTurn()` loads all `characters` once per turn (`find({})`), then runs ~105 `runPhase` calls across ~12 groups. That full scan is load-bearing for action refresh and fund generation; reducing it would require semantic changes (e.g. "active only" definitions) and broader tests.
 - **Game state:** `getGameState()` accepts an optional `Db` instance so callers that already have a connection avoid a redundant `getDb()` hop (same pool, fewer awaits). See `getGameState(db)` at `src/lib/turnSystem.ts`.
 - **Group 7 ordering:** Election phases (primary resolution → vote accumulation → timers → general resolution) must stay **strictly sequential**. Do not parallelize for speed without new correctness tests.
 

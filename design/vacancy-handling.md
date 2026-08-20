@@ -400,6 +400,6 @@ This action cannot be undone. Your seat will become vacant immediately.
 
 ## Related pages
 
-- [[Election Mechanics]] - Election cycles and perpetual races
-- [[United Kingdom]] - Commons vacancies until the next regional cycle
-- [[State-Level Power]] - Governors and appointments
+- [Election Mechanics](./elections.md) - Election cycles and perpetual races
+- [United Kingdom](./united-kingdom.md) - Commons vacancies until the next regional cycle
+- [State-Level Power](./state-level-power.md) - Governors and appointments

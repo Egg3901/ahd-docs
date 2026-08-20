@@ -120,7 +120,7 @@ if (!admin.ok) return admin.response;
 
 ```typescript
 if (!requireCron(request)) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 ```
 

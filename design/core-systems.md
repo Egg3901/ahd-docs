@@ -71,7 +71,9 @@ This ensures continuous Senate activity with elections happening at different ti
 
 ## Per-Turn Processing Order
 
-Each turn runs **40+ phases in 14 groups**. Phases within a group marked **(parallel)** execute concurrently via `Promise.all`; all others run sequentially. Each phase is error-isolated via `runPhase()`, a failure logs to Sentry but does not halt subsequent phases.
+Each turn runs about **12 phase groups** and **~105 `runPhase` calls**. Phases within a group marked **(parallel)** execute concurrently via `Promise.all`; all others run sequentially. Each phase is error-isolated via `runPhase()`, a failure logs to Sentry but does not halt subsequent phases.
+
+The numbered table below is a historical outline of the pipeline, not the live 12-adapter registry in `turnPhaseRegistry.ts`.
 
 | Group                    | Phases                                                                                                          | Key constraint                                        |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |

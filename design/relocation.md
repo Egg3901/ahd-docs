@@ -14,7 +14,7 @@ Players can change their character's **home state** (or UK region, JP prefecture
 - **State/region-party leadership** (chair, vice-chair, treasurer) in the state you left → vacated
 - **Any active candidacy** (general/primary, state-party, national-party, committee) → withdrawn
 - **Current office** → auto-resigned; the seat is vacated in `electedOfficials`
-- **CEO of a corporation** → removed; corp enters CEO vacancy
+- **CEO of a corporation** → removed; corp enters CEO vacancy. Exception: National Corporation CEOs keep the seat on a same-country move; a cross-country move still unseats (see CEO and corporation rules below).
 - **Career history** → a `"relocated"` entry is appended with `fromState` / `toState` (and `fromCountry` / `toCountry` if the country changed)
 
 ## What only resets on country change

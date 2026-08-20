@@ -71,7 +71,7 @@
 ### Actions
 
 - **Base per Turn**: 4
-- **Office Bonus**: House +1, State Senate +1, Senate +2, Governor +3, Vice President +2, President +4
+- **Office Bonus**: House +1, State Senate +1, Senate +2, Governor +2, Vice President +2, President +4
 - **Starting Bonus**: 25 one-time grant on character creation
 - **Regeneration**: Actions accumulate each turn (base + office bonus added to pool)
 - **Cap**: 200 actions max

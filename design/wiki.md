@@ -93,7 +93,8 @@ When page content is loaded via `loadWikiContent()` in `src/lib/wiki/loadContent
 | Read published pages         | Anyone (unauthenticated or authenticated)    |
 | Read draft/pending pages     | Author or admin                              |
 | Create a page                | Any authenticated player (`POST /api/wiki`)  |
-| Edit a page                  | Admin only (`PATCH /api/admin/wiki/[slug]`)  |
+| Edit own page                | Author (`PATCH /api/wiki/[slug]`); published edits go to `pending_review` |
+| Edit any field (incl. status)| Admin (`PATCH /api/admin/wiki/[slug]`)       |
 | Delete (archive) a page      | Admin only (`DELETE /api/admin/wiki/[slug]`) |
 | Approve a page               | Admin only                                   |
 | Reject a page                | Admin only                                   |

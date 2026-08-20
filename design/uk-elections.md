@@ -202,11 +202,11 @@ Use existing `Election` collection:
 
 ### Parliamentary Government
 
-Collection: `parliamentaryGovernments` (used for all parliamentary countries: UK, CA, DE)
+Collection: `parliamentaryGovernments` (used for UK, DE, JP, IE, and other parliamentary countries)
 
 ```ts
 interface ParliamentaryGovernment {
-  _id: "UK" | "CA" | "DE";
+  _id: string; // UK, DE, JP, IE, and other parliamentary country ids
   countryId: CountryId;
   cycle: number; // Increments each election cycle
 

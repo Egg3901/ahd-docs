@@ -1,11 +1,11 @@
 # MongoDB access guidelines (A House Divided)
 
-This document complements `CLAUDE.md` (in the a-house-divided app repo) database conventions. It separates **safe code-level practices** from **database administration** decisions that need human review in production.
+This document complements `AGENTS.md` (in the AHDGame app repo) database conventions. It separates **safe code-level practices** from **database administration** decisions that need human review in production.
 
 ## Connection and client
 
 - Use **`getDb()`** from `@/lib/mongodb` in application code. It reuses a pooled `MongoClient` across serverless invocations and selects the database from `MONGODB_DB` / `MONGO_DB_NAME` when present, otherwise from the database embedded in `MONGODB_URI`.
-- **Scripts** (outside Next.js) should use `connectDb()` / `closeDb()` from `scripts/utils/db.ts` as documented in `claude.md`.
+- **Scripts** (outside Next.js) should use `connectDb()` / `closeDb()` from `scripts/utils/db.ts` as documented in `AGENTS.md`.
 
 ## Collection access: two supported patterns
 
