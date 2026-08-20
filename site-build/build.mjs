@@ -209,6 +209,21 @@ a.sr:hover,a.sr.act{background:var(--code-bg);text-decoration:none}
 .hs-foot,.hs-note,.hs-empty{padding:.6rem .85rem;color:var(--mut);font-size:.78rem}
 .hs-foot{border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--panel);cursor:pointer;font-weight:600;color:var(--acc-link)}
 .hs-foot:hover{background:var(--code-bg)}
+#report-fab{position:fixed;right:14px;bottom:14px;z-index:35;border:1px solid var(--line);background:var(--panel);color:var(--mut);
+  font-size:.78rem;font-weight:600;padding:.42rem .72rem;border-radius:20px;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:.35rem}
+#report-fab:hover{color:var(--crimson);border-color:var(--crimson)}
+#report-modal{position:fixed;inset:0;z-index:60;background:rgba(10,18,32,.55);display:flex;align-items:center;justify-content:center;padding:1rem}
+#report-modal[hidden]{display:none}
+#report-modal .rm-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);width:min(460px,94vw);padding:1.1rem 1.2rem}
+.rm-head{font-weight:700;font-size:1.02rem;margin-bottom:.2rem;color:var(--ink)}
+.rm-sub{font-size:.8rem;color:var(--mut);margin-bottom:.6rem}
+.rm-l{display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin:.6rem 0 .1rem}
+#report-modal select,#report-modal textarea{width:100%;margin-top:.25rem;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:.88rem}
+.rm-actions{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem}
+.rm-ghost{background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:.45rem .9rem;border-radius:8px;cursor:pointer;font:inherit;font-size:.85rem}
+.rm-primary{background:var(--navy);border:1px solid var(--navy);color:#fff;padding:.45rem .9rem;border-radius:8px;cursor:pointer;font:inherit;font-size:.85rem;font-weight:600}
+.rm-primary:hover{background:var(--navy-2)}.rm-primary:disabled{opacity:.6;cursor:default}
+.rm-msg{font-size:.82rem;color:var(--acc-link);margin-top:.6rem;min-height:1em}
 .results-wrap{max-width:840px;margin:0 auto}
 .results-head h1{font-size:1.75rem;margin:.2rem 0 .35rem}
 .results-head .meta{color:var(--mut);font-size:.9rem}
@@ -430,6 +445,32 @@ const searchJs = String.raw`
 })();
 `;
 
+// "Report page issue" widget -> POST /api/report (collector service).
+const reportJs = String.raw`
+(function(){
+  var fab=document.getElementById('report-fab'), modal=document.getElementById('report-modal');
+  if(!fab||!modal) return;
+  var reason=document.getElementById('rm-reason'), note=document.getElementById('rm-note'),
+      send=document.getElementById('rm-send'), cancel=document.getElementById('rm-cancel'), msg=document.getElementById('rm-msg');
+  function open(){modal.hidden=false;msg.textContent='';}
+  function close(){modal.hidden=true;}
+  fab.addEventListener('click',open);
+  cancel.addEventListener('click',close);
+  modal.addEventListener('click',function(e){if(e.target===modal)close();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!modal.hidden)close();});
+  send.addEventListener('click',function(){
+    send.disabled=true; msg.style.color='var(--acc-link)'; msg.textContent='Sending...';
+    fetch('/api/report',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({page:fab.getAttribute('data-page')||location.pathname,url:location.href,reason:reason.value,note:(note.value||'').slice(0,2000)})})
+      .then(function(r){return r.json();})
+      .then(function(j){ if(j&&j.ok){msg.textContent='Thanks. Your report was logged.';note.value='';setTimeout(close,1500);}
+        else {msg.style.color='var(--crimson)';msg.textContent=(j&&j.error)||'Could not send.';} })
+      .catch(function(){msg.style.color='var(--crimson)';msg.textContent='Could not send. Try again later.';})
+      .then(function(){send.disabled=false;});
+  });
+})();
+`;
+
 // ---------- nav ----------
 const NAV_SECTIONS = [
   { key: "wiki", label: "Player Wiki" },
@@ -477,7 +518,28 @@ const shell = ({ title, body, activeHref, toc, desc }) => `<!doctype html><html 
 <main>${body}
 <footer><span>© Lakeside Games</span><a href="https://github.com/Egg3901/AHDGame">Source on GitHub</a><a href="https://www.ahousedividedgame.com">ahousedividedgame.com</a></footer>
 </main>
-${toc || ""}</div><script>${js}</script><script>${searchJs}</script></body></html>`;
+${toc || ""}</div>
+<button id="report-fab" type="button" data-page="${esc(activeHref || "/")}" aria-label="Report an issue with this page"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V4a1 1 0 0 1 1-1h11l-2 4 2 4H5a1 1 0 0 1-1-1z"/><path d="M4 22v-7"/></svg>Report page issue</button>
+<div id="report-modal" role="dialog" aria-modal="true" aria-label="Report an issue" hidden>
+  <div class="rm-card">
+    <div class="rm-head">Report an issue with this page</div>
+    <div class="rm-sub">Spotted something out of date or wrong? Let us know and we will fix it.</div>
+    <label class="rm-l">What is the issue?
+      <select id="rm-reason">
+        <option value="stale">Out of date / stale</option>
+        <option value="incorrect">Incorrect information</option>
+        <option value="update-request">Requesting an update or more detail</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+    <label class="rm-l">Details (optional)
+      <textarea id="rm-note" rows="4" placeholder="What did you notice, and what should it say?"></textarea>
+    </label>
+    <div class="rm-actions"><button type="button" id="rm-cancel" class="rm-ghost">Cancel</button><button type="button" id="rm-send" class="rm-primary">Send report</button></div>
+    <div id="rm-msg" class="rm-msg"></div>
+  </div>
+</div>
+<script>${js}</script><script>${searchJs}</script><script>${reportJs}</script></body></html>`;
 
 // ---------- render ----------
 fs.rmSync(OUT, { recursive: true, force: true });
