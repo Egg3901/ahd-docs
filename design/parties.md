@@ -227,7 +227,7 @@ Each state party (and national party) has three elected leadership positions:
 
 ### Elections
 
-- Leadership elections run for **96 turns (96 hours)** and are resolved by the turn system
+- Leadership elections default to **72 turns (72 hours)** (`NATIONAL_ELECTION_DURATION_TURNS` / `ELECTION_DURATION_TURNS`) and are resolved by the turn system. Founding-phase windows are 12 turns. National parties may set a custom duration of 168-420 turns.
 - All state party members may vote in all three elections simultaneously
 - A member may only be a candidate for one position at a time
 - Ties are broken by earliest declaration time
@@ -286,12 +286,7 @@ See [NPP System](./npp-system.md) for full documentation.
 
 ### Player Actions
 
-Players can influence individual NPPs through actions on the NPP's profile page (`/npp/[id]`):
-
-- **Request Endorsement** (5 actions, 40% base) - ask NPP to publicly endorse a candidate
-- **Request Withdrawal** (8 actions + $50K, 25% base) - convince NPP to drop out of an election
-- **Request Opposition** (5 actions + $25K, 35% base) - ask NPP to publicly oppose a candidate
-- **Request Leadership Support** (4 actions, 45% base) - rally NPP support for party leadership
+Players can influence individual NPPs through deterministic direct-interaction actions on the NPP's profile page (`/npp/[id]`). Live costs are in `CAPITAL_ACTIONS` (`src/lib/capital/actions.ts`): Request Endorsement 6 AP / $0, Private Meeting 3 AP / $0, Boost/Reduce Favorability 5 AP / $10k, Boost/Reduce Influence 6 AP / $20k. There is no chance roll. Withdrawal, opposition, and leadership-support asks are **party-level** influence actions (3 AP each; see [party-influence.md](./party-influence.md)), not profile actions.
 
 ### Party-Level Influence
 

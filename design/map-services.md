@@ -36,16 +36,18 @@ interface MapHouseState {
 
 **Logic:**
 
-1. Fetch all elected officials with `officeType = "house"` (US) or `"commons"` (UK)
-2. Group by state/region
-3. Count seats per party
-4. Determine leading party (most seats)
-5. Build tooltip with full breakdown
+1. Resolve the lower-chamber office type via `getLowerChamberOfficeType(countryId)` (`src/lib/legislature/chamberOfficeType.ts`). US is `house`, UK is `commons`, DE is `bundestag`, JP is `shugiin`, CN is `npcDelegate`, and other countries follow their `legislature.lowerChamber` mapping.
+2. Fetch elected officials with that `officeType`
+3. Group by state/region
+4. Count seats per party
+5. Determine leading party (most seats)
+6. Build tooltip with full breakdown
 
 **Country Handling:**
 
-- US: Uses `officeType = "house"`, standard state IDs
-- UK: Uses `officeType = "commons"`, UK region IDs
+- UK still has a dedicated Commons region builder (`buildCommonsUK`) after the office-type lookup
+- Every other country uses the generic `buildHouseOrCommons` path
+- Senate (`officeType: "senate"`) and governor (`officeType: "governor"`) maps are still US-office-key queries; they do not go through the chamber-office helper
 
 **Tooltip Format:**
 

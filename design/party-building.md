@@ -70,13 +70,14 @@ sheet.
 
 ## Leadership
 
-Party leadership elections still run on the 96-hour cadence for:
+Party leadership elections cover `Chair`, `Vice Chair`, and `Treasurer` at both
+national and state / regional levels. The default voting window is **72 turns**
+(`NATIONAL_ELECTION_DURATION_TURNS` / `ELECTION_DURATION_TURNS` = 72, about
+72 real hours at the standard 1-turn-per-hour cadence). Founding-phase
+elections use 12 turns. National parties can adopt a custom duration of
+168-420 turns via committee proposal.
 
-- `Chair`
-- `Vice Chair`
-- `Treasurer`
-
-But the role identities are now clearer in practice:
+Role identities:
 
 - `Chair` -> broad authority and political control
 - `Vice Chair` -> assists with political management
