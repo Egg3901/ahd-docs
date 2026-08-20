@@ -52,9 +52,9 @@ Group sizes and leans are derived from Layer 1 (race, education, wealth, age, id
 - **Union & Trades**, economic lean shifts with progressive vs. patriot balance
 - **Rural Traditionalists**, social lean shifts with overall conservative density
 
-### Vote / Appeal Calculation (Phase 1: Group-Level Competitive Allocation)
+### Vote / Appeal Calculation
 
-Shared formula in `src/lib/utils/demographicAppeal.ts`, used by the election engine, poll route, and NPP dropout. "Group" here means a granular Layer-1 unit (or, for legacy-keyed inputs, the archetype projected onto units, see Overview above):
+Shared formula in `src/lib/utils/demographicAppeal.ts`, used by the election engine, poll route, and NPP dropout. "Group" here means a granular Layer-1 unit (or, for legacy-keyed inputs, the archetype projected onto units, see Overview above). The steps below describe the **group-level competitive allocation** path (primaries, polls, and the general-election fallback); live general-election vote accumulation defaults to the swing-flow model, which builds on this same appeal/reach/approval math but adds coattail, median-voter, persuasion, and incumbency drivers, see [Elections](./elections.md) and [Election Engine](./election-engine.md):
 
 1. For each category, for each group: get state population share, group lean, turnout
 2. **Reach**: `normalizeNPI(politicalInfluence)`, sqrt curve mapping influence to a 0-1 fraction of turned-out voters the candidate reaches, hard-capped at 1.0 once influence reaches 100

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Wiki System provides in-game documentation and strategy guides. Page content is authored directly as TypeScript objects in `src/lib/seeds/wiki/pages/*.ts` and seeded into the `wikiPages` collection, it is **not** synced live from `docs/design/` markdown files at runtime. (This repo's public `docs/design/` and `docs/wiki/` trees exist for developer/community reference, but there is no game code that reads them into `wikiPages`.)
+The Wiki System provides in-game documentation and strategy guides. Page content is authored directly as TypeScript objects in `src/lib/seeds/wiki/pages/*.ts` and seeded into the `wikiPages` collection, it is **not** synced live from any markdown source at runtime. Design and engineering docs live outside this repo, in the ops-knowledge MCP, not as a committed `docs/design/` tree, so there is no game code that reads design docs into `wikiPages`.
 
 **Location:** `src/lib/wiki/` (runtime read/search/render), `src/lib/seeds/wiki/` (page content + seeding)
 
@@ -187,7 +187,7 @@ Admins can trigger the legacy-slug rename pass (`syncPriorWikiSubmissions`) and 
 
 ## Content Authoring
 
-Wiki page content is authored as `WikiSeedPage` TypeScript objects, organized by category file under `src/lib/seeds/wiki/pages/` (`gettingStartedPages`, `electionsPages`, `legislaturesPages`, `partiesPages`, `countriesPages`, `economyPages`, `advancedPages`, `resourcesPages`, `commoditiesPages`). `docs/design/` and `docs/wiki/` are separate developer-facing reference trees; changes there do not propagate to the in-game wiki automatically.
+Wiki page content is authored as `WikiSeedPage` TypeScript objects, organized by category file under `src/lib/seeds/wiki/pages/` (`gettingStartedPages`, `electionsPages`, `legislaturesPages`, `partiesPages`, `countriesPages`, `economyPages`, `advancedPages`, `resourcesPages`, `commoditiesPages`). Design docs live outside this repo (ops-knowledge MCP); they are a separate developer-facing reference and do not propagate to the in-game wiki automatically.
 
 ## Content Guidelines
 
@@ -217,6 +217,6 @@ Tags enable cross-category discovery:
 
 ## Related Systems
 
-- **Design Docs:** `docs/design/` - Source markdown files
+- **Design Docs:** ops-knowledge MCP - Source design documents (not committed to this repo)
 - **Wiki API:** `src/app/api/wiki/` - Wiki route handlers
 - **Admin Tools:** `src/app/admin/` - Sync triggers

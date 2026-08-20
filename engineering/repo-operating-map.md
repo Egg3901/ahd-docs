@@ -115,15 +115,13 @@ Database scripts, seeds, migrations, audits, and debug utilities.
 
 ### 1.10 Docs
 
-| Sub-path                             | Purpose                                                                                      |
-| ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `docs/design/`                       | **30+ design documents**, the canonical spec for every game system                          |
-| `docs/engineering/`                  | Engineering guides (this file, [`architecture-boundaries.md`](./architecture-boundaries.md)) |
-| the design archive                        | Implementation plans with archive of completed work                                          |
-| `docs/superpowers/plans/` + `specs/` | Recent feature plans and design specs                                                        |
-| `docs/audits/`                       | System audits (alpha, performance, theme, elections)                                         |
-| `docs/archive/wiki-content/`         | Archived wiki content (migrated to DB)                                                       |
-| `docs/discord-bot-*.md`              | Discord bot command documentation                                                            |
+Design docs, runbooks, and engineering guides are **not committed in this public repo**; they live in the ops-knowledge MCP. What remains under `docs/` here:
+
+| Sub-path                             | Purpose                                            |
+| ------------------------------------ | --------------------------------------------------- |
+| `docs/DESIGN.md`                     | Top-level design pointer                           |
+| `docs/superpowers/plans/` + `specs/` | Recent feature plans and design specs              |
+| `docs/observability/`                | Observability notes                                |
 
 ### 1.11 Configuration & Tooling
 
@@ -151,7 +149,6 @@ Database scripts, seeds, migrations, audits, and debug utilities.
 | --------------------- | ----------------------------------------------------------- |
 | `CHANGELOG.md`        | Index pointing to per-version posts under `content/changelog/dev/{version}.md`; pre-0.4.0 history frozen in `content/changelog/legacy/CHANGELOG.md` |
 | `PUBLIC_CHANGELOG.md` | Player-facing changelog                                     |
-| `CURSOR_CLOUD.md`     | Cursor Cloud environment setup (MongoDB, env vars, gotchas) |
 | `README.md`           | Repository README                                           |
 
 ---
@@ -193,7 +190,7 @@ Player actions (`src/lib/actions.ts`), campaign processing (`src/lib/turn/campai
 
 1. **Dual seed locations.** Seed data lives in both `scripts/seeds/` (~21 files, run by `scripts/seed/seed.ts`) and `src/lib/seeds/` (imported at runtime). No clear boundary for which goes where. The `scripts/seeds/` files are for DB seeding scripts; `src/lib/seeds/` files are for runtime seed-data constants and helpers, but this is not documented.
 
-2. **Dual plan locations.** Plans live in both `plans/` (root, 3 files) and the design archive (large archive) and `docs/superpowers/plans/` (recent work). It's unclear which is canonical for active work.
+2. **Plan location.** No root-level `plans/` directory exists. Active feature plans live in `docs/superpowers/plans/`; design specs live in the ops-knowledge MCP, not in this repo.
 
 3. **Stale root-level debug files.** ~~`check-min-wage.js` and `test-uk-filter.js` at repo root~~ → Resolved: removed. No `scripts/archive/` directory exists.
 
@@ -211,7 +208,7 @@ Player actions (`src/lib/actions.ts`), campaign processing (`src/lib/turn/campai
 
 9. **`src/lib/hooks/` collision**, Resolved. All React hooks consolidated into `src/hooks/`. `src/lib/hooks/` removed.
 
-10. **Doc sprawl across `docs/design/`, the design archive, `docs/superpowers/`, `docs/audits/`, `docs/archive/`.** No index or guide explaining the doc structure.
+10. **Docs split across two places.** Design specs, runbooks, and audits live in the ops-knowledge MCP (not committed); only `docs/DESIGN.md`, `docs/superpowers/`, and `docs/observability/` remain in-repo. No single index links the two.
 
 11. **Root instruction files**, Consolidated to `AGENTS.md` (AI agent rules + contributor guidelines). No `CURSOR_CLOUD.md` or `INSTRUCTIONS.md` at repo root.
 
@@ -235,7 +232,7 @@ Player actions (`src/lib/actions.ts`), campaign processing (`src/lib/turn/campai
 | `src/app/api/*`                              | API routes       | Frequent       | Follow existing route conventions |
 | `src/components/*`                           | UI               | Frequent       | Follow design system conventions                     |
 | `scripts/seeds/*`                            | Data             | Occasional     | Review for correctness of constants                    |
-| `docs/design/*`                              | Design specs     | Occasional     | Read before implementing; do not contradict            |
+| Design specs (ops-knowledge MCP)             | Design specs     | Occasional     | Read before implementing; do not contradict            |
 
 ---
 
@@ -253,6 +250,6 @@ Player actions (`src/lib/actions.ts`), campaign processing (`src/lib/turn/campai
 | Add a Zod schema        | Inline in route file, or `src/lib/api/schemas/` if shared             |
 | Add a seed script       | `scripts/seeds/` (DB seeding) or `src/lib/seeds/` (runtime constants) |
 | Add a test              | Co-locate as `*.test.ts` next to source                               |
-| Add a design doc        | `docs/design/`                                                        |
+| Add a design doc        | ops-knowledge MCP (not this repo)                                     |
 | Add a plan              | `docs/superpowers/plans/` (current convention)                        |
 | Run the game turn       | `POST /api/cron/turn` (requires CRON_SECRET)                          |

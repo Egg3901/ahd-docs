@@ -70,7 +70,7 @@ The codebase relies on TypeScript and careful barrel files. No systematic circul
 
 ## 5. Checklist for contributors and AI sessions
 
-- [ ] Changing hourly behavior? Read the relevant `docs/design/*.md` and `src/lib/turnSystem.ts` phase order.
+- [ ] Changing hourly behavior? Read the relevant design doc in the ops-knowledge MCP and the phase registry order in `src/simulation/phases/turnPhaseRegistry.ts`.
 - [ ] Changing country rules? Use `getCountryConfig` / `CountryConfig` in `src/lib/constants/countries.ts`, not string literals.
 - [ ] Adding an API route? Follow `docs/design/api-conventions.md` and `src/lib/api/*` patterns.
 - [ ] Adding constants shown in UI **and** used in turn math? Put them in `src/lib/constants/` (or `shared/` if scripts need them); do not add new imports from `src/lib/turn/**` in `components/` unless there is no alternative.

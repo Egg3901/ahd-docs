@@ -166,7 +166,9 @@ In RCV states, **no vote-splitting adjustment is applied**. Third parties compet
 
 **Implementation:** `FPTP_SPOILER_RATE` is defined in `src/lib/electionEngine/constants.ts`. Major parties for the spoiler step come from `getMajorPartiesForRegion()` in `src/lib/constants/countries.ts`, the same helper used in `src/lib/electionEngine/voteDistribution.ts` and in-race poll math in `src/lib/actions/pollCalculations.ts` (invoked from `src/app/api/actions/poll/route.ts`). The voting system is stored per state in `states.votingSystem` (`"fptp"` | `"rcv"`, defaults to `"fptp"`).
 
-### Total Appeal System (Pipeline), Phase 1: Group-Level Competitive Allocation
+### Total Appeal System (Pipeline)
+
+**Two distribution paths exist.** Primaries and commissioned polls use the **group-level competitive allocation** model described below (each demographic group votes as a bloc, splitting its vote pool among candidates by relative appeal). General-election vote accumulation defaults to the **swing-flow model** (`distributeVotesBySwingFlow()` in `src/lib/electionEngine/voteDistributionSwingFlow.ts`, set unconditionally in `tallyManagement.ts`); group-level allocation remains available as a fallback/legacy path for generals but is not the live default. See [Election Engine](./election-engine.md) for the swing-flow driver stack (coattails, median-voter, persuasion, party-tenure fatigue, incumbency). The appeal/reach/approval math below is the shared foundation both paths build on.
 
 The full pipeline from candidate and state to votes per turn (shared with poll and NPP dropout via `src/lib/utils/demographicAppeal.ts`):
 
@@ -204,7 +206,7 @@ Campaign actions raise favorability and influence; ads raise recognition and fav
 
 ## Polls vs simulated votes
 
-**State and general elections (House, Senate, Governor, State Senate, Commons, etc.):** Commissioned polls use the same **group-level competitive allocation** and **FPTP spoiler** rules as turn-by-turn vote accumulation, including **region-aware major parties** and **per-archetype effective favorability** for opponents when that data exists (`src/lib/actions/pollCalculations.ts`, `src/lib/actions/electionOpponents.ts`).
+**State and general elections (House, Senate, Governor, State Senate, Commons, etc.):** Commissioned polls use the **group-level competitive allocation** and **FPTP spoiler** rules, including **region-aware major parties** and **per-archetype effective favorability** for opponents when that data exists (`src/lib/actions/pollCalculations.ts`, `src/lib/actions/electionOpponents.ts`). Turn-by-turn general-election vote accumulation itself defaults to the **swing-flow model** instead (see above); polls are an appeal-based projection and do not replay the swing-flow driver stack.
 
 **Presidential:** Simulated votes are accumulated **per electoral unit** in `src/lib/presidentialElectionEngine.ts` (averaged party vs character positions, national influence for reach, influence included in appeal, state/district lean, independent penalty, swing-state ground game). The **FPTP spoiler step is applied at half rate** (`PRESIDENTIAL_SPOILER_RATE = 2%`) on the presidential distribution path to prevent fragmented fields from producing EC landslides via winner-take-all. Player polls remain **home-state** projections and do **not** replicate the national presidential model, treat poll topline and in-race breakdowns as **indicative for the character’s state**, not as an Electoral College forecast.
 
@@ -460,7 +462,8 @@ The election vote calculation pipeline is implemented across two modules:
 
 | File                     | Purpose                                                                                                                                            |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `voteDistribution.ts`    | Group-level competitive allocation: distributes votes by demographic blocs using appeal × reach × approval × partyOrg; applies FPTP spoiler effect |
+| `voteDistribution.ts`    | Group-level competitive allocation: distributes votes by demographic blocs using appeal × reach × approval × partyOrg; applies FPTP spoiler effect. Used for primaries and polls; fallback/legacy path for generals |
+| `voteDistributionSwingFlow.ts` | Two-phase pairwise swing-flow allocation; default vote model for general elections. Layers coattails, median-voter, persuasion, party-tenure fatigue, and incumbency drivers on top of the base appeal calculation |
 | `tallyManagement.ts`     | Accumulates vote turns, initializes tallies, computes seat estimates for multi-seat races                                                          |
 | `voteCalculations.ts`    | Turn vote weight formula (three-tier closing surge: 50% early / 20% ramp / 30% final 4 turns), state turnout calculation                            |
 | `resolvedTurnout.ts`     | Combines static `StateDemographics.turnout` with dynamic `StateDemographicTurnout.modifiers` from GOTV/canvassing/suppression                      |
@@ -493,10 +496,11 @@ Each turn, `accumulateVoteTurn()` in `tallyManagement.ts` runs the following pip
 4. **Compute turn pool**, `turnVoteWeight()` allocates the pool in a three-tier closing surge: 50% early, 20% in the 8-turn ramp band, 30% in the final 4 turns
 5. **Apply party strength**, State government approval × office strength scales the pool
 6. **Enrich candidates**, `fetchEnrichedCandidates()` merges character/NPP stats (policies, favorability, influence, archetype approvals)
-7. **Distribute votes**, `distributeVotesByGroupLevelAllocation()`:
+7. **Distribute votes**, general elections call `distributeVotesBySwingFlow()` (default); primaries call `distributeVotesByGroupLevelAllocation()`:
    - For each demographic group: compute appeal, reach, approval, partyOrg
    - Split group's share of pool proportionally by candidate weights
    - Apply FPTP spoiler effect (if general election in FPTP state): transfer `FPTP_SPOILER_RATE × thirdPartyVotes` from nearest major party
+   - Swing-flow additionally layers coattails, median-voter, persuasion, and incumbency drivers, see [Election Engine](./election-engine.md)
 8. **Update tally**, Accumulate votes, update shares, compute seat estimates for multi-seat races
 9. **Snapshot**, Push turn snapshot to `turnSnapshots` array for trend tracking
 

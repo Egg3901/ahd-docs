@@ -1,10 +1,14 @@
 # Congress Leadership
 
-Design and status for House and Senate leadership roles.
+Design and status for US House and Senate leadership roles. The underlying
+presiding-officer election framework is shared across countries; see
+[Chamber Leadership by Country](./chamber-leadership-by-country.md) for the DE
+Bundestagspraesident, NG National Assembly presiding officers, and CN CPPCC
+Chairman / NPCSC Chairman variants.
 
 ## Current implementation
 
-### House — Speaker, Majority Leader, Minority Leader (24-hour plurality)
+### House, Speaker, Majority Leader, Minority Leader (24-hour plurality)
 
 - **Status**: Implemented.
 - **Flow**: These elections now auto-open for 24 hours each time a House general election resolves. The sitting Speaker is automatically nominated if they still hold a House seat. The sitting Majority Leader is automatically nominated when they are still seated and still belong to the national party with the most House seats. The sitting Minority Leader is automatically nominated when they are still seated and remain outside the majority bloc. Speaker is bloc-gated to the **majority bloc**; House Majority Leader is restricted to the **single national party with the most House seats**; Minority Leader is open to **all non-majority parties**. Plurality winner (top vote-getter when the window ends) wins; no absolute majority required.
@@ -12,11 +16,11 @@ Design and status for House and Senate leadership roles.
 - **API**: `GET/POST /api/congress/speaker` (Speaker), `GET/POST /api/congress/house-leadership` (Majority/Minority Leader; body `role: "majority_leader" | "minority_leader"`, actions: `start_election` | `declare` | `withdraw` | `vote`).
 - **Data**: `congressLeaders`, `speakerElections`, `speakerNominations`; `houseLeadershipElections`, `houseLeadershipNominations`. Helper: `getHouseComposition()` in `src/lib/congress/houseComposition.ts`.
 
-### House — Whips
+### House, Whips
 
 - **Majority Whip**, **Minority Whip**: Admin assign only via Congress > Leadership > Assign.
 
-### Senate — President Pro Tempore, Majority Leader, Minority Leader (24-hour plurality)
+### Senate, President Pro Tempore, Majority Leader, Minority Leader (24-hour plurality)
 
 - **Status**: Implemented. Leadership elections are 24-hour plurality races. President Pro Tempore is gated to the **majority bloc**; Senate Majority Leader is restricted to the **single national party with the most Senate seats**; Minority Leader is open to **all non-majority parties**.
 - **Trigger cadence**: President Pro Tempore and Minority Leader reopen whenever a Senate Class I election resolves. Majority Leader also reopens on every Class I resolve, and additionally reopens after any Class II or Class III resolve whenever the top national Senate party changes. The sitting Pro Tempore is automatically nominated if still seated; the sitting Majority or Minority Leader is automatically nominated when still seated and still eligible for that side of the chamber.
@@ -24,7 +28,7 @@ Design and status for House and Senate leadership roles.
 - **API**: `GET/POST /api/congress/senate-leadership` (body `role: "pro_tempore" | "majority_leader" | "minority_leader"`, actions: `start_election` | `declare` | `withdraw` | `vote`).
 - **Data**: `congressLeaders`, `senateLeadershipElections`, `senateLeadershipNominations`. Helper: `getSenateComposition()` in `src/lib/congress/senateComposition.ts`.
 
-### Senate — Whips
+### Senate, Whips
 
 - **Majority Whip**, **Minority Whip**: Admin assign only.
 
@@ -55,5 +59,5 @@ See [Cabinet](./cabinet.md) for full position list and lifecycle details.
 
 ## Future work
 
-1. Leadership effects on agenda, committee assignments, or persuasion — to be defined later.
-2. Cabinet resign (member voluntarily leaving) — not yet implemented.
+1. Leadership effects on agenda, committee assignments, or persuasion, to be defined later.
+2. Cabinet resign (member voluntarily leaving), not yet implemented.

@@ -126,15 +126,15 @@ Note: this endpoint calculates approval differently from `/api/country/[code]/me
 
 ## Turn Processing
 
-Metrics are recomputed and snapshotted during the tail of each turn, after all policy and demographic effects are applied:
+Metrics are recomputed and snapshotted during the tail of each turn, all as `runPhase()` calls inside the `stateEffectsAndNationalAggregation` adapter (`src/simulation/phases/stateEffectsPhase.ts`), after all policy and demographic effects are applied. See [turn-processing.md](./turn-processing.md) for the full 13-adapter pipeline this sits in.
 
-| Phase name           | Function                                        | When                                                               |
-| -------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
-| `policyEffects`      | `processStatePolicyEffects`                     | Phase 14, writes state metric values                              |
-| `demographicEffects` | `processAllStateDemographics`                   | Phase 14, adjusts state metrics from demographics                 |
-| `nationalMetrics`    | `computeNationalMetrics`                        | Phase 14b, derives national aggregates from updated state metrics |
-| `metricHistory`      | `snapshotMetricHistory`                         | Phase 14a, appends current values to history arrays               |
-| `approvalSnapshot`   | `snapshotApprovalHistory` (US + UK in parallel) | Phase 15a, persists approval rating to `governmentApprovals`      |
+| Phase name           | Function                                        | Order                                                       |
+| -------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| `policyEffects`      | `processStatePolicyEffects`                     | Writes state metric values                                   |
+| `demographicEffects` | `processAllStateDemographics`                   | Adjusts state metrics from demographics                      |
+| `nationalMetrics`    | `computeNationalMetrics`                        | Runs after policy/demographic effects, derives national aggregates from updated state metrics |
+| `metricHistory`      | `snapshotMetricHistory`                         | Runs after nationalMetrics, appends current values to history arrays |
+| `approvalSnapshot`   | `snapshotApprovalHistory` (US + UK in parallel) | Runs last, persists approval rating to `governmentApprovals` |
 
 The metric history cap is 96 entries (2 in-game years). History for national-scope IDs (`"federal"`, `"uk_national"`) is also written to `stateMetricHistory` by `snapshotMetricHistory`, so the national metrics detail page can render turn-by-turn charts using the same code path as state pages.
 
