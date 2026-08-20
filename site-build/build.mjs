@@ -82,6 +82,70 @@ const firstPara = md => {
   return t.length > 150 ? t.slice(0, 147).replace(/\s+\S*$/, "") + "…" : t;
 };
 
+// ---------- jargon glossary ----------
+// id -> { terms: surface forms to match, def, wiki?: Wikipedia article, more?: internal path }.
+// Both game jargon and general/world jargon. Only the FIRST occurrence per page is wrapped.
+const GLOSSARY = [
+  // general / economics / math / political-science jargon
+  { id: "taylor-rule", terms: ["Taylor rule"], def: "A monetary-policy guideline that sets the central-bank interest rate from how far inflation and output are from target.", wiki: "Taylor_rule" },
+  { id: "manhattan-distance", terms: ["Manhattan distance", "taxicab distance"], def: "Distance measured along axes at right angles (sum of absolute coordinate differences), not a straight line.", wiki: "Taxicab_geometry" },
+  { id: "okun", terms: ["Okun's law", "Okun coefficient"], def: "The empirical relationship between a country's unemployment rate and its GDP growth.", wiki: "Okun%27s_law" },
+  { id: "phillips-curve", terms: ["Phillips curve"], def: "The inverse relationship between unemployment and inflation.", wiki: "Phillips_curve" },
+  { id: "dhondt", terms: ["D'Hondt method", "D'Hondt"], def: "A highest-averages method for allocating seats in proportional-representation elections.", wiki: "D%27Hondt_method" },
+  { id: "gini", terms: ["Gini coefficient", "Gini index"], def: "A 0-to-1 measure of inequality across a distribution (0 = perfectly equal).", wiki: "Gini_coefficient" },
+  { id: "hhi", terms: ["Herfindahl-Hirschman index", "Herfindahl index", "HHI"], def: "A market-concentration measure: the sum of squared market shares of all firms.", wiki: "Herfindahl%E2%80%93Hirschman_index" },
+  { id: "ipf", terms: ["iterative proportional fitting", "IPF", "raking"], def: "An algorithm that adjusts a table's cells to match known row and column totals; used to fit a synthetic electorate to census margins.", wiki: "Iterative_proportional_fitting" },
+  { id: "cloture", terms: ["cloture"], def: "A procedure to end debate and force a vote, overcoming a filibuster.", wiki: "Cloture" },
+  { id: "fptp", terms: ["first-past-the-post", "FPTP"], def: "A single-winner voting rule where the candidate with the most votes wins, no majority required.", wiki: "First-past-the-post_voting" },
+  { id: "stv", terms: ["single transferable vote", "PR-STV", "STV"], def: "A proportional ranked-choice system that transfers surplus and eliminated votes to remaining candidates.", wiki: "Single_transferable_vote" },
+  { id: "open-list", terms: ["open-list proportional representation", "open-list PR", "open list"], def: "Proportional representation where voters influence the order in which a party's candidates take seats.", wiki: "Open_list" },
+  { id: "npv", terms: ["net present value", "NPV"], def: "The value today of a stream of future cash flows, discounted at a chosen rate.", wiki: "Net_present_value" },
+  { id: "qe", terms: ["quantitative easing"], def: "A central bank creating money to buy assets (often bonds), raising the money supply to ease policy.", wiki: "Quantitative_easing" },
+  { id: "efficiency-gap", terms: ["efficiency gap"], def: "A gerrymandering metric: the difference between the parties' wasted votes, divided by total votes.", wiki: "Efficiency_gap" },
+  { id: "amortization", terms: ["amortization", "amortisation", "level annuity", "level-annuity"], def: "Paying off a debt in equal installments of principal-plus-interest over time.", wiki: "Amortization_(business)" },
+  { id: "perpetuity", terms: ["perpetuity"], def: "A stream of identical cash flows that continues forever; its present value is payment divided by rate.", wiki: "Perpetuity" },
+  { id: "reserve-requirement", terms: ["reserve requirement"], def: "The fraction of deposits a bank must hold rather than lend out.", wiki: "Reserve_requirement" },
+  { id: "discount-window", terms: ["discount window"], def: "A central-bank facility that lends short-term funds to banks against collateral.", wiki: "Discount_window" },
+  { id: "gotv", terms: ["get out the vote", "GOTV"], def: "Campaign activity aimed at raising turnout among a candidate's likely supporters.", wiki: "Get_out_the_vote" },
+  { id: "soft-knee", terms: ["soft-knee", "soft knee"], def: "A curve that bends gradually rather than at a sharp threshold; here, price pressure is compressed smoothly past a ratio.", wiki: "Dynamic_range_compression#Soft_and_hard_knees" },
+  { id: "coupon", terms: ["coupon rate", "coupon payment"], def: "The fixed interest a bond pays its holder, as a percent of face value.", wiki: "Coupon_(finance)" },
+  { id: "kaitz", terms: ["Kaitz ratio", "Kaitz index"], def: "The ratio of the minimum wage to the median (or average) wage.", wiki: "Kaitz_index" },
+  { id: "geometric-mean", terms: ["geometric mean"], def: "An average found by multiplying n values and taking the nth root; penalizes any single low input.", wiki: "Geometric_mean" },
+  { id: "ev", terms: ["electoral college", "electoral votes"], def: "The US system where states cast electoral votes to elect the president rather than a direct national count.", wiki: "United_States_Electoral_College" },
+  // game jargon (our terms) - link to the relevant wiki page
+  { id: "npp", terms: ["Non-Player Politician", "NPPs", "NPP"], def: "Non-Player Politician: an AI-run politician or party that can hold office, vote, and campaign.", more: "/wiki/npps-overview.html" },
+  { id: "swing-flow", terms: ["swing-flow", "swing flow"], def: "The live general-election vote model, where support flows between candidates rather than being allocated in fixed blocs.", more: "/design/election-engine.html" },
+  { id: "granular-electorate", terms: ["granular electorate", "Layer-1 electorate", "Layer-1 census"], def: "The shipped electorate substrate: per-cell census groups (not the retired 12 archetypes) that carry the vote.", more: "/design/granular-electorate-as-shipped.html" },
+  { id: "comingle", terms: ["comingle"], def: "The NPP-autonomy tiers (v2 and up) at which AI politicians act inside player-enabled countries alongside humans.", more: "/wiki/npp-autonomy.html" },
+  { id: "plants-system", terms: ["plants system", "capacity economy"], def: "The shipped economy model where each sector is an owned set of plants with build/idle/mothball capacity that drives supply.", more: "/design/capacity-economy-as-shipped.html" },
+  { id: "infamy", terms: ["infamy"], def: "A game stat that rises from attacks and norm-breaking; high infamy imposes penalties and scrutiny.", more: "/wiki/stats-actions.html" },
+  { id: "political-influence", terms: ["Normalized Political Influence", "political influence"], def: "A politician's accumulated clout, spent on actions and weighed into election appeal.", more: "/wiki/stats-actions.html" },
+];
+const glossBySurface = new Map();
+for (const g of GLOSSARY) for (const t of g.terms) glossBySurface.set(t.toLowerCase(), g.id);
+const glossSurfaces = [...glossBySurface.keys()].sort((a, b) => b.length - a.length);
+const GLOSS_RE = new RegExp("(?<![\\w-])(" + glossSurfaces.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![\\w-])", "gi");
+const glossClient = Object.fromEntries(GLOSSARY.map(g => [g.id, { def: g.def, wiki: g.wiki || null, more: g.more || null }]));
+// Wrap the first occurrence of each term in already-rendered HTML, skipping code/pre/a/headings.
+const wrapGloss = html => {
+  const used = new Set();
+  let skip = 0;
+  return html.split(/(<[^>]+>)/).map(part => {
+    if (part[0] === "<") {
+      if (/^<(pre|code|a|h[1-6]|script|style)[\s>]/i.test(part)) skip++;
+      else if (/^<\/(pre|code|a|h[1-6]|script|style)>/i.test(part)) skip = Math.max(0, skip - 1);
+      return part;
+    }
+    if (skip > 0 || !part.trim()) return part;
+    return part.replace(GLOSS_RE, (m) => {
+      const id = glossBySurface.get(m.toLowerCase());
+      if (!id || used.has(id)) return m;
+      used.add(id);
+      return `<span class="gloss" data-g="${id}">${m}</span>`;
+    });
+  }).join("");
+};
+
 // ---------- assemble page list ----------
 // page: {id, kind:'wiki'|'doc', section, group, file?, slug, title, desc, md, href}
 const pages = [];
@@ -281,6 +345,16 @@ main .crumb{font-size:.78rem;font-weight:600;letter-spacing:.1em;text-transform:
 main .crumb .sep{color:var(--mut);margin:0 .35rem}
 main h1{font-size:2.05rem;line-height:1.2;letter-spacing:-.02em;margin:.1rem 0 1rem;color:var(--ink)}
 main .updated{font-size:.76rem;color:var(--mut);margin:-.6rem 0 1.4rem}
+.gloss{border-bottom:1px dotted var(--acc-link);cursor:help;text-decoration:none}
+.gloss:hover{border-bottom-style:solid}
+#gloss-pop{display:none;position:absolute;z-index:70;max-width:320px;background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:.7rem .85rem;font-size:.84rem;line-height:1.5}
+#gloss-pop.open{display:block}
+#gloss-pop .gp-def{color:color-mix(in srgb,var(--ink) 92%,var(--mut))}
+#gloss-pop .gp-links{margin-top:.5rem;display:flex;gap:.9rem;font-size:.8rem;font-weight:600}
+#gloss-pop .gp-links a{color:var(--acc-link)}
+#gloss-pop::after{content:"";position:absolute;top:-6px;left:var(--ax,16px);width:10px;height:10px;background:var(--panel);
+  border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
 main h2{font-size:1.35rem;letter-spacing:-.01em;margin:2.4rem 0 .8rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}
 main h3{font-size:1.08rem;margin:1.8rem 0 .6rem}
 main h2 a.anchor,main h3 a.anchor{color:var(--mut);opacity:0;margin-left:.4rem;font-weight:400}
@@ -511,6 +585,38 @@ const reportJs = String.raw`
 })();
 `;
 
+// Jargon glossary popover: click a dotted term -> definition + Wikipedia / internal link.
+const glossJs = String.raw`
+(function(){
+  var GLOSSARY=__GLOSS__;
+  var pop=document.getElementById('gloss-pop'); if(!pop) return;
+  function esc(s){return (s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function hide(){pop.classList.remove('open');pop._for=null;}
+  function show(el){
+    var g=GLOSSARY[el.getAttribute('data-g')]; if(!g){return;}
+    var links='';
+    if(g.wiki) links+='<a href="https://en.wikipedia.org/wiki/'+g.wiki+'" target="_blank" rel="noopener">Wikipedia ↗</a>';
+    if(g.more) links+='<a href="'+g.more+'">Read more</a>';
+    pop.innerHTML='<div class="gp-def">'+esc(g.def)+'</div>'+(links?('<div class="gp-links">'+links+'</div>'):'');
+    pop.classList.add('open');
+    var r=el.getBoundingClientRect(), sx=window.scrollX, sy=window.scrollY;
+    pop.style.left='0px'; pop.style.top='0px';
+    var pw=pop.offsetWidth;
+    var left=r.left+sx, maxLeft=sx+document.documentElement.clientWidth-pw-10;
+    if(left>maxLeft) left=maxLeft; if(left<sx+8) left=sx+8;
+    pop.style.left=left+'px'; pop.style.top=(r.bottom+sy+8)+'px';
+    pop.style.setProperty('--ax', Math.max(10, Math.min(pw-20, (r.left+sx)-left+10))+'px');
+  }
+  document.addEventListener('click',function(e){
+    var g=e.target.closest?e.target.closest('.gloss'):null;
+    if(g){ e.preventDefault(); if(pop.classList.contains('open')&&pop._for===g){hide();} else {show(g);pop._for=g;} return; }
+    if(!pop.contains(e.target)) hide();
+  });
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')hide();});
+  window.addEventListener('resize',hide);
+})();
+`.replace("__GLOSS__", JSON.stringify(glossClient));
+
 // ---------- nav ----------
 const NAV_SECTIONS = [
   { key: "wiki", label: "Player Wiki" },
@@ -579,7 +685,8 @@ ${toc || ""}</div>
     <div id="rm-msg" class="rm-msg"></div>
   </div>
 </div>
-<script>${js}</script><script>${searchJs}</script><script>${reportJs}</script></body></html>`;
+<div id="gloss-pop"></div>
+<script>${js}</script><script>${searchJs}</script><script>${reportJs}</script><script>${glossJs}</script></body></html>`;
 
 // ---------- render ----------
 fs.rmSync(OUT, { recursive: true, force: true });
@@ -619,6 +726,7 @@ for (let i = 0; i < pages.length; i++) {
     .replace(/href="(\.\/)?([\w-]+)\.md(#[\w-]*)?"/g, (m, _d, name, h) =>
       byDocFile.has(name + ".md") ? `href="${byDocFile.get(name + ".md").href}${h || ""}"` : m)
     .replace(/href="\.\.\/(design|engineering|api)\/([\w-]+)\.md(#[\w-]*)?"/g, 'href="/$1/$2.html$3"');
+  html = wrapGloss(html);
   const h2s = [...p.md.matchAll(/^##\s+(.+)$/gm)].map(m => m[1].replace(/[*`]/g, ""));
   const toc = h2s.length >= 2
     ? `<aside class="toc"><div class="t">On this page</div>${h2s.map(t => `<a href="#${anchor(t)}">${esc(t)}</a>`).join("")}</aside>`
