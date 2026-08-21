@@ -30,7 +30,8 @@ The result replaces the static `inflationRate` on `EconomicGrowthFactors` each t
 inflation = BASE_TARGET + demandPull + monetary + fiscal + costPush
 
 // Smoothed with inertia
-newInflation = INERTIA × previousInflation + (1 - INERTIA) × inflation
+smoothed = INERTIA × previousInflation + (1 - INERTIA) × inflation
+newInflation = smoothed + 0.08 × (targetInflation - smoothed)
 ```
 
 ### Constants
@@ -145,7 +146,10 @@ The -2.0 floor is load-bearing: without it, a forex or demand deflation impulse 
 The effective prime rate blends immediate and lagged effects:
 
 ```typescript
-export function computeEffectivePrimeRate(spotRate: number, history?: number[]): number {
+export function computeEffectivePrimeRate(
+  spotRate: number,
+  history?: number[],
+): number {
   if (!history || history.length === 0) return spotRate;
 
   const window = history.slice(-MONETARY_LAG_TURNS);
@@ -158,7 +162,7 @@ export function computeEffectivePrimeRate(spotRate: number, history?: number[]):
     const turnsAgo = n - 1 - i;
     const propagation = Math.max(
       1 / MONETARY_LAG_TURNS,
-      Math.min(1, turnsAgo / MONETARY_LAG_TURNS)
+      Math.min(1, turnsAgo / MONETARY_LAG_TURNS),
     );
     weightedSum += window[i] * propagation;
     totalWeight += propagation;
@@ -189,8 +193,8 @@ export async function calculateCountryInflation(
   forexPressure = 0.0,
   savingsPressure = 0.0,
   policyStancePressure = 0.0,
-  moneySupplyGrowthPct = 0.0
-): Promise<number>
+  moneySupplyGrowthPct = 0.0,
+): Promise<number>;
 ```
 
 Those additional pressure terms (commodity price deviation, currency depreciation, savings withdrawal/deposit flow) are out of scope for this doc's formula walkthrough above; see the constant comments in `inflation.ts` for their coefficients and rationale.
@@ -199,11 +203,12 @@ Those additional pressure terms (commodity price deviation, currency depreciatio
 
 ### Sector-Driven Growth, Not Okun's Law
 
-GDP growth is not derived from unemployment. It is the revenue-weighted average of sector growth rates (`computeWeightedGrowthRate` in `src/lib/turn/gdpGrowth.ts`), adjusted by a consumption-tax wedge (`computeConsumptionTaxAdjustedGrowthRate`):
+GDP growth is not derived from unemployment. The revenue-weighted sector rate,
+adjusted by the consumption-tax wedge, is the sector impulse:
 
 ```typescript
-sectorGrowth = weighted average of owned-sector growthRate (unowned sectors use DEFAULT_UNOWNED_GROWTH_RATE = 0.5)
-gdpGrowth = sectorGrowth - taxGap × SALES_TAX_GROWTH_COEFFICIENT
+sectorImpulse = sectorGrowth - taxGap × SALES_TAX_GROWTH_COEFFICIENT
+displayedGdpGrowth = potentialGrowth + realizedOutputGapChange
 ```
 
 Okun's law runs the other direction: it derives **unemployment** from the GDP growth signal, not GDP growth from unemployment. See the Unemployment System section below.
@@ -239,28 +244,21 @@ newUnemployment = UNEMPLOYMENT_INERTIA × previousUnemployment + (1 - UNEMPLOYME
 
 Turn phases run as a single ordered list, not numbered groups (`BASE_TURN_PHASE_NAMES` in `src/simulation/phases/turnPhaseNames.ts`). The economics-relevant phases run in this order:
 
-| Phase             | System                                                               |
-| ----------------- | ---------------------------------------------------------------------- |
-| `policyEffects`   | Policy-driven economic metric updates                                  |
-| `metricEngine`    | GDP growth, unemployment (Okun's law), other derived metrics           |
-| `nationalMetrics` | National metric aggregation                                            |
-| `economicModel`   | Sector-driven GDP growth model                                         |
-| `inflationRecalc` | Inflation (`calculateCountryInflation`, gated by `isFiscalYearEnd`)     |
+| Phase             | System                                                         |
+| ----------------- | -------------------------------------------------------------- |
+| `policyEffects`   | Policy-driven economic metric updates                          |
+| `metricEngine`    | GDP growth, unemployment (Okun's law), other derived metrics   |
+| `nationalMetrics` | National metric aggregation                                    |
+| `economicModel`   | Sector-driven GDP growth model                                 |
+| `inflationRecalc` | Inflation (`calculateCountryInflation`, recomputed every turn) |
 
-### Fiscal Year Processing
+### Fiscal cadence
 
-`src/lib/budget/fiscalYear.ts` marks the fiscal year end via `isFiscalYearEnd(currentTurn)`, which checks against `FISCAL_YEAR_START_TURN_IN_YEAR`. That constant is resolved from each country's `fiscalYearStartTurnInYear` config (`src/lib/constants/countries.ts`) via `getSharedFiscalYearStartTurnInYear()` (`src/lib/countrySystems/fiscalCalendar.ts`), currently turn 40 for all countries, not a hardcoded turn 36 or 39:
-
-```typescript
-// src/lib/budget/fiscalYear.ts
-if (isFiscalYearEnd(currentTurn)) {
-  // Recalculate inflation for all countries
-  for each country:
-    budget = getFederalBudget(countryId);
-    newInflation = await calculateCountryInflation(db, countryId, budget, ...pressureTerms);
-    budget.economicFactors.inflationRate = newInflation;
-}
-```
+Inflation is recalculated every turn in the state-effects phase. Fiscal-year
+processing still handles annual boundaries such as snapshots and debt work,
+but it does not gate inflation. Tax bases grow each turn through
+`processFiscalBaseGrowth` at 1/48 of the live annual wage, trade, and GDP rates;
+the fiscal-year boundary must not apply a second annual growth jump.
 
 ## Tuning Guidelines
 
@@ -275,13 +273,13 @@ if (isFiscalYearEnd(currentTurn)) {
 
 ### Recommended Ranges
 
-| Coefficient              | Current | Safe Range |
-| ------------------------ | ------- | ---------- |
-| `INERTIA`                | 0.35    | 0.2-0.5    |
-| `MONETARY_COEFF_LOW`     | 0.4     | 0.3-0.6    |
-| `MONETARY_COEFF_HIGH`    | 1.2     | 0.9-1.5    |
-| `UNEMPLOYMENT_COEFF_UP`  | 0.3     | 0.2-0.5    |
-| `FISCAL_COEFF_DEFICIT`   | 0.15    | 0.1-0.25   |
+| Coefficient             | Current | Safe Range |
+| ----------------------- | ------- | ---------- |
+| `INERTIA`               | 0.35    | 0.2-0.5    |
+| `MONETARY_COEFF_LOW`    | 0.4     | 0.3-0.6    |
+| `MONETARY_COEFF_HIGH`   | 1.2     | 0.9-1.5    |
+| `UNEMPLOYMENT_COEFF_UP` | 0.3     | 0.2-0.5    |
+| `FISCAL_COEFF_DEFICIT`  | 0.15    | 0.1-0.25   |
 
 ## Currency storage (v0.2.6)
 

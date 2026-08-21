@@ -4,10 +4,10 @@ Sovereign bonds are **government-issued** debt instruments that finance national
 
 ## Overview
 
-- **Issuers**: National governments (US Treasury, UK HM Treasury)
+- **Issuers**: Every national government in `COUNTRY_ORDER`, using its configured treasury and currency labels
 - **Trading**: Same `/api/bonds/` routes as corporate bonds; appear on country stock exchange pages
 - **Settlement**: Maturity payments deducted from federal budget debt principal
-- **Countries supported**: US, UK (configured in `COUNTRY_CONFIGS`)
+- **Countries supported**: All configured countries; issuance is not limited to the US and UK
 
 ## Issuance Cycle
 
@@ -48,7 +48,9 @@ Without rollover, a surplus country's bonds mature out of circulation and the tr
 
 ```typescript
 const termPremium = SOVEREIGN_BOND_TERM_PREMIUMS[maturityTurns] ?? 0; // 48t: 0, 96t: 0.25pp, 240t: 0.75pp
-const credibilitySpread = sovereignCredibilitySpread(centralBank.chairInfamy ?? 0); // 0 with no bank
+const credibilitySpread = sovereignCredibilitySpread(
+  centralBank.chairInfamy ?? 0,
+); // 0 with no bank
 const couponRate = primeRate + termPremium + credibilitySpread;
 ```
 
@@ -57,15 +59,15 @@ const couponRate = primeRate + termPremium + credibilitySpread;
 
 ### Bond Structure
 
-| Field           | Value                                             |
-| --------------- | ------------------------------------------------- |
-| `issuerType`    | `"sovereign"`                                     |
-| `countryId`     | `"US"` or `"UK"`                                  |
-| `faceValue`     | $1,000 per unit (`BOND_UNIT_FACE_VALUE`)          |
+| Field           | Value                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `issuerType`    | `"sovereign"`                                                                                                            |
+| `countryId`     | `"US"` or `"UK"`                                                                                                         |
+| `faceValue`     | $1,000 per unit (`BOND_UNIT_FACE_VALUE`)                                                                                 |
 | `maturityTurns` | 48 turns (1yr) for scheduled quarterly issuance; admin/reconcile issuance can also use 96 turns (2yr) or 240 turns (5yr) |
-| `marketPrice`   | Starts at 1.0 (par)                               |
-| `publicFloat`   | All units start in public float (AI market maker) |
-| `holders`       | Players/corporations who purchase                 |
+| `marketPrice`   | Starts at 1.0 (par)                                                                                                      |
+| `publicFloat`   | All units start in public float (AI market maker)                                                                        |
+| `holders`       | Players/corporations who purchase                                                                                        |
 
 ## Budget Integration
 
@@ -80,8 +82,12 @@ newDebtInterest = Math.max(0, oldDebtInterest + annualInterestDelta);
 newSurplus = revenue.total - (spending.total + annualInterestDelta);
 debtToGdpRatio = newPrincipal / gdpSmoothed; // falls back to raw gdp if unset
 creditRating = calculateCreditRating(debtToGdpRatio, sovereignRiskAnchor);
-interestRate = calculateInterestRate(debtToGdpRatio, imfSovereignBailoutActive, sovereignRiskAnchor)
-  + getSovereignConfidencePremium(investorConfidence);
+interestRate =
+  calculateInterestRate(
+    debtToGdpRatio,
+    imfSovereignBailoutActive,
+    sovereignRiskAnchor,
+  ) + getSovereignConfidencePremium(investorConfidence);
 ```
 
 ### Per-Turn Processing
@@ -100,7 +106,11 @@ When sovereign bonds mature:
 ```typescript
 // src/lib/bonds/sovereign.ts:696 settleSovereignBondMaturity()
 const annualCouponCost = (bond.couponRate / 100) * bond.totalIssued;
-const budgetUpdate = applySovereignDebtAdjustment(budget, -bond.totalIssued, -annualCouponCost);
+const budgetUpdate = applySovereignDebtAdjustment(
+  budget,
+  -bond.totalIssued,
+  -annualCouponCost,
+);
 // budgetUpdate.debt.principal, spending.debtInterest, and surplus are written back
 ```
 
@@ -110,7 +120,7 @@ const budgetUpdate = applySovereignDebtAdjustment(budget, -bond.totalIssued, -an
 
 | Phase                | Action                                                                  |
 | -------------------- | ----------------------------------------------------------------------- |
-| **Pre-processing**   | `issueScheduledSovereignBondSeries()`, issues new bonds every 12 turns |
+| **Pre-processing**   | `issueScheduledSovereignBondSeries()`, issues new bonds every 12 turns  |
 | **Coupon payment**   | Pay holders (characters + corporations) from issuer budget              |
 | **Price update**     | `calculateBondMarketPrice()` using country prime rate                   |
 | **Maturity check**   | Settle matured bonds via `settleSovereignBondMaturity()`                |
@@ -147,12 +157,12 @@ A 3-turn warning precedes the formal crisis trigger. Once triggered, the executi
 
 The executive selects one of four resolutions:
 
-| Path | GDP penalty | Description |
-| --- | --- | --- |
-| **Repudiate** | -12% GDP | Refuse to pay; bondholders take the full hit |
-| **Restructure** | -6% GDP | Haircut + maturity extension for bondholders |
-| **IMF Bailout** | -2% GDP | Accept an IMF facility |
-| **Monetize** | handled via the inflation pipeline, not a flat GDP hit | Print money to cover the debt; gated off when current inflation exceeds 8% (`MONETIZE_GATE_INFLATION`) |
+| Path            | GDP penalty                                            | Description                                                                                            |
+| --------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| **Repudiate**   | -12% GDP                                               | Refuse to pay; bondholders take the full hit                                                           |
+| **Restructure** | -6% GDP                                                | Haircut + maturity extension for bondholders                                                           |
+| **IMF Bailout** | -2% GDP                                                | Accept an IMF facility                                                                                 |
+| **Monetize**    | handled via the inflation pipeline, not a flat GDP hit | Print money to cover the debt; gated off when current inflation exceeds 8% (`MONETIZE_GATE_INFLATION`) |
 
 ### Default scar and corporate spillover
 

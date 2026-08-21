@@ -72,7 +72,7 @@ The codebase relies on TypeScript and careful barrel files. No systematic circul
 
 - [ ] Changing hourly behavior? Read the relevant design doc in the ops-knowledge MCP and the phase registry order in `src/simulation/phases/turnPhaseRegistry.ts`.
 - [ ] Changing country rules? Use `getCountryConfig` / `CountryConfig` in `src/lib/constants/countries.ts`, not string literals.
-- [ ] Adding an API route? Follow `docs/design/api-conventions.md` and `src/lib/api/*` patterns.
+- [ ] Adding an API route? Follow [API Conventions](../design/api-conventions.md) and `src/lib/api/*` patterns.
 - [ ] Adding constants shown in UI **and** used in turn math? Put them in `src/lib/constants/` (or `shared/` if scripts need them); do not add new imports from `src/lib/turn/**` in `components/` unless there is no alternative.
 - [ ] Unsure where a file goes? See [`repo-operating-map.md`](./repo-operating-map.md) §5.
 
@@ -80,9 +80,9 @@ The codebase relies on TypeScript and careful barrel files. No systematic circul
 
 ## 6. Related references
 
-| Topic                           | Location                                                 |
-| ------------------------------- | -------------------------------------------------------- |
-| Turn phase order and invariants | `claude.md` (Turn System), `docs/design/core-systems.md` |
-| API patterns                    | `docs/design/api-conventions.md`, `src/lib/api/`         |
-| DB types                        | `src/lib/db/types/`                                      |
-| Blast radius tiers              | `docs/engineering/repo-operating-map.md` §2              |
+| Topic                           | Location                                                                                |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| Turn phase order and invariants | [Core Systems](../design/core-systems.md), `src/simulation/phases/turnPhaseRegistry.ts` |
+| API patterns                    | [API Conventions](../design/api-conventions.md), `src/lib/api/`                         |
+| DB types                        | `src/lib/db/types/`                                                                     |
+| Blast radius tiers              | [Repo Operating Map](./repo-operating-map.md) section 2                                 |

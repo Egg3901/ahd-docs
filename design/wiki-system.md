@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Wiki System provides in-game documentation and strategy guides. Page content is authored directly as TypeScript objects in `src/lib/seeds/wiki/pages/*.ts` and seeded into the `wikiPages` collection, it is **not** synced live from any markdown source at runtime. Design and engineering docs live outside this repo, in the ops-knowledge MCP, not as a committed `docs/design/` tree, so there is no game code that reads design docs into `wikiPages`.
+The Wiki System provides in-game documentation and strategy guides. Page content is authored as TypeScript under `src/lib/seeds/wiki/` and seeded into the `wikiPages` collection. It is **not** synced live from Markdown at runtime.
+
+This `ahd-docs` repository is a separate developer-facing documentation site. Its build imports the game's seeded wiki pages for a read-only mirror, then renders the Markdown files under `design/`, `engineering/`, and `api/`. Editing one source does not update the other: player-facing mechanics belong in the AHDGame wiki seed, while implementation and integration documentation belongs here.
 
 **Location:** `src/lib/wiki/` (runtime read/search/render), `src/lib/seeds/wiki/` (page content + seeding)
 
@@ -32,10 +34,12 @@ export const WIKI_SEED_PAGES: readonly WikiSeedPage[] = [
   ...legislaturesPages,
   ...partiesPages,
   ...countriesPages,
+  ...militaryPages,
   ...economyPages,
   ...advancedPages,
   ...resourcesPages,
   ...commoditiesPages,
+  ...iterationsPages,
 ];
 ```
 
@@ -53,16 +57,21 @@ Each `WikiSeedPage` (`src/lib/seeds/wiki/types.ts`) defines:
 
 Pages are organized into categories:
 
-| Category          | Purpose                        |
-| ----------------- | ------------------------------ |
-| `getting-started` | New player guides              |
-| `elections`       | Election mechanics and history |
-| `congress`        | Legislative system             |
-| `parties`         | Party mechanics                |
-| `npps`            | NPP system guides              |
-| `states`          | State-level mechanics          |
-| `strategy`        | Advanced strategy guides       |
-| `reference`       | Technical reference docs       |
+| Category                                                                 | Purpose                                                     |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `getting-started`                                                        | New player onboarding and first steps                       |
+| `elections`                                                              | Primaries, generals, campaigns, and election history        |
+| `legislatures`                                                           | Bills, voting, chamber leadership, and government formation |
+| `parties`                                                                | Parties, coalitions, endorsements, and NPP behavior         |
+| `countries`                                                              | Country hubs and country-specific rules                     |
+| `military`                                                               | Conflicts, armed forces, occupation, and peace              |
+| `economy`                                                                | Corporations, budgets, banking, currency, and finance       |
+| `commodities`                                                            | Generated commodity-market reference pages                  |
+| `resources`                                                              | Deposits, extraction contracts, subsidies, and tariffs      |
+| `advanced`                                                               | Strategy and detailed system references                     |
+| `iterations`                                                             | Historical recaps of numbered game iterations               |
+| `reference`                                                              | Miscellaneous reference material                            |
+| `custom-pages`, `characters`, `corporations`, `player-parties`, `events` | Community-authored namespaces                               |
 
 ### Featured Pages
 
@@ -78,6 +87,9 @@ Some slugs use custom UI instead of markdown rendering. These special live route
 
 - `/wiki/elections`, Election browser
 - `/wiki/roadmap`, Game roadmap
+- `/wiki/random-events`, Player-event browser
+- `/wiki/my`, Current user's wiki submissions
+- `/wiki/new`, Submission editor
 - `/wiki/paths/*`, Learning paths
 - `/wiki/party/[id]`, Party profile pages
 - `/wiki/seat/[slug]`, Seat/office pages
@@ -187,7 +199,7 @@ Admins can trigger the legacy-slug rename pass (`syncPriorWikiSubmissions`) and 
 
 ## Content Authoring
 
-Wiki page content is authored as `WikiSeedPage` TypeScript objects, organized by category file under `src/lib/seeds/wiki/pages/` (`gettingStartedPages`, `electionsPages`, `legislaturesPages`, `partiesPages`, `countriesPages`, `economyPages`, `advancedPages`, `resourcesPages`, `commoditiesPages`). Design docs live outside this repo (ops-knowledge MCP); they are a separate developer-facing reference and do not propagate to the in-game wiki automatically.
+Wiki page content is authored as `WikiSeedPage` TypeScript objects, organized by category file under `src/lib/seeds/wiki/pages/`. Long-form text usually lives in `src/lib/seeds/wiki/content/` and is imported by its page record. The standalone docs in this repository are a separate developer-facing reference and do not propagate to the in-game wiki automatically.
 
 ## Content Guidelines
 
@@ -204,8 +216,8 @@ Featured pages should:
 Choose the most specific category:
 
 - Use `getting-started` for new player essentials
-- Use `reference` for data tables and formulas
-- Use `strategy` for advanced tactics
+- Use `advanced` for detailed formulas and strategy
+- Reserve `reference` for uncategorized or community reference material
 
 ### Tags
 
@@ -213,10 +225,10 @@ Tags enable cross-category discovery:
 
 - `elections`, `campaigns`, `npps`, `parties`
 - `economy`, `budget`, `bonds`
-- `congress`, `legislation`, `bills`
+- `legislatures`, `legislation`, `bills`
 
 ## Related Systems
 
-- **Design Docs:** ops-knowledge MCP - Source design documents (not committed to this repo)
+- **Developer Docs:** this repository's `design/`, `engineering/`, and `api/` Markdown sources
 - **Wiki API:** `src/app/api/wiki/` - Wiki route handlers
 - **Admin Tools:** `src/app/admin/` - Sync triggers

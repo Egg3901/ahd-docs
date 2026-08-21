@@ -20,7 +20,7 @@ Unsold shares still sitting in the parent's own open sell orders or listings cou
 - **Parent eligibility** (`isEligibleAsSubsidiaryParent`): the corp must not be national/state-owned (`countryOwnerId` unset) and must not itself already be a formalized subsidiary, **no chaining**. A subsidiary cannot itself be a parent.
 - **Subsidiary eligibility** (`isEligibleAsSubsidiary`): the target must not be national/state-owned.
 - **No self-ownership**: a corp cannot formalize itself.
-- **No ownership cycles**: `wouldCreateOwnershipCycle()` walks the derived control graph (built fresh from every corp's `getControllingCorporateParent()` on every check) to reject any formalization that would let A control B control A. This is enforced twice, once when a corp attempts to *formalize* a subsidiary, and once earlier at the point of *purchase* (`corpPurchaseWouldCycle()` in `cycleGuard.ts`) so a corporate buyer cannot even acquire majority control of a corp that already controls it. The purchase-time check was added after the formalize-time-only check left a window where the loop existed in the share graph before anyone tried to formalize it.
+- **No ownership cycles**: `wouldCreateOwnershipCycle()` walks the derived control graph (built fresh from every corp's `getControllingCorporateParent()` on every check) to reject any formalization that would let A control B control A. This is enforced twice, once when a corp attempts to _formalize_ a subsidiary, and once earlier at the point of _purchase_ (`corpPurchaseWouldCycle()` in `cycleGuard.ts`) so a corporate buyer cannot even acquire majority control of a corp that already controls it. The purchase-time check was added after the formalize-time-only check left a window where the loop existed in the share graph before anyone tried to formalize it.
 - **One-person rule**: a subsidiary's CEO must be a different human than the parent's owner, the parent's sitting CEO, or the CEO of any sibling subsidiary of the same parent (`humanBlockedFromSubsidiaryCeo()`). This keys on the human behind the seat, not `corp.userId`, a caretaker-run parent resolves to `caretakerCeo.underlyingUserId` (`resolveParentCeoUserId()`). NPP-run siblings with no caretaker are skipped entirely (no human operates them, nothing to block).
 
 ## Formalizing a Subsidiary
@@ -48,7 +48,7 @@ Unsold shares still sitting in the parent's own open sell orders or listings cou
 `cleanupZombieSubsidiaries()` runs every turn inside `processCorporationTurn` (gated by the feature flag), after the corp/sector lookups are built:
 
 - For every corp with `subsidiaryFormalizedAtTurn` set: if nobody controls >50% anymore, the formalization marker and dividend-floor fields are unset, the managed relationship dissolves on its own, no player action needed.
-- For every corp with a stale `parentDividendFloorSetByCorpId` (the setter no longer controls >50%, but the formalization itself is still valid under a *different* controller): only the floor is cleared, formalization stays.
+- For every corp with a stale `parentDividendFloorSetByCorpId` (the setter no longer controls >50%, but the formalization itself is still valid under a _different_ controller): only the floor is cleared, formalization stays.
 - Runs as a bulk write; logs the count and records an audit entry (`corp.subsidiary_cleanup`).
 
 ## Authorization: `canActOnCorporationAsParent`
@@ -125,7 +125,7 @@ A **group** is the set of corporations connected by formalized subsidiary edges,
 
 `computeGroupRelief()` in `groups/lossRelief.ts`. Each corp is still taxed alone during normal turn processing; relief is applied as a **rebate afterward**, not a recomputation of the tax figure, arithmetically identical to filing consolidated, but additive rather than invasive to the turn's hot path.
 
-- **Same-country only.** A loss in one country cannot shelter a profit in another (that's transfer pricing, a separate, unimplemented question).
+- **Same-country only.** A loss in one country cannot shelter profit in another. Cross-border intra-group transfer-pricing audits are live in `src/lib/corporations/groups/transferPricing.ts`: exposure above ₳5 million can trigger a 40% surcharge. Same-country intra-group pricing is ignored intentionally.
 - Pools by `(group root, country)` via `poolByGroupAndCountry()`.
 - Requires at least 2 group members, at least one profit and one loss, and some tax actually paid; otherwise no relief.
 - `lossesSurrendered = min(totalLoss, totalProfit)`.
@@ -148,7 +148,7 @@ A **group** is the set of corporations connected by formalized subsidiary edges,
 
 - **Convergence rate**: `GROUP_SYNERGY_CONVERGENCE = 0.05` (5% of the remaining gap closed per turn).
 - **Ordinary ceiling**: `GROUP_SYNERGY_MAX_SHARE = 0.6`, a member may be lifted to at most 60% of the group leader's strength.
-- **Spin-off ceiling**: `SPINOFF_SYNERGY_MAX_SHARE = 0.85` for a corp that was spun off from a *current* member of the same group, within `SPINOFF_BRAND_INHERITANCE_TURNS = 96` turns of the spin-off. If the corp it was spun from has since left the group, or the window has expired, the ordinary 0.6 ceiling applies instead, this is what the previously-dead `isSpinOff` / `spunOffFromCorpId` fields (written since spin-off shipped, read by nothing until this landed) are for.
+- **Spin-off ceiling**: `SPINOFF_SYNERGY_MAX_SHARE = 0.85` for a corp that was spun off from a _current_ member of the same group, within `SPINOFF_BRAND_INHERITANCE_TURNS = 96` turns of the spin-off. If the corp it was spun from has since left the group, or the window has expired, the ordinary 0.6 ceiling applies instead, this is what the previously-dead `isSpinOff` / `spunOffFromCorpId` fields (written since spin-off shipped, read by nothing until this landed) are for.
 - Target for each member = `max(current strength, leader strength × applicable cap)`, never below where the member already is.
 - Delta per turn = `(target - current) × 0.05`, applied to both marketing and logistics independently.
 - Sub-0.01 deltas are skipped entirely (not worth a write, wouldn't show in the UI).
@@ -170,14 +170,14 @@ A **group** is the set of corporations connected by formalized subsidiary edges,
 
 No new collection. All state lives on the existing `corporations` documents:
 
-| Field | Meaning |
-| --- | --- |
-| `subsidiaryFormalizedAtTurn?: number` | Presence = formalized; the turn it happened. Cleared automatically if control lapses. |
-| `isSpinOff?: boolean`, `spunOffFromCorpId?: ObjectId`, `spunOffAtTurn?: number` | Spin-off provenance; feeds the synergy brand-inheritance ceiling. |
-| `lastSpinOffTurn?: number` | Cooldown anchor on the **parent** for spin-offs it initiates. |
-| `lastCapitalInjectionTurn?: number` | Per-subsidiary cooldown anchor for capital injections received. |
-| `parentDividendFloorPct?: number`, `parentDividendFloorSetByCorpId?: ObjectId` | Dividend floor set by the controlling parent; only honored while that parent still controls >50%. |
-| `pendingDivestiture?: PendingDivestiture` | Merger-review remedy; measured against the controlled group, not discharged by a spin-off alone. |
+| Field                                                                           | Meaning                                                                                           |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `subsidiaryFormalizedAtTurn?: number`                                           | Presence = formalized; the turn it happened. Cleared automatically if control lapses.             |
+| `isSpinOff?: boolean`, `spunOffFromCorpId?: ObjectId`, `spunOffAtTurn?: number` | Spin-off provenance; feeds the synergy brand-inheritance ceiling.                                 |
+| `lastSpinOffTurn?: number`                                                      | Cooldown anchor on the **parent** for spin-offs it initiates.                                     |
+| `lastCapitalInjectionTurn?: number`                                             | Per-subsidiary cooldown anchor for capital injections received.                                   |
+| `parentDividendFloorPct?: number`, `parentDividendFloorSetByCorpId?: ObjectId`  | Dividend floor set by the controlling parent; only honored while that parent still controls >50%. |
+| `pendingDivestiture?: PendingDivestiture`                                       | Merger-review remedy; measured against the controlled group, not discharged by a spin-off alone.  |
 
 ## Key Files
 

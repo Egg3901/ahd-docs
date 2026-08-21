@@ -12,9 +12,7 @@ import { parseJsonBody } from "@/lib/api/validate";
 import { handleRouteError } from "@/lib/api/errors";
 import { z } from "zod";
 
-const schema = z.object({
-  /* ... */
-});
+const schema = z.object({/* ... */});
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +21,10 @@ export async function POST(request: Request) {
 
     const parsed = await parseJsonBody(request, schema);
     if (!parsed.success)
-      return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+      return NextResponse.json(
+        { error: parsed.error },
+        { status: parsed.status },
+      );
 
     const db = await getDb();
     // ... business logic ...
@@ -43,14 +44,17 @@ export async function POST(request: Request) {
 - [ ] Every handler has an auth check as the **first thing inside the `try` block**, before any DB access.
 - [ ] Use `requireAdmin()` for `/api/admin/*` routes — never `getAuthUser()` with a manual `if (user?.isAdmin)` check.
 - [ ] Use `requireCron(request)` for cron-triggered routes, and return 401 immediately if it fails.
-- [ ] Use `requireAuth()` (with optional character data), `requireBasicAuth()` (auth-only), or `requireAuthWithCharacter()` (guaranteed character) for player routes.
-- [ ] **Never** use `getAuthUser()` directly in route handlers — use the `require*` wrappers from `@/lib/api/requireAuth` and `@/lib/api/requireAdmin`.
+- [ ] Use the narrowest suitable `require*` guard for required-auth routes. Human-only mutations should use `requireHumanSession()` or `requireHumanSessionWithCharacter()` so bot tokens are rejected.
+- [ ] Optional-auth public reads may use `getAuthUser()` and treat `null` as a guest. Required-auth and mutating routes should use a `require*` wrapper.
 
 | Route type         | Correct guard                       | Wrong pattern                            |
 | ------------------ | ----------------------------------- | ---------------------------------------- |
 | Admin route        | `requireAdmin()`                    | `getAuthUser()` + `if (!user?.isAdmin)`  |
-| Player (basic)     | `requireBasicAuth()`                | `getAuthUser()` + `if (!user)`           |
+| Player (basic)     | `requireBasicAuth()`                | Manual required-auth branching           |
 | Player (character) | `requireAuthWithCharacter()`        | `requireAuth()` + manual character check |
+| Human session      | `requireHumanSession*()`            | Token-capable guard on human-only write  |
+| Moderator          | `requireModerator()`                | Manual role check                        |
+| Bot token          | `requireBotToken()`                 | Ad hoc header parsing                    |
 | Cron route         | `requireCron(request)` → return 401 | No check / JWT check                     |
 
 ### 2. Error Handling
@@ -107,7 +111,7 @@ export async function POST(request: Request) {
 - [ ] Response never includes `passwordHash`, `password`, or any field beginning with those names.
 - [ ] Response never includes auth secrets, cron secrets, or environment variable values.
 - [ ] Admin-only fields (IP address, fingerprint, ban reason, `isAdmin`) are excluded from player-facing responses.
-- [ ] `handleRouteError` gates stack trace inclusion on `NODE_ENV === "development"` — do not bypass this.
+- [ ] `handleRouteError` captures unhandled failures with Sentry and `alertOps`. Development responses may include `error.message`; stack traces remain server-side.
 
 ---
 
@@ -126,14 +130,18 @@ export async function POST(request: Request) {
 
 ## Auth Helper Quick Reference
 
-| Helper                          | Import                           | Returns                                  | When to use                   |
-| ------------------------------- | -------------------------------- | ---------------------------------------- | ----------------------------- |
-| `requireAuth()`                 | `@/lib/api/requireAuth`          | `{ ok, user }` with optional character   | Most player routes            |
-| `requireBasicAuth()`            | `@/lib/api/requireAuth`          | `{ ok, user }` without character lookup  | Fast auth-only checks         |
-| `requireAuthWithCharacter()`    | `@/lib/api/requireAuth`          | `{ ok, user }` with guaranteed character | Routes needing character data |
-| `requireAdmin()`                | `@/lib/api/requireAdmin`         | `{ ok, admin }`                          | All `/api/admin/*` routes     |
-| `requireAdminOrApiKey(request)` | `@/lib/api/requireAdminOrApiKey` | `{ ok, via }`                            | Script/automation routes      |
-| `requireCron(request)`          | `@/lib/api/requireCron`          | `boolean`                                | Cron-triggered routes         |
+| Helper                                          | Import                           | Returns                                  | When to use                   |
+| ----------------------------------------------- | -------------------------------- | ---------------------------------------- | ----------------------------- |
+| `requireAuth()`                                 | `@/lib/api/requireAuth`          | `{ ok, user }` with optional character   | Most player routes            |
+| `requireBasicAuth()`                            | `@/lib/api/requireAuth`          | `{ ok, user }` without character lookup  | Fast auth-only checks         |
+| `requireAuthWithCharacter()`                    | `@/lib/api/requireAuth`          | `{ ok, user }` with guaranteed character | Routes needing character data |
+| `requireHumanSession()`                         | `@/lib/api/requireAuth`          | Authenticated human session              | Human-only mutations          |
+| `requireHumanSessionWithCharacter()`            | `@/lib/api/requireAuth`          | Human session with character             | Human-only character writes   |
+| `requireAdmin()`                                | `@/lib/api/requireAdmin`         | `{ ok, admin }`                          | All `/api/admin/*` routes     |
+| `requireModerator()`                            | `@/lib/api/requireModerator`     | Moderator authorization                  | Moderator routes              |
+| `requireBotToken()` / `requirePublicBotToken()` | `@/lib/api/requireBotToken`      | Bot authorization                        | Bot-facing routes             |
+| `requireAdminOrApiKey(request)`                 | `@/lib/api/requireAdminOrApiKey` | `{ ok, via }`                            | Script/automation routes      |
+| `requireCron(request)`                          | `@/lib/api/requireCron`          | `boolean`                                | Cron-triggered routes         |
 
 All `require*` helpers return `{ ok: false; response }` on failure. Pattern:
 
@@ -145,6 +153,10 @@ if (!auth.ok) return auth.response;
 ---
 
 ## Audit History
+
+These dated route counts and findings are snapshots, not a current assertion
+that every route remains covered. The repository has grown substantially since
+the 2026 audits.
 
 | Date       | Auditor                  | Findings                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ---------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

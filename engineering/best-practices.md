@@ -116,11 +116,17 @@ const threshold = Math.ceil((2 / 3) * memberCount);
 
 Every turn phase is wrapped in `runPhase()` which catches errors, logs to Sentry, and appends to `warnings` without halting subsequent phases. Adding a phase outside this wrapper risks crashing the entire turn on a single failure.
 
-**Reference:** `runPhase()` in `src/simulation/phases/turnPhaseRegistry.ts`.
+**Reference:** `runPhase()` in
+`src/simulation/engine/turnPhaseRuntime.ts`. The phase registry sequences
+adapters that call `runtime.runPhase`.
 
 ### Group 7 ordering is strictly sequential
 
-Primary resolution → vote accumulation → timer advancement → snapshots → general resolution → leadership vacate. Reordering or parallelizing within Group 7 produces incorrect election results.
+Group 7 (`electionResolutionAndGovernment`) is strictly sequential: candidate
+party sweep, primary resolution, vote accumulation, campaign-spend reset,
+election timers, primary snapshots, general resolution, resolved-Support
+cleanup, leadership vacate, then post-election government formation.
+Reordering or parallelizing these phases produces incorrect results.
 
 ---
 
@@ -143,7 +149,9 @@ for (const state of states) {
   // ...
 }
 if (skipped > 0) {
-  console.warn(`[DemographicEffects] Skipped ${skipped} states with missing demographics`);
+  console.warn(
+    `[DemographicEffects] Skipped ${skipped} states with missing demographics`,
+  );
 }
 ```
 

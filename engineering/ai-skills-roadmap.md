@@ -3,10 +3,18 @@
 > Audit of reusable AI skills for the A House Divided repository.
 > Created 2026-03-23. Updated 2026-05-12 after skill-behavior cleanup.
 
+> **Historical inventory:** The public AHDGame repository no longer contains
+> the `.claude/skills/`, `.agents/skills/`, or
+> `docs/engineering/prompts/` trees listed below. This page preserves an older
+> internal tooling audit and is not a catalogue of capabilities available in a
+> current checkout. Use `AGENTS.md`, package scripts, and the living engineering
+> pages instead.
+
 ## Executive Summary
 
-The repo has 13 tracked Claude skills in `.claude/skills/` and one
-Codex-visible project skill in `.agents/skills/`. The current priority is not
+At the time of this audit, the internal repo had 13 tracked Claude skills in
+`.claude/skills/` and one Codex-visible project skill in `.agents/skills/`. The
+priority recorded then was not
 more skills; it is keeping existing skills source-of-truth driven, low-ceremony,
 and aligned with actual package scripts and architecture.
 

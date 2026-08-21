@@ -3,6 +3,11 @@
 > Guidelines for maintainability and discoverability in A House Divided.
 > Last updated: 2026-03-23
 
+> **Accuracy note, 2026-08-21:** Section 2 records the files and directories
+> that existed during the original audit. Some of those internal docs and skill
+> trees are not present in the current public AHDGame checkout. Sections 3 to 5
+> describe the current naming conventions.
+
 ---
 
 ## 1. Summary
@@ -26,21 +31,21 @@ This document captures naming conventions, explains confusing directory pairs, a
 
 ### 2.2 Corrected in This Audit
 
-| Location                                    | Change                                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `claude.md`                                 | Updated `election/` → `electionEngine/` + `elections/` in project structure and vote-distribution path  |
-| `docs/engineering/prompts/fix-bug.md`       | Fixed `election/voteDistribution.ts` → `electionEngine/voteDistribution.ts`                             |
-| `docs/design/demographics.md`               | Fixed stale `elections/electionEngine.ts` → `seeds/stateDemographics.ts` for `computeLiveGroupTurnouts` |
-| `docs/archive/wiki-content/demographics.md` | Same fix as above                                                                                       |
+| Location                                    | Change                                                                                                                |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `claude.md`                                 | Updated `election/` → `electionEngine/` + `elections/` in project structure and vote-distribution path                |
+| `docs/engineering/prompts/fix-bug.md`       | Fixed `election/voteDistribution.ts` → `electionEngine/voteDistribution.ts`                                           |
+| `docs/design/demographics.md`               | Fixed stale `elections/electionEngine.ts` → `seeds/stateDemographics.ts` for `computeLiveGroupTurnouts`               |
+| `docs/archive/wiki-content/demographics.md` | Same fix as above                                                                                                     |
 | `docs/engineering/repo-operating-map.md`    | Marked P1 item 3 (stale root debug files) as resolved, the files were removed; no `scripts/archive/` directory exists |
 
 ### 2.3 Deferred (Low Confidence or High Churn)
 
-| Item                              | Reason                                                                                                                                                                |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dual `candidateEnrichment.ts`** | One in `electionEngine/` (DB-fetch for vote calc), one in `elections/` (in-memory for API). Different roles; clarifying comment in each file is preferable to rename. |
-| **Seed script naming**            | `seedBudgets.ts` (camelCase, lives in `src/app/api/admin/seed/handlers/`) vs `seed-*.ts` (kebab-case in `scripts/`). Low impact.                                      |
-| **`src/lib/data/`**               | 8 files of historical election-results reference data (`1952ElectionResults.ts` through `2024ElectionResults.ts`, plus `historicalPresidentialMargins.ts`). Could move to `constants/` but is reference data, not tunables. Low impact.                                                     |
+| Item                              | Reason                                                                                                                                                                                                                                  |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dual `candidateEnrichment.ts`** | One in `electionEngine/` (DB-fetch for vote calc), one in `elections/` (in-memory for API). Different roles; clarifying comment in each file is preferable to rename.                                                                   |
+| **Seed script naming**            | `seedBudgets.ts` (camelCase, lives in `src/app/api/admin/seed/handlers/`) vs `seed-*.ts` (kebab-case in `scripts/`). Low impact.                                                                                                        |
+| **`src/lib/data/`**               | 8 files of historical election-results reference data (`1952ElectionResults.ts` through `2024ElectionResults.ts`, plus `historicalPresidentialMargins.ts`). Could move to `constants/` but is reference data, not tunables. Low impact. |
 
 ---
 
@@ -92,19 +97,19 @@ This document captures naming conventions, explains confusing directory pairs, a
 | ---------------------- | ----------------------------------------------------------- | -------------------------------------------- |
 | `src/lib/constants/`   | App-only config, labels, tunables                           | `countries.ts`, `partyOrg.ts`, `turnTime.ts` |
 | `shared/constants/`    | Values needed by both `scripts/` and `src/`                 | `formulas.ts`, `legislation.ts`              |
-| `src/lib/constants.ts` | Barrel + US visual assets (STATE_IMAGES, PARTY_LOGOS, etc.) | 47+ import sites, do not move               |
+| `src/lib/constants.ts` | Barrel + US visual assets (STATE_IMAGES, PARTY_LOGOS, etc.) | 47+ import sites, do not move                |
 
 ---
 
 ## 4. Hard-to-Discover Utilities
 
-| Utility              | Location                                                                          | Purpose                                   |
-| -------------------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
-| Mock DB for tests    | `src/lib/test-utils/mockDb.ts`                                                    | Vitest mock with chainable collection API |
-| Auth helpers         | `src/lib/api/requireAuth.ts`, `requireAdmin.ts`, etc.                             | See `claude.md` auth table                |
-| Parse JSON body      | `src/lib/api/validate.ts` → `parseJsonBody`                                       | Zod validation for route bodies           |
-| Country config       | `src/lib/constants/countries.ts` → `getCountryConfig`, `getMajorPartiesForRegion` | No hardcoded country literals             |
-| Script DB connection | `scripts/utils/db.ts` → `connectDb`, `closeDb`                                    | For scripts only, not `getDb()`          |
+| Utility              | Location                                                                          | Purpose                                             |
+| -------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Mock DB for tests    | `src/lib/test-utils/mockDb.ts`                                                    | Vitest mock with chainable collection API           |
+| Auth helpers         | `src/lib/api/requireAuth.ts`, `requireAdmin.ts`, etc.                             | See [API Route Checklist](./api-route-checklist.md) |
+| Parse JSON body      | `src/lib/api/validate.ts` → `parseJsonBody`                                       | Zod validation for route bodies                     |
+| Country config       | `src/lib/constants/countries.ts` → `getCountryConfig`, `getMajorPartiesForRegion` | No hardcoded country literals                       |
+| Script DB connection | `scripts/utils/db.ts` → `connectDb`, `closeDb`                                    | For scripts only, not `getDb()`                     |
 
 ---
 
@@ -133,11 +138,11 @@ This document captures naming conventions, explains confusing directory pairs, a
 
 ## 7. Remaining Risks / Deferred Issues
 
-| Risk                                                               | Mitigation                                                                                                |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| New contributors may still confuse `electionEngine` vs `elections` | Point to this doc and `repo-operating-map.md` §5 Quick Reference                                          |
+| Risk                                                               | Mitigation                                                                                               |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| New contributors may still confuse `electionEngine` vs `elections` | Point to this doc and `repo-operating-map.md` §5 Quick Reference                                         |
 | Seed data split (`scripts/seeds/` vs `src/lib/seeds/`)             | Documented in `repo-operating-map.md` P1 #1, boundary: scripts = DB seeding; src/lib = runtime constants |
-| Plan sprawl (the design archive, `docs/superpowers/plans/`)             | Active work: `docs/superpowers/plans/`; archive: the design archive                                    |
+| Plan sprawl (the design archive, `docs/superpowers/plans/`)        | Active work: `docs/superpowers/plans/`; archive: the design archive                                      |
 
 ---
 
@@ -145,7 +150,7 @@ This document captures naming conventions, explains confusing directory pairs, a
 
 | Topic                  | Location                     |
 | ---------------------- | ---------------------------- |
-| Project structure      | `claude.md`                  |
+| Project structure      | AHDGame `AGENTS.md`          |
 | Blast radius and zones | `repo-operating-map.md`      |
 | Layering and imports   | `architecture-boundaries.md` |
-| Design specs           | `docs/design/`               |
+| Design specs           | ahd-docs `design/`           |

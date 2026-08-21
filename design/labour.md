@@ -4,7 +4,6 @@ The labour system models per-sector wage decisions as a first-class economic and
 
 **Entry point:** `src/lib/labour/featureFlag.ts` (`labourSystemMode`, `isLabourWagesEnabled()`/`isLabourMacroEnabled()`/`isLabourUnionsEnabled()`/`isLabourFullMode()`)
 
-
 ## Overview
 
 - **Scope:** Per-`CorporateSector` wage economics, national/state macro metrics, NPC + player-run unions, union-law legislation
@@ -16,13 +15,13 @@ The labour system models per-sector wage decisions as a first-class economic and
 
 One graduated flag on `GameConfig`, each tier a strict superset of the previous. Production seed is `"full"` (`gameConfig.labourSystemMode`). `getLabourSystemMode()` returns `"off"` only when the field is absent or unknown.
 
-| Tier | Unlocks |
-| --- | --- |
-| `off` | Nothing, legacy flat `maintenance` cost, no labour fields read or written |
-| `wages` | Explicit per-sector labor cost (profit-invariant at baseline), CEO wage-level slider (0.8×, 1.5×), minimum wage (Kaitz ratio), automation tech effect |
-| `macro` | Wage decisions feed `medianIncome` (Phillips-curve passthrough) and `unemploymentRate` (wage + automation pressure terms), and modulate international migration pull |
-| `unions` | NPC-driven per-sector `unionization` (0-100), `unionPremium` labor-cost surcharge, strikes (trigger/concession/waitout) |
-| `full` | Union-busting, union-law legislation, and the entire player-run union layer (found/organize/raid/vote-leader/strike/bargain/demand-wage/dues/services/political-contributions/endorse) |
+| Tier     | Unlocks                                                                                                                                                                                |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off`    | Nothing, legacy flat `maintenance` cost, no labour fields read or written                                                                                                              |
+| `wages`  | Explicit per-sector labor cost (profit-invariant at baseline), CEO wage-level slider (0.8×, 1.5×), minimum wage (Kaitz ratio), automation tech effect                                  |
+| `macro`  | Wage decisions feed `medianIncome` (Phillips-curve passthrough) and `unemploymentRate` (wage + automation pressure terms), and modulate international migration pull                   |
+| `unions` | NPC-driven per-sector `unionization` (0-100), `unionPremium` labor-cost surcharge, strikes (trigger/concession/waitout)                                                                |
+| `full`   | Union-busting, union-law legislation, and the entire player-run union layer (found/organize/raid/vote-leader/strike/bargain/demand-wage/dues/services/political-contributions/endorse) |
 
 ## Data model
 
@@ -105,7 +104,7 @@ Per-sector `unionization` (0-100) drifts each turn toward a condition-driven tar
 
 Per-sector bounded-duration event (`src/lib/labour/strikes.ts`). Triggers when `unionization > STRIKE_UNIONIZATION_THRESHOLD` (55, calibrated well under `unionizationDriftTarget()`'s composed ceiling, see the calibration note below) **and** a slow-trending `workerExpectationIndex` lags the current real wage by more than `STRIKE_EXPECTATION_GAP_THRESHOLD` (0.12). While active: revenue ×0.75 (`STRIKE_REVENUE_THROTTLE`), margin −8pp. Resolves via **concession** (gap closes to ≤0.04) or **wait-it-out** (`STRIKE_DURATION_TURNS`=4 turns, unionization +10). Cooldown (`STRIKE_COOLDOWN_TURNS`=12) is set on both resolution paths, that, plus the trigger/concession hysteresis gap and the slow expectation index, is what prevents an always-strike/never-strike equilibrium.
 
-**Calibration note:** the trigger/gap pair is deliberately reachable through *purely political* levers (union-law bias, membership pressure) with zero real wage or employment stress, not just economic ones, this is intended (see `strikes.ts`'s docblock for the exact composed-ceiling math), not a miscalibration. No single factor alone crosses the threshold.
+**Calibration note:** the trigger/gap pair is deliberately reachable through _purely political_ levers (union-law bias, membership pressure) with zero real wage or employment stress, not just economic ones, this is intended (see `strikes.ts`'s docblock for the exact composed-ceiling math), not a miscalibration. No single factor alone crosses the threshold.
 
 ## Phase 7, union-busting + union law (`labourSystemMode >= "full"`)
 
@@ -121,7 +120,7 @@ Under "union dues v1" a union is no longer a single seeded singleton per (countr
   - **Unrepresented sector**, a straight organizing drive; the first drive claims `representingUnionId`, so the shop's workers count as members immediately.
   - **Represented by the same union**, reinforcement; pushes `unionization` further, no ownership change.
   - **Represented by a rival union**, a raid. Winner-takes-all: the attacker must out-poll the incumbent's approval by at least `RAID_APPROVAL_EDGE_REQUIRED`=5 points (`raidSucceeds()`), no randomness. A failed raid still costs the treasury/action spend.
-  - No decay is applied by the action itself, `trendUnionization` (turn engine) walks unrepresented drift back toward its target every turn, so a drive is a temporary push, not a permanent purchase.
+  - No decay is applied by the action itself. The first successful drive sets `representingUnionId`; after representation, `trendUnionization` moves the shop toward that union's approval rather than back to the NPC economic target.
 - **`voteUnionLeader`** (`src/lib/unions/commands/voteUnionLeader.ts`), leadership is elected, not first-come-claimed, once `isUnionLeadershipElectionOpen()` says the union is strong enough (`LEADERSHIP_ELECTION_MIN_STRENGTH`). Organizers (`UnionOrganizer`, built from prior `organizeSector` drives) vote for a candidate; plurality leader becomes `pendingLeaderCharacterId`. Contests stay open even while a president sits, mirroring corporation CEO votes.
 - **`strike`** (`src/app/api/unions/[id]/strike/route.ts`), force-starts a strike on every matching sector at/above `STRIKE_CALL_MIN_UNIONIZATION`=30 not already active/cooling; cost scales per matched sector (`strikeCallCost`, `UNION_STRIKE_CALL_COOLDOWN_TURNS`=8 cooldown); computes each sector's `workerExpectationIndex` at call time so the strike doesn't spuriously auto-resolve as an immediate concession.
 - **`bargaining`** (`src/lib/unions/bargaining.ts`, `src/lib/unions/commands/bargaining.ts`), a formal collective-bargaining campaign, running over `BARGAINING_DEADLINE_TURNS`=8 turns with an escalation ladder (`overtime_ban` → `selective_strike` → `industry_strike`, gated on rising member support thresholds 35/50/65) and an optional mediation window. A ratified settlement becomes a `CollectiveAgreement` lasting `AGREEMENT_DURATION_MIN_TURNS`=24 to `AGREEMENT_DURATION_MAX_TURNS`=192 turns.

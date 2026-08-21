@@ -14,7 +14,9 @@ env.allowRemoteModels = !fs.existsSync(path.join(XENOVA_CACHE, MODEL_ID));
 
 const SRC = process.env.DOCS_SRC || new URL("..", import.meta.url).pathname;
 const GAME = process.env.GAME_REPO || "/root/projects/AHDGame";
+const GAME_REF = process.env.GAME_REF || "origin/development";
 const OUT = process.env.DOCS_OUT || "/srv/lakeside-docs";
+const GAME_SITE = "https://www.ahousedividedgame.com";
 const LOGO_SRC = `${GAME}/public/ahd-logo.png`;
 const WIKI_JSON = "/tmp/wiki-pages.json";
 const FILE_META_CACHE = new URL("./.file-meta-cache.json", import.meta.url).pathname;
@@ -35,9 +37,9 @@ const WIKI_PAGES = JSON.parse(fs.readFileSync(WIKI_JSON, "utf8"));
 let GAME_HEAD = "";
 let FILE_SET = new Set();
 try {
-  GAME_HEAD = execSync(`git -C "${GAME}" rev-parse origin/main`, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  GAME_HEAD = execSync(`git -C "${GAME}" rev-parse "${GAME_REF}"`, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
   FILE_SET = new Set(
-    execSync(`git -C "${GAME}" ls-tree -r --name-only origin/main`, { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 32e6 })
+    execSync(`git -C "${GAME}" ls-tree -r --name-only "${GAME_REF}"`, { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 32e6 })
       .toString().split("\n").filter(Boolean),
   );
 } catch (e) {
@@ -98,7 +100,7 @@ const DESIGN_GROUPS = [
   ["Government & Executive", ["cabinet", "uk-cabinet", "parliamentary-government", "ruling-party-confidence", "uk-pm-no-confidence", "uk-devolution-policy", "uk-jp-devolved-executives", "government-approval", "state-level-power", "one-party-states-as-shipped", "constitutional-convention", "ministerial-orders"]],
   ["Economy & Finance", ["economic-systems", "capacity-economy-as-shipped", "monetary-system-as-shipped", "corporations", "corporate-mergers-and-acquisitions", "subsidiary-corporations", "stock-market", "corporate-bond-defaults", "sovereign-bonds", "imf-corporate-bailout", "imf-sovereign-facility", "commodities", "commodity-pricing-v2", "currency-exchange", "money-supply-and-quantitative-easing", "interbank-and-bank-resolution", "price-indexing-and-repricing", "national-budget", "budget-calculations", "subsidies", "tariffs", "labour", "pensions", "resources", "formula-deep-dive"]],
   ["Countries", ["china", "japan", "united-kingdom"]],
-  ["World & Simulation", ["crisis-system", "national-metrics", "npp-system", "npp-opponents", "core-systems", "turn-processing", "conflict-system-as-shipped", "bloc-alignment-and-spheres", "defence-procurement"]],
+  ["World & Simulation", ["world-and-era-systems-as-shipped", "crisis-system", "national-metrics", "npp-system", "npp-opponents", "core-systems", "turn-processing", "conflict-system-as-shipped", "bloc-alignment-and-spheres", "defence-procurement"]],
   ["Platform", ["technical-architecture", "api-conventions", "api-middleware", "mail", "wiki", "wiki-system", "achievements", "achievements-service", "map-services", "loading-states", "moderator-accounts", "roadmap"]],
 ];
 const ENGINEERING_GROUPS = [
@@ -295,7 +297,7 @@ for (const rel of allSrcFiles) {
   let raw = "";
   try {
     raw = execSync(
-      `git -C "${GAME}" log -1 --format='%cI%x09%h%x09%s' origin/main -- ":(literal)${rel}"`,
+      `git -C "${GAME}" log -1 --format='%cI%x09%h%x09%s' "${GAME_REF}" -- ":(literal)${rel}"`,
       { stdio: ["ignore", "pipe", "ignore"] },
     ).toString().trim();
   } catch {}
@@ -1119,7 +1121,12 @@ for (let i = 0; i < pages.length; i++) {
     .replace(/href="\/wiki\/([\w-]+)"/g, (m, s) => byWikiSlug.has(s) ? `href="/wiki/${s}.html"` : `href="https://www.ahousedividedgame.com/wiki/${s}"`)
     .replace(/href="(\.\/)?([\w-]+)\.md(#[\w-]*)?"/g, (m, _d, name, h) =>
       byDocFile.has(name + ".md") ? `href="${byDocFile.get(name + ".md").href}${h || ""}"` : m)
-    .replace(/href="\.\.\/(design|engineering|api)\/([\w-]+)\.md(#[\w-]*)?"/g, 'href="/$1/$2.html$3"');
+    .replace(/href="\.\.\/(design|engineering|api)\/([\w-]+)\.md(#[\w-]*)?"/g, 'href="/$1/$2.html$3"')
+    .replace(/href="(\/[^"]*)"/g, (m, href) => {
+      const pathname = href.split(/[?#]/, 1)[0];
+      if (pathname === "/" || pathname.endsWith(".html")) return m;
+      return `href="${GAME_SITE}${href}"`;
+    });
   html = wrapGloss(html);
   html = wrapSrc(html, p.srcFiles);
   const h2s = [...p.md.matchAll(/^##\s+(.+)$/gm)].map(m => m[1].replace(/[*`]/g, ""));

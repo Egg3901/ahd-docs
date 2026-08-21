@@ -1,20 +1,20 @@
 # AI Development Workflow for A House Divided
 
-> Shared guide for Claude Code and Cursor usage in this repo.
-> Last updated: 2026-03-23
+> Shared guide for AI-assisted work in the public AHDGame repository.
+> Accuracy pass: 2026-08-21
 
 ---
 
 ## 1. Before You Start
 
-Every AI session — Claude Code or Cursor — must begin with orientation:
+Every AI session must begin with orientation:
 
-1. **Read `claude.md`** — the primary AI contract. It defines tech stack, code patterns, high-risk areas, scope control, and validation requirements.
-2. **Read `docs/engineering/repo-operating-map.md`** — structural map of the codebase with blast-radius tiers.
-3. **Read the relevant design doc** in `docs/design/` before touching any game system. The system-to-doc table is in `claude.md`.
-4. **Check related tasks only when relevant** - if the user asks for task triage, gives a task ID, or says to track work, use the `ahd-task-manager` skill or query `GET /api/admin/tasks?status=pending&status=in_progress`.
+1. **Read `AGENTS.md`** in AHDGame for the repository contract, branch flow, coding standards, and validation requirements.
+2. **Read [Repo Operating Map](./repo-operating-map.md)** for the structural map and blast-radius tiers.
+3. **Read the relevant design page** on docs.lakesidegames.net before touching a game system. Design and engineering guides are maintained in ahd-docs, not under `AHDGame/docs/design/`.
+4. **Check related tasks only when relevant**. Do not mutate external task systems unless the user asks for task tracking or triage.
 
-Do not skip orientation. This is a live multiplayer simulation with 65+ collections and 40+ turn phases — not a generic CRUD app. Uninformed changes silently corrupt game state.
+Do not skip orientation. This is a live multiplayer simulation with many stateful turn phases and collections, not a generic CRUD app. Uninformed changes can silently corrupt game state.
 
 ---
 
@@ -24,38 +24,28 @@ Do not skip orientation. This is a live multiplayer simulation with 65+ collecti
 
 Always investigate before implementing. The goal is to understand the system you're touching, its invariants, and its blast radius.
 
-**Step 1 — Read the design doc.** Every major system has one in `docs/design/`. If the doc exists, it is the source of truth for intended behavior. Do not contradict it.
+**Step 1 - Read the design page.** Major systems are documented in ahd-docs. Treat source code as authoritative for shipped behavior and reconcile any discrepancy instead of assuming the page is current.
 
-**Step 2 — Read the code entry point.** The `claude.md` system table maps systems to their entry files:
+**Step 2 - Read the code entry point.** Common starting points are:
 
-| System          | Entry point                          |
-| --------------- | ------------------------------------ |
-| Elections       | `src/lib/turn/electionResolution.ts` |
-| Turn processing | `src/lib/turnSystem.ts`              |
-| NPP behavior    | `src/lib/turn/nppBehavior.ts`        |
-| Legislation     | `src/lib/turn/billLifecycle.ts`      |
-| Demographics    | `src/lib/demographicEffects.ts`      |
-| Campaigns       | `src/lib/turn/campaignTurn.ts`       |
-| Country config  | `src/lib/constants/countries.ts`     |
-| Policy effects  | `src/lib/turn/policyEffects.ts`      |
+| System          | Entry point                                                          |
+| --------------- | -------------------------------------------------------------------- |
+| Elections       | `src/lib/turn/electionResolution.ts`                                 |
+| Turn processing | `src/lib/turnSystem.ts`                                              |
+| NPP behavior    | `src/lib/turn/nppBehavior.ts`                                        |
+| Legislation     | `src/lib/billLifecycle.ts` -> `src/lib/turn/billLifecycle/engine.ts` |
+| Demographics    | `src/lib/demographicEffects.ts`                                      |
+| Campaigns       | `src/lib/turn/campaignTurn.ts`                                       |
+| Country config  | `src/lib/constants/countries.ts`                                     |
+| Policy effects  | `src/lib/policyEffects.ts`                                           |
 
 **Step 3 — Trace the data flow.** Identify which collections are read and written. Check `src/lib/db/types/` for the document shapes involved.
 
 **Step 4 — Find existing tests.** Look for `*.test.ts` files co-located with the code. These show expected behavior and edge cases the original author considered.
 
-**Step 5 - Check for related skills.** Project skills live in `.claude/skills/` and, for Codex-visible skills, `.agents/skills/`. Use the relevant skill when it materially reduces risk:
-
-| Area                                                                             | Skill                |
-| -------------------------------------------------------------------------------- | -------------------- |
-| Turn processing (`turnSystem.ts`, `cron.ts`, `src/lib/turn/`, `src/simulation/`) | `ahd-turn-system`    |
-| Country-specific logic                                                           | `ahd-country-system` |
-| API routes                                                                       | `ahd-api-route`      |
-| Auth/security changes                                                            | `ahd-security-audit` |
-| UI components                                                                    | `ahd-design-system`  |
-| Tests                                                                            | `ahd-test-patterns`  |
-| Release/changelog/design-doc sync                                                | `ahd-release`        |
-| Commits                                                                          | `ahd-commit`         |
-| Task tracking when explicitly requested                                          | `ahd-task-manager`   |
+**Step 5 - Use only available tooling.** The public AHDGame repository does not
+ship `.claude/skills/` or `.agents/skills/`. Do not direct contributors to
+project-local skills that are absent from their checkout.
 
 ### 2.2 Citation Requirements
 
@@ -64,7 +54,7 @@ When reporting investigation findings, always cite:
 - **File path and line number** — e.g., `src/lib/turnSystem.ts:142`
 - **Function or symbol name** — e.g., `runElectionResolution()`
 - **Collection names** — e.g., writes to `electionCandidates`, reads from `elections`
-- **Design doc** — e.g., "per `docs/design/elections.md`, primaries must resolve before generals"
+- **Design page** - e.g., "per the Elections design page, primaries must resolve before generals"
 
 Do not make claims about system behavior without pointing to the code or doc that supports them. Vague statements like "the election system handles this" are not acceptable — name the function.
 
@@ -80,7 +70,7 @@ Structure investigation summaries as:
 - `path/to/file.ts` — [what it does]
 - `path/to/other.ts` — [what it does]
 
-**Design doc:** `docs/design/relevant-doc.md`
+**Design page:** `design/relevant-doc.md` in ahd-docs
 
 **Current behavior:**
 [What the code actually does, with file:line citations]
@@ -113,7 +103,7 @@ Structure investigation summaries as:
 2. **Use required skills.** If your change touches a skill-gated area (see table above), invoke the skill before making changes.
 3. **Respect scope control.** Only modify files directly relevant to the task. Do not refactor adjacent code, rename navigation labels, or add new game mechanics without explicit instruction.
 4. **No hardcoded country literals.** The custom ESLint rule `no-country-literals` forbids bare country-string comparisons outside approved source-of-truth files and tests. Use `getCountryConfig(countryId)` and other helpers from `src/lib/constants/countries.ts`.
-5. **API routes follow the standard pattern.** See the API route template in `claude.md`: `requireAuth()` → `parseJsonBody()` → logic → `handleRouteError()`.
+5. **API routes follow the standard pattern.** See [API Route Checklist](./api-route-checklist.md): a suitable `require*` guard, `parseJsonBody()`, domain logic, then `handleRouteError()`.
 6. **Next.js 16 params are Promises.** Always `await params` in dynamic route handlers.
 
 ### 3.2 High-Risk Change Checklist
@@ -161,9 +151,13 @@ npm run architecture:audit
 npm run test:run
 ```
 
-CI also runs **`npm run test:coverage`** and **`npm audit --audit-level=high`** — see `docs/engineering/developer-workflow.md`.
+CI runs lint, formatting, type checking, the advisory architecture audit,
+`npm run test:run`, and a separate `npm run verify:build` job. Coverage and
+`npm audit` are optional local checks, not current CI steps.
 
-For commit preparation, use the `ahd-commit` skill. Run `npm run build` in addition when the change can affect the production bundle, routing, server/client boundaries, environment handling, or build-time imports.
+Run `npm run verify` before committing. Run `npm run verify:build` as well when
+the change can affect the production bundle, routing, server/client boundaries,
+environment handling, or build-time imports.
 
 ### 4.2 When Tests Must Be Added
 
@@ -216,10 +210,10 @@ const skipIfNoDb = !process.env.MONGODB_URI ? describe.skip : describe;
 
 ### 5.1 When Docs Must Be Updated
 
-- **CHANGELOG.md** - update when the user asks for changelog/release work or when release documentation is in scope for a meaningful user-visible feature/fix.
-- **PUBLIC_CHANGELOG.md** - update for player-facing release notes only. Uses category headers (`### Mechanics`, `### UI`, etc.). See the `ahd-release` skill.
-- **Design docs** — update `docs/design/` if behavior changes contradict or extend the existing doc. Do not leave stale design docs.
-- **`claude.md`** — update if you add a new system table entry, change auth patterns, or modify turn processing structure.
+- **Development changelog** - run `npm run changelog:new -- "Title"` to create a post under `content/changelog/dev/`. Root `CHANGELOG.md` is an index.
+- **Player changelog** - use `content/changelog/public/` when player-facing release notes are in scope.
+- **Design docs** - update the corresponding ahd-docs page if behavior changes contradict or extend it. Do not create an `AHDGame/docs/design/` mirror.
+- **`AGENTS.md`** - update only when repository-wide agent or contributor rules change.
 
 ### 5.2 When Docs Should Not Be Updated
 
@@ -231,7 +225,7 @@ const skipIfNoDb = !process.env.MONGODB_URI ? describe.skip : describe;
 
 When you spot an issue that's out of scope:
 
-1. **Log it as a task only if requested** via `ahd-task-manager` (Claude Code), or note it for the user to create manually.
+1. **Log it as a task only if requested**, using whatever task integration is available in the current environment.
 2. **Add an inline comment** only if the issue is non-obvious and could mislead future editors
 3. **Mention it in your session summary**
 
@@ -257,7 +251,7 @@ Categories: `bug`, `design`, `process`, `technical`, `general`.
 
 ### Decision tree:
 
-1. **Check the design doc** — if `docs/design/` covers it, follow the doc
+1. **Check the design page** - if ahd-docs covers it, compare the documented intent with current source
 2. **Check existing code** — find the nearest similar implementation and match it
 3. **Ask the user** — if neither doc nor code clarifies, ask rather than guess
 4. **Flag risks** — if proceeding anyway, state the risk explicitly
@@ -268,7 +262,7 @@ Categories: `bug`, `design`, `process`, `technical`, `general`.
 I found two possible approaches for [X]:
 
 1. [Approach A] — matches the pattern in `src/lib/turn/campaignTurn.ts:85`
-2. [Approach B] — aligns with `docs/design/elections.md` section on primaries
+2. [Approach B] - aligns with the Elections design page section on primaries
 
 The design doc and code seem to disagree on [specific point].
 Which should I follow?
@@ -297,8 +291,8 @@ When ending a session or handing off to a new session (same human, different con
 
 **Incoming session must:**
 
-1. Read `claude.md` and `repo-operating-map.md`
-2. Check open tasks via `ahd-task-manager` only if continuing tracked work
+1. Read `AGENTS.md` and [Repo Operating Map](./repo-operating-map.md)
+2. Check external tasks only if continuing explicitly tracked work
 3. Review recent git log for context when useful: `git log --oneline -20`
 4. Read the handoff summary if provided
 
@@ -306,23 +300,18 @@ When ending a session or handing off to a new session (same human, different con
 
 When multiple developers use AI tools on the same repo:
 
-- **Use feature branches.** Never work directly on `development` or `master`.
+- **Use feature branches.** Never commit directly to `development`, `staging`, or `main`.
 - **Keep branches small and focused.** One task per branch.
 - **Commit before switching contexts.** Uncommitted work is invisible to the next person.
 - **Use the task system when it is in scope.** It persists across sessions and users, but unrelated discoveries should be summarized instead of silently added to the task database.
 - **Don't trust AI memory across sessions.** Each new context window starts fresh. The task system, design docs, and code comments are the durable record.
 
-### 7.3 Claude Code vs Cursor Differences
+### 7.3 Tool differences
 
-| Capability                        | Claude Code                                      | Cursor                                                      |
-| --------------------------------- | ------------------------------------------------ | ----------------------------------------------------------- |
-| Custom skills (`.claude/skills/`) | Invoked automatically via skill triggers         | Not available — follow skill SKILL.md instructions manually |
-| Task management                   | Use `ahd-task-manager` when explicitly requested | Query API manually or note tasks for later                  |
-| Commit validation                 | Use `ahd-commit` skill                           | Run `npm run verify` or the equivalent individual commands  |
-| File citations                    | Natural in responses                             | Use `@file` references                                      |
-| Multi-file edits                  | Sequential tool calls                            | Composer for multi-file changes                             |
-
-Both tools should follow the same investigation → implementation → validation → documentation workflow. The skills automate parts of it in Claude Code; in Cursor, the developer must ensure those steps happen manually.
+Tool-specific capabilities vary by environment, but the repository contract
+does not. Every tool should follow the same investigation, implementation,
+validation, and documentation workflow, and should cite source files for claims
+about current behavior.
 
 ---
 
@@ -376,4 +365,4 @@ Avoid these common mistakes in AI-assisted development on this repo:
 | Guessing game rules when the design doc is unclear          | Wrong guesses compound over hundreds of turns                              | Ask the user                                                                 |
 | Skipping `npm run test:run` because "it's just a UI change" | UI components can import logic that breaks                                 | Always run the full pipeline                                                 |
 | Creating new files instead of editing existing ones         | Causes file bloat, duplicates patterns                                     | Check if an existing file covers the domain                                  |
-| Committing without the local validation gate                | Bypasses type checking, linting, formatting, architecture audit, and tests | Use `ahd-commit` or run `npm run verify` manually                            |
+| Committing without the local validation gate                | Bypasses type checking, linting, formatting, architecture audit, and tests | Run `npm run verify`                                                         |

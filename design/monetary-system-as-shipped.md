@@ -96,7 +96,7 @@ Three caps bound borrowing, all in `src/lib/lineOfCredit/locMath.ts`. System wid
 
 ## Money supply aggregates
 
-`src/lib/moneySupply/calculate.ts` assembles M1 from every liquid pot: household, campaign, NPP, corporate, party, government, fund and organization balances. M2 adds household savings and `externalBroadMoney` (deposits belonging to the simulated population and businesses that live outside player documents). Bank reserves are tracked as a capacity measure and reported separately, never folded into M1 or M2. Negative and non finite components are normalized to zero before summing.
+`src/lib/moneySupply/calculate.ts` assembles M1 from every liquid pot: household, campaign, NPP, corporate, party, government, fund and organization balances. M2 adds household savings, `externalBroadMoney`, and bank deposits. Bank reserves are tracked as a capacity measure and reported separately. Negative and non finite components are normalized to zero before summing.
 
 Growth is annualized geometrically: `(closing / opening) ** (TURNS_PER_YEAR / turnsElapsed) - 1`. It returns null, not zero, when the base is missing or the window is shorter than `MIN_MONEY_GROWTH_BASE_TURNS = 12`. Annualizing a bootstrap rebase over two turns raises the ratio to the 24th power and produces meaningless percentages, and returning null (rather than 0) makes downstream consumers fall back to GDP growth instead of reading a false "money supply is frozen".
 

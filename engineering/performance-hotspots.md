@@ -1,12 +1,12 @@
 # Performance hot paths and efficiency notes
 
-This document captures **known high-impact execution paths**, **recent optimizations**, and **where deeper profiling belongs** for A House Divided. It complements `docs/engineering/repo-operating-map.md` and `claude.md`.
+This document captures **known high-impact execution paths**, **recent optimizations**, and **where deeper profiling belongs** for A House Divided. It complements [Repo Operating Map](./repo-operating-map.md) and `AGENTS.md` in AHDGame.
 
 ## Turn processing (`src/lib/turnSystem.ts`)
 
-- **Orchestrator:** `processTurn()` loads all `characters` once per turn (`find({})`), then runs ~105 `runPhase` calls across ~12 groups. That full scan is load-bearing for action refresh and fund generation; reducing it would require semantic changes (e.g. "active only" definitions) and broader tests.
+- **Orchestrator:** `processTurn()` loads all `characters` once per turn (`find({})`), then executes the adapters registered in `turnPhaseRegistry.ts` through the shared runtime. The registry changes frequently, so use it rather than a frozen phase count. The full character scan is load-bearing for action refresh and fund generation; reducing it would require semantic changes and broader tests.
 - **Game state:** `getGameState()` accepts an optional `Db` instance so callers that already have a connection avoid a redundant `getDb()` hop (same pool, fewer awaits). See `getGameState(db)` at `src/lib/turnSystem.ts`.
-- **Group 7 ordering:** Election phases (primary resolution → vote accumulation → timers → general resolution) must stay **strictly sequential**. Do not parallelize for speed without new correctness tests.
+- **Group 7 ordering:** Candidate party sweep, primaries, vote accumulation, campaign-spend reset, timers, primary snapshots, general resolution, Support cleanup, leadership vacate, and government formation must stay **strictly sequential**. Do not parallelize for speed without new correctness tests.
 
 ## Election resolution (`src/lib/turn/electionResolution.ts`)
 
@@ -29,11 +29,11 @@ This document captures **known high-impact execution paths**, **recent optimizat
 
 ## Benchmarking and profiling (recommended next steps)
 
-| Area                | Suggestion                                                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Area                | Suggestion                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Turn total duration | Log or trace phase timings in `processTurn` (already has `durationMs` on `TurnLog`), compare before/after in staging with production-like data volume |
-| MongoDB             | Atlas or `explain()` on `stateMetrics` / `states` with and without `countryIds` filter during peak election seasons                                    |
-| React               | Next.js devtools / React Profiler on dashboard and news feeds with many posts                                                                          |
+| MongoDB             | Atlas or `explain()` on `stateMetrics` / `states` with and without `countryIds` filter during peak election seasons                                   |
+| React               | Next.js devtools / React Profiler on dashboard and news feeds with many posts                                                                         |
 
 ## Hot paths to leave unchanged until tests improve
 

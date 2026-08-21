@@ -16,8 +16,10 @@ Federal revenue is calculated in `src/lib/budget/revenue.ts` → `calculateFeder
 // Revenue = sum of (tax base × tax rate) for each category
 const revenue = {
   incomeTax: taxBases.taxableIncome * taxRates.incomeTax,
-  domesticCorporateTax: taxBases.domesticCorporateProfits * taxRates.domesticCorporateTax,
-  foreignCorporateTax: taxBases.foreignCorporateProfits * taxRates.foreignCorporateTax,
+  domesticCorporateTax:
+    taxBases.domesticCorporateProfits * taxRates.domesticCorporateTax,
+  foreignCorporateTax:
+    taxBases.foreignCorporateProfits * taxRates.foreignCorporateTax,
   payrollTax: taxBases.wagesAndSalaries * taxRates.payrollTax,
   tariffs: taxBases.importValue * taxRates.tariffs,
   salesTax: taxBases.taxableSales * taxRates.salesTax,
@@ -32,7 +34,10 @@ const revenue = {
 
 ### Tax Bases
 
-Tax bases are stored on `FederalBudget` document and grown annually during fiscal year processing:
+Tax bases are stored on the `FederalBudget` document. Live wage, trade, and
+GDP rates grow them every turn through `processFiscalBaseGrowth`, applying
+1/48 of the annual rate per turn. The fiscal-year close does not add another
+annual growth jump.
 
 | Category                   | Description                                                  |
 | -------------------------- | ------------------------------------------------------------ |
@@ -50,9 +55,7 @@ Federal spending is calculated in `src/lib/budget/spending.ts` → `calculateFed
 ```typescript
 // Spending = enacted laws by category + state grants + debt interest
 const spending = {
-  byCategory: {
-    /* category totals from enactedLaws */
-  },
+  byCategory: {/* category totals from enactedLaws */},
   stateGrants: total,
   debtInterest: annualInterest,
   total: categoryTotal + stateGrants + debtInterest,
@@ -85,13 +88,55 @@ Credit rating and interest rates are calculated in `src/lib/budget/debt.ts`:
 
 ```typescript
 const DEBT_THRESHOLDS = [
-  { rating: "AAA", maxRatio: 0.6, interestRate: 0.02, gdpPenalty: 0, trustPenalty: 0 },
-  { rating: "AA", maxRatio: 0.8, interestRate: 0.025, gdpPenalty: 0, trustPenalty: 0 },
-  { rating: "A", maxRatio: 1.0, interestRate: 0.035, gdpPenalty: 0.1, trustPenalty: 0 },
-  { rating: "BBB", maxRatio: 1.2, interestRate: 0.05, gdpPenalty: 0.2, trustPenalty: 0 },
-  { rating: "BB", maxRatio: 1.5, interestRate: 0.07, gdpPenalty: 0.3, trustPenalty: 5 },
-  { rating: "B", maxRatio: 2.5, interestRate: 0.1, gdpPenalty: 0.5, trustPenalty: 10 },
-  { rating: "CCC", maxRatio: Infinity, interestRate: 0.14, gdpPenalty: 0.7, trustPenalty: 15 },
+  {
+    rating: "AAA",
+    maxRatio: 0.6,
+    interestRate: 0.02,
+    gdpPenalty: 0,
+    trustPenalty: 0,
+  },
+  {
+    rating: "AA",
+    maxRatio: 0.8,
+    interestRate: 0.025,
+    gdpPenalty: 0,
+    trustPenalty: 0,
+  },
+  {
+    rating: "A",
+    maxRatio: 1.0,
+    interestRate: 0.035,
+    gdpPenalty: 0.1,
+    trustPenalty: 0,
+  },
+  {
+    rating: "BBB",
+    maxRatio: 1.2,
+    interestRate: 0.05,
+    gdpPenalty: 0.2,
+    trustPenalty: 0,
+  },
+  {
+    rating: "BB",
+    maxRatio: 1.5,
+    interestRate: 0.07,
+    gdpPenalty: 0.3,
+    trustPenalty: 5,
+  },
+  {
+    rating: "B",
+    maxRatio: 2.5,
+    interestRate: 0.1,
+    gdpPenalty: 0.5,
+    trustPenalty: 10,
+  },
+  {
+    rating: "CCC",
+    maxRatio: Infinity,
+    interestRate: 0.14,
+    gdpPenalty: 0.7,
+    trustPenalty: 15,
+  },
 ];
 ```
 
@@ -127,10 +172,10 @@ Fiscal year processing runs at **turn 40** (October in game time: 48 turns = 1 y
 
 ### Growth Sequence
 
-1. **Calculate inflation**, Dynamic Phillips curve model (see below)
-2. **Grow tax bases**, Apply real GDP growth (nominal = real + inflation)
-3. **Update population**, From state demographics aggregation
-4. **Recalculate revenue**, New bases × existing rates
+1. **Recalculate inflation each turn**, using the dynamic model below.
+2. **Grow fiscal bases each turn**, applying 1/48 of live annual wage, trade, and GDP rates.
+3. **Update population**, from state demographics aggregation.
+4. **Recalculate revenue**, using current bases and rates.
 
 ```typescript
 // Nominal growth rate = (1 + realGrowth) × (1 + inflation) - 1
@@ -150,12 +195,12 @@ Inflation = Target + Demand-Pull + Monetary + Fiscal + Cost-Push
 
 All four components are two-sided with asymmetric coefficients: pressure above baseline (inflationary) uses a stronger coefficient than pressure below baseline (deflationary), because prices are stickier on the way down.
 
-| Component       | Formula (above baseline / below baseline)                                                  | Description                                   |
-| --------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **Demand-pull** | `(NAIRU - unemployment) × 0.3` (tight) or `× 0.2` (slack), plus `(GDP growth - 2%) × 0.2` (hot) or `× 0.15` (recession) | Tight labor/hot GDP → inflation               |
-| **Monetary**    | `(3.0% - effectivePrimeRate) × 0.4` (below neutral) or `× 1.2` (above neutral)               | Low rates → inflation; high rates → deflation (3× stronger) |
-| **Fiscal**      | `deficitToGdp × 0.15` (deficit) or `× 0.08` (surplus), deficit/GDP clamped to [-30, 50] before the coefficient | Deficits → inflation; surpluses → deflation   |
-| **Cost-push**   | `(tariffs - 3%) × 0.05` (above) or `× 0.025` (below), plus `(wages - 2.5%) × 0.15` (above) or `× 0.08` (below) | Input costs → inflation                       |
+| Component       | Formula (above baseline / below baseline)                                                                               | Description                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Demand-pull** | `(NAIRU - unemployment) × 0.3` (tight) or `× 0.2` (slack), plus `(GDP growth - 2%) × 0.2` (hot) or `× 0.15` (recession) | Tight labor/hot GDP → inflation                             |
+| **Monetary**    | `(3.0% - effectivePrimeRate) × 0.4` (below neutral) or `× 1.2` (above neutral)                                          | Low rates → inflation; high rates → deflation (3× stronger) |
+| **Fiscal**      | `deficitToGdp × 0.15` (deficit) or `× 0.08` (surplus), deficit/GDP clamped to [-30, 50] before the coefficient          | Deficits → inflation; surpluses → deflation                 |
+| **Cost-push**   | `(tariffs - 3%) × 0.05` (above) or `× 0.025` (below), plus `(wages - 2.5%) × 0.15` (above) or `× 0.08` (below)          | Input costs → inflation                                     |
 
 **Constants:**
 
@@ -261,7 +306,7 @@ Budget updates are split across turn phases and API/admin recalculation paths:
 
 1. **Corporation turn**, writes corporate tax bases, taxable sales, and related budget inputs as corporate output changes.
 2. **Revenue refresh**, recalculates federal revenue, spending, and surplus after tax bases move.
-3. **Fiscal year boundary**, at turn 40, grows tax bases, processes annual debt, updates grants, writes snapshots, and applies debt penalties.
+3. **Fiscal year boundary**, at turn 40, processes annual debt, updates grants, writes snapshots, and applies debt penalties without a second tax-base growth jump.
 4. **Inflation recalculation**, runs after national metrics so central banks and budget-derived indicators stay current.
 5. **Bond and admin flows**, sovereign bond issuance, debt-ceiling actions, and heal/admin routes update budget debt or recalculate budget fields on demand.
 
@@ -273,10 +318,10 @@ Every federal- and state-budget money field is stored in the country's currency.
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Federal budget (`revenue.*`, `spending.*`, `taxBases.*`, `debt.*`, `surplus`, `gdp`)     | country's `currencyCode` (stamped on `federalBudget.currencyCode`)                   |
 | State budget (`revenue.*`, `spending.*`, `taxBases.*`, `balance`, `surplus`, `stateGdp`) | parent country's currency                                                            |
-| `enactedLaws.annualCostUsd`                                                              | country's currency (legacy field name, not USD since v0.2.6)                        |
+| `enactedLaws.annualCostUsd`                                                              | country's currency (legacy field name, not USD since v0.2.6)                         |
 | Sovereign bond face value / coupon / `totalIssued`                                       | `bond.currencyCode` = country's currency (stamped at issuance)                       |
 | `federalBudgetSnapshots.budget.*` history rows                                           | country's currency at time of write (`budget.currencyCode` stamped on each snapshot) |
-| `debtToGdpRatio`                                                                         | dimensionless, not scaled                                                           |
+| `debtToGdpRatio`                                                                         | dimensionless, not scaled                                                            |
 | Cross-country sums                                                                       | computed in ₳ via `sumAsAnchor`; displayed via wallet preference                     |
 
 **Tax-base interop:** the corp turn writes `taxBases.domesticCorporateProfits`, `taxBases.foreignCorporateProfits`, and `taxBases.taxableSales` into the budget after multiplying anchor-denominated operating totals by the country's FX rate, so the budget side always reads country-local even when the source corps span multiple currencies. Domestic vs foreign classification uses `corp.countryId === sector.countryId`, see `docs/design/corporations.md` for the full rate-selection logic.

@@ -3,6 +3,8 @@
 **Date:** 2025-02-23  
 **Scope:** 12 archetype system, group-level competitive allocation, poll, elections, admin
 
+> Historical implementation audit. The live vote path now uses the granular Layer-1 electorate and swing-flow general-election engine. Use [Granular electorate as shipped](granular-electorate-as-shipped.md) and [Election engine](election-engine.md) for current behavior. The checks below describe the retired archetype-era implementation and should not be used as current operational guidance.
+
 ---
 
 ## ✅ What's Working

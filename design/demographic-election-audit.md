@@ -3,6 +3,8 @@
 **Date:** 2026-02-23  
 **Goal:** Audit the demographic system and propose a new election approach that reuses existing appeal while improving realism.
 
+> Historical design audit. The shipped granular-electorate implementation has superseded several formulas and data-shape descriptions below. Use [Granular electorate as shipped](granular-electorate-as-shipped.md) and [Election engine](election-engine.md) for current mechanics.
+
 ---
 
 ## Part 1: Current System Audit
@@ -51,7 +53,7 @@ appeal = positionScore + influenceScore  // max 50
 | **Reach is uniform**             | `politicalInfluence = reach` applies identically to all groups. A low-influence candidate can't reach urban or rural voters differently.                                                                                                                                                                     | **Medium** |
 | **Single policy space**          | Only econ (left-right) and social (left-right). Real elections have many dimensions (e.g., immigration, guns, climate).                                                                                                                                                                                      | **Medium** |
 | **Proportional split is global** | We split the _entire_ turn pool by _total_ potential. We don't model "Evangelicals vote 70% for A, 30% for B" within each group.                                                                                                                                                                             | **Medium** |
-| **Turn weighting**               | Final 4 turns get 25% of pool; early turns share 75%. Arbitrary but plausible (late deciders).                                                                                                                                                                                                               | **Low**    |
+| **Turn weighting**               | At the time of this audit, the final 4 turns received 25% of the pool. The shipped value is now 30%.                                                                                                                                                                                                         | **Low**    |
 
 ### 1.5 What Works Well
 

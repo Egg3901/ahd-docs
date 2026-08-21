@@ -1,10 +1,12 @@
 # Currency Exchange & Multi-Currency System
 
+> **Document status, 2026-08-21:** The overview, exchange-rate model, fee routing, and canonical storage rule describe the shipped system. The later schema proposals and migration sequence are retained as implementation history, not as a current rollout checklist. For current fields and execution paths, use `src/lib/db/types/character.ts`, `src/lib/db/types/centralBank.ts`, `src/lib/currency/`, and `src/lib/turn/forexTurn.ts`.
+
 A dynamic foreign exchange system where each active country uses its native currency, exchange rates float based on macroeconomic conditions and player trading activity, and players can speculate on currency markets.
 
 ## Overview
 
-- **Internal unit**: All monetary values in the database are denominated in an abstract canonical unit ("reserve credits"). This unit has no in-game visibility, players never see it.
+- **Storage**: Entity money is stored in the entity's native currency. Cross-country aggregation and display convert values to the anchor unit when needed.
 - **Per-country currencies**: Each country's currency floats independently against the internal unit. Rates are driven by each country's own economic indicators, not relative to each other.
 - **Player-facing**: Players see and interact exclusively in real currencies. Fund generation, income, and spending all display in the appropriate currency.
 - **Speculation**: Players can trade currencies for profit. Buy cheap yen → buy JP stocks → sell when yen strengthens → convert back to home currency.
@@ -41,7 +43,8 @@ Cross-country rates are derived: `USD/JPY = jpyRate / usdRate`. No separate stor
 
 ### Rate Update Formula (Per Turn)
 
-Rates update each turn via three components:
+Rates update each turn through macro drift, player volume, random noise, and a
+fourth 12-turn directional regime from `applyCyclePressure`.
 
 #### 1. Macro Fundamental Drift
 
@@ -106,11 +109,11 @@ Small per-turn jitter (up to ±0.4%, `RATE_NOISE_MAX = 0.004`) prevents perfectl
 Each country has baseline values representing a "neutral" economic state. These anchor the rate math so no country is structurally advantaged:
 
 | Country | Baseline prime | Baseline inflation | Baseline GDP growth | Baseline trade growth |
-| ------- | -------------- | ------------------- | -------------------- | ---------------------- |
-| US      | 3.0%           | 2.0%                 | 2.5%                  | 0% (neutral)            |
-| UK      | 3.0%           | 2.0%                 | 1.5%                  | 0% (neutral)            |
-| JP      | 1.0%           | 1.0%                 | 1.0%                  | 0% (neutral)            |
-| DE      | 3.0%           | 2.0%                 | 1.5%                  | 0% (neutral)            |
+| ------- | -------------- | ------------------ | ------------------- | --------------------- |
+| US      | 3.0%           | 2.0%               | 2.5%                | 0% (neutral)          |
+| UK      | 3.0%           | 2.0%               | 1.5%                | 0% (neutral)          |
+| JP      | 1.0%           | 1.0%               | 1.0%                | 0% (neutral)          |
+| DE      | 3.0%           | 2.0%               | 1.5%                | 0% (neutral)          |
 
 Prime rate and inflation baselines come from `MONETARY_BASELINES`; GDP and trade growth baselines come from a separate `ECONOMIC_BASELINES` constant (`src/lib/constants/currencies.ts`). A third module, `monetaryEra.ts`, layers era-specific overrides on top of `MONETARY_BASELINES` for pre-1999 worlds (e.g. JP's 1953-era neutral prime rate is 5.5%, not the modern 1.0%), keyed on the current in-game year so a long-lived world graduates through eras as its clock advances.
 
@@ -123,12 +126,13 @@ The forex system uses fields already defined on the `CentralBank` document:
 ```typescript
 tradeGrowth: number; // Mirrored from FederalBudget.economicFactors.tradeGrowth each turn
 forexRevenue: number; // Accumulated intervention reserve share of spread fees
-reserveBalance: number; // Loan reserve pool share seeded from spread fees
+spreadFeeReserveBalances: Record<string, number>; // Currency-specific sell-defense pools
 ```
 
 The `tradeGrowth` mirror write happens during national aggregation, after national metrics are current and before the forex phase runs. The budget document remains the authoritative source; this is a read-cache only.
 
-`forexRevenue` accumulates the central bank intervention-reserve share of spread fees. `reserveBalance` receives the loan-reserve share. Both are running totals updated when trades execute.
+`forexRevenue` accumulates 25% of spread fees. The 50% reserve slice is stored
+under `spreadFeeReserveBalances.<currency>`, not the general `reserveBalance`.
 
 ### CountryConfig Currency Mapping
 
@@ -151,9 +155,12 @@ Spread fees are split roughly 25/25/50 (`src/lib/currency/spreadFees.ts`):
 
 - **25% destroyed** (`SPREAD_FEE_DESTROY_RATIO`), removed from the economy. Acts as a deflationary sink that counterbalances fund generation and constrains inflation from heavy trading.
 - **25% to `forexRevenue`** (`SPREAD_FEE_FOREX_REVENUE_RATIO`), the central bank's intervention reserve.
-- **50% to `reserveBalance`** (`SPREAD_FEE_RESERVE_RATIO`), the loan reserve pool.
+- **50% to `spreadFeeReserveBalances.<currency>`** (`SPREAD_FEE_RESERVE_RATIO`), a currency-specific sell-defense pool.
 
-Together, `forexRevenue` + `reserveBalance` make up the central bank's 75% share (`SPREAD_FEE_CENTRAL_BANK_RATIO`). Flooring is handled in `spreadFees.ts`, with the destroyed share absorbing rounding remainder. The split applies to all three tiers (market maker, limit, direct). For direct player-to-player fills, the total spread is split the same way.
+Together, `forexRevenue` and currency-specific spread-fee reserves make up the
+central bank's 75% share (`SPREAD_FEE_CENTRAL_BANK_RATIO`). Flooring is handled
+in `spreadFees.ts`, with the destroyed share absorbing rounding remainder. The
+split applies to all three trading tiers.
 
 ### Turn Processing Placement
 
@@ -587,7 +594,7 @@ const DIRECT_TRADE_EXPIRY_TURNS = 24; // ~6 game months
 | Stock exchange         | Trades settle in the stock's country currency; auto-convert if needed |
 | Bond system            | Coupons/maturity payments in the bond's country currency              |
 | Party treasury         | Taxes collect in party's country currency                             |
-| Budget system          | Already has `currencyCode` field, minimal changes                    |
+| Budget system          | Already has `currencyCode` field, minimal changes                     |
 | NPP funds              | Deposit to home currency                                              |
 | Formatters             | All currency formatters accept `currencyCode` parameter               |
 | Display components     | Thread `countryId`/`currencyCode` through ~60+ component files        |
@@ -615,10 +622,10 @@ The canonical storage rule for every money field in the simulation is: **stored 
 | State budget (`revenue`, `spending`, `taxBases`, `balance`, `surplus`, `stateGdp`)             | parent country's currency                                                                  |
 | `enactedLaws.annualCostUsd`                                                                    | country's currency (legacy field name; `Usd` suffix predates v0.2.6)                       |
 | Cross-entity sums (global GDP, global market cap, commodity flows, rankings)                   | computed in ₳ via `sumAsAnchor` / `readCorpEconomicAnchor`; displayed via wallet pref      |
-| `sharePriceFormula` intermediate                                                               | ₳ (anchor), converted to corp-local at persistence boundary                               |
+| `sharePriceFormula` intermediate                                                               | ₳ (anchor), converted to corp-local at persistence boundary                                |
 | `corporationHistory`, `marketCapHistory`, `corporationPortfolioHistory`                        | corp's `liquidCurrencyCode` at time of write (`currencyCode` stamped on each row)          |
 | `federalBudgetSnapshots.budget.*`                                                              | country's currency at time of write (`budget.currencyCode` stamped on each snapshot)       |
-| `debtToGdpRatio`                                                                               | dimensionless, not scaled                                                                 |
+| `debtToGdpRatio`                                                                               | dimensionless, not scaled                                                                  |
 
 **Deferred (post-v0.2.6):** `Campaign.funds`, `PoliticalParty.treasury`, `StatePartyOrg.treasury`, `DiscordBotFund`, campaign/party-side money stays ₳ for now. A future v0.2.x migration will move these too.
 

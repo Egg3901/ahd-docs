@@ -2,17 +2,17 @@
 
 ## Technology Stack
 
-| Layer        | Technology                                   | Version |
-| ------------ | -------------------------------------------- | ------- |
-| Framework    | Next.js (App Router)                         | 16      |
-| UI           | React                                        | 19      |
-| Language     | TypeScript                                   | 6       |
-| Styling      | Tailwind CSS                                 | 4       |
-| Database     | MongoDB (native driver)                      |, |
-| Auth         | Custom JWT via `jose`                        |, |
-| Testing      | Vitest (unit/integration) + Playwright (E2E) |, |
-| Deployment   | Railway (Nixpacks build, `next start`)       |, |
-| File Storage | Cloudflare R2 (prod) / local filesystem (dev)|, |
+| Layer        | Technology                                    | Version    |
+| ------------ | --------------------------------------------- | ---------- |
+| Framework    | Next.js (App Router)                          | 16.3       |
+| UI           | React                                         | 19.2       |
+| Language     | TypeScript                                    | 6.0        |
+| Styling      | Tailwind CSS                                  | 4          |
+| Database     | MongoDB native driver                         | 7.4        |
+| Auth         | Custom JWT via `jose`                         | 6.2        |
+| Testing      | Vitest (unit/integration) + Playwright (E2E)  | 4.1 / 1.61 |
+| Deployment   | Railway (Nixpacks build, `next start`)        | n/a        |
+| File Storage | Cloudflare R2 (prod) / local filesystem (dev) | n/a        |
 
 ## Architecture Pattern
 
@@ -36,14 +36,14 @@
 | 4. NPP & coalitions        | `coalitionDisbandVotes`, `nppBehavior`                                                                                                                                                                                                                                       | NPP behavior runs after party processing            |
 | 5. Bills & cabinets        | `billLifecycle`, country bill lifecycles from `COUNTRY_BILL_PHASES`, `stateBillTimers`, `cabinetNominations`                                                                                                                                                                 | Parallel-safe                                       |
 | 6. Campaigns & actions     | `campaignTurn`, `nppActionProcessing`, `activityLogging`                                                                                                                                                                                                                     | Activity summary after action phases                |
-| 7. Election resolution     | `candidatePartySweep` -> `primaryResolution` -> `voteAccumulation` -> `campaignSpendReset` -> `electionTimers` -> `primarySnapshots` -> `electionResolution` -> `clearResolvedSupport` -> `leadershipVacate`                                                                                                                   | **Strictly sequential; ordering is load-bearing**   |
+| 7. Election resolution     | `candidatePartySweep` -> `primaryResolution` -> `voteAccumulation` -> `campaignSpendReset` -> `electionTimers` -> `primarySnapshots` -> `electionResolution` -> `clearResolvedSupport` -> `leadershipVacate`                                                                 | **Strictly sequential; ordering is load-bearing**   |
 | 8. Parliamentary govt      | `parliamentaryGovernmentFormation`, `parliamentaryGovernmentPhases`, `parliamentaryVacancyWatcher`                                                                                                                                                                           | After election resolution                           |
 | 9. Election coverage       | `perpetualElections`, country election phases from `COUNTRY_ELECTION_PHASES`, `leadershipElections`, `staleCandidateCleanup`, `presidentialSuccession`                                                                                                                       | Parallel-safe coverage before succession            |
 | 10. Fiscal year            | `fiscalYear` (turn 40 of 48, October)                                                                                                                                                                                                                                        | Conditional                                         |
 | 11. Effects & regional ops | `policyEffects`, `demographicEffects`, `policyReactionDecay`, `archetypeApprovalDecay`, `unownedSectorGrowth`, `metricDecay`, `subsidyBudget`, `regionalBudgetProcessing`, `jpRegionalBudgetProcessing`, `deRegionalBudgetProcessing`, `crisisTurn`, `ministerialOrders`     | Parallel-safe state/regional updates                |
 | 12. National aggregation   | `gdpGrowth`, `nationalMetrics`, `tradeGrowthMirror`, `inflationRecalc`, `forexTurn`, `centralBankChairTurn`, `centralBankChairSelection`                                                                                                                                     | Ordered; forex is gated by `GameState.forexEnabled` |
 | 13. History & health       | `metricHistory`, `approvalSnapshot`, `interestRateSnapshot`, `partyHistorySnapshot`, `gameHealthSnapshot`, `suspiciousDetection`                                                                                                                                             | After metrics and central-bank updates              |
-| 14. Persistence            | `GameState` update, `TurnLog` insert, in-process event emit                                                                                                                                                                                                                  | **Critical, not wrapped in try/catch**             |
+| 14. Persistence            | `GameState` update, `TurnLog` insert, in-process event emit                                                                                                                                                                                                                  | **Critical, not wrapped in try/catch**              |
 
 - Server-enforced `lastTurnProcessed` timestamp prevents clock drift. `getGameTime()` uses this as `effectiveNow`, not `new Date()`, so election phase display stays correct even after batch turns.
 - `src/lib/cabinetTransition.ts` (`clearCabinetOnTransition`), clears all cabinet members when a new president takes office; called from election resolution, not the turn loop directly.
@@ -201,34 +201,34 @@
 
 ## Notable API Routes
 
-| Route                                                | Method              | Purpose                                             |
-| ---------------------------------------------------- | ------------------- | --------------------------------------------------- |
+| Route                                                | Method              | Purpose                                                                                     |
+| ---------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------- |
 | `/api/cron/turn`                                     | GET                 | Hourly turn processor (in-process `node-cron`; this route is the HTTP-triggerable fallback) |
-| `/api/cron/fog-update`                               | GET                 | Campaign fog-of-war visibility update               |
-| `/api/auth/me`                                       | GET                 | Current user + character                            |
-| `/api/elections`                                     | GET                 | All elections (filter by type/state/status)         |
-| `/api/elections/[id]`                                | GET                 | Single election with candidates and tally           |
-| `/api/elections/[id]/state/[stateId]/county-results` | GET                 | County-level vote distribution                      |
-| `/api/elections/[id]/state/[stateId]/cd-results`     | GET                 | Congressional district seat assignments             |
-| `/api/country/[code]/legislature/members`            | GET                 | Chamber composition by country (e.g. UK Commons: 650 seats, party breakdown) |
-| `/api/country/[code]/legislature/bills`               | GET/POST            | Bills list for the country's legislature; propose a bill (member/admin) |
-| `/api/country/[code]/legislature/leaders`             | GET                 | Presiding officer / head of government / opposition leader for the country |
-| `/api/whitehouse/cabinet`                            | GET                 | All cabinet positions with member + nomination data |
-| `/api/whitehouse/cabinet/nominations`                | POST                | President nominates a character                     |
-| `/api/whitehouse/cabinet/nominations/[id]/vote`      | POST                | Senator votes on a nomination                       |
-| `/api/whitehouse/cabinet/fire`                       | POST                | President fires a cabinet member                    |
-| `/api/campaigns/[id]`                                | GET                 | Campaign detail (owner/party/public access tiers)   |
-| `/api/campaigns/mine`                                | GET                 | Current user's campaign                             |
-| `/api/news`                                          | GET/POST            | News feed and post creation                         |
-| `/api/country/[code]/approval`                       | GET                 | National government approval, per country            |
-| `/api/country/[code]/budget/federal`                 | GET                 | Federal budget data, per country                     |
-| `/api/images/hero/[slug]`                            | GET                 | Wikimedia image proxy (24h cache)                   |
-| `/api/roadmap`                                       | GET                 | Public roadmap data for wiki page                   |
-| `/api/admin/seed`                                    | GET/POST            | Universal game seeder (admin only)                  |
-| `/api/admin/roadmap`                                 | GET/POST/PUT/DELETE | Roadmap item management (admin only)                |
-| `/api/admin/roadmap/categories`                      | GET/POST/PUT/DELETE | Roadmap category management (admin only)            |
-| `/api/admin/law-types`                               | POST                | Create custom legislation type (admin only)         |
-| `/api/performance`                                   | GET                 | Game performance metrics                            |
+| `/api/cron/fog-update`                               | GET                 | Campaign fog-of-war visibility update                                                       |
+| `/api/auth/me`                                       | GET                 | Current user + character                                                                    |
+| `/api/elections`                                     | GET                 | All elections (filter by type/state/status)                                                 |
+| `/api/elections/[id]`                                | GET                 | Single election with candidates and tally                                                   |
+| `/api/elections/[id]/state/[stateId]/county-results` | GET                 | County-level vote distribution                                                              |
+| `/api/elections/[id]/state/[stateId]/cd-results`     | GET                 | Congressional district seat assignments                                                     |
+| `/api/country/[code]/legislature/members`            | GET                 | Chamber composition by country (e.g. UK Commons: 650 seats, party breakdown)                |
+| `/api/country/[code]/legislature/bills`              | GET/POST            | Bills list for the country's legislature; propose a bill (member/admin)                     |
+| `/api/country/[code]/legislature/leaders`            | GET                 | Presiding officer / head of government / opposition leader for the country                  |
+| `/api/whitehouse/cabinet`                            | GET                 | All cabinet positions with member + nomination data                                         |
+| `/api/whitehouse/cabinet/nominations`                | POST                | President nominates a character                                                             |
+| `/api/whitehouse/cabinet/nominations/[id]/vote`      | POST                | Senator votes on a nomination                                                               |
+| `/api/whitehouse/cabinet/fire`                       | POST                | President fires a cabinet member                                                            |
+| `/api/campaigns/[id]`                                | GET                 | Campaign detail (owner/party/public access tiers)                                           |
+| `/api/campaigns/mine`                                | GET                 | Current user's campaign                                                                     |
+| `/api/news`                                          | GET/POST            | News feed and post creation                                                                 |
+| `/api/country/[code]/approval`                       | GET                 | National government approval, per country                                                   |
+| `/api/country/[code]/budget/federal`                 | GET                 | Federal budget data, per country                                                            |
+| `/api/images/hero/[slug]`                            | GET                 | Wikimedia image proxy (24h cache)                                                           |
+| `/api/roadmap`                                       | GET                 | Public roadmap data for wiki page                                                           |
+| `/api/admin/seed`                                    | GET/POST            | Universal game seeder (admin only)                                                          |
+| `/api/admin/roadmap`                                 | GET/POST/PUT/DELETE | Roadmap item management (admin only)                                                        |
+| `/api/admin/roadmap/categories`                      | GET/POST/PUT/DELETE | Roadmap category management (admin only)                                                    |
+| `/api/admin/law-types`                               | POST                | Create custom legislation type (admin only)                                                 |
+| `/api/performance`                                   | GET                 | Game performance metrics                                                                    |
 
 ## Implementation Status
 
@@ -261,6 +261,8 @@
 | API validation (Zod schemas, admin + key routes)                                   | ✅ Complete    |
 | API testing (Vitest integration + Playwright E2E)                                  | ✅ Complete    |
 | API hardening (rate limiting, request logging)                                     | ✅ Complete    |
-| Amendments / filibuster / veto override                                            | 🔲 Placeholder |
-| Policy effects on state metrics → demographics                                     | 🔲 Planned     |
-| President executive orders / special appointments                                  | 🔲 Planned     |
+| Legislative amendments                                                             | 🔲 Placeholder |
+| US Senate filibuster / cloture and veto override                                   | ✅ Complete    |
+| Policy effects on state metrics and granular demographics                          | ✅ Complete    |
+| Presidential and regional executive orders                                         | ✅ Complete    |
+| Special executive appointments beyond the existing cabinet and succession systems  | 🔲 Planned     |

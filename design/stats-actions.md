@@ -6,7 +6,7 @@
 
 - **Scale**: 0-100
 - **Starting Value**: 0
-- **Increased by**: Campaign (+1% per action)
+- **Increased by**: Campaign (+1 base, diminishing above 50 and floored at +0.1)
 - **Decreased by**: Decay (0.75% of current influence per turn, floor 0)
 - **Affects**: Election vote potential (reach fraction), campaign appeal, primary scores
 - **Scope**: Single value (home state focus in current implementation)
@@ -15,9 +15,9 @@
 
 - **Scale**: Uncapped (starts at 0)
 - **Starting Value**: 0
-- **Increased by**: +state influence / 100 per turn (no cap)
+- **Increased by**: +state influence / 100 per turn, plus the strongest applicable office or leadership bonus
 - **Affects**: **Presidential elections exclusively** - not used in state races (House, Senate, Governor, State Senate). Drives both reach and appeal in presidential vote accumulation and primaries.
-- **Scaling**: Sqrt via `normalizeNPI`, hard-capped at 1.0 once NPI reaches 100. NPI=25 → 0.5×; NPI=50 → ~0.71×; NPI=85 → ~0.92×; NPI=99 → ~0.995×; NPI ≥ 100 → 1.0× (cap). Presidential primaries use a separate linear-up-to-cap curve (`normalizeNationalReachPresidentialPrimary`) - same NPI input, same 1.0 cap.
+- **Scaling**: General elections use the sqrt `normalizeNPI` curve, hard-capped at 1.0 once NPI reaches 100. NPI=25 → 0.5×; NPI=50 → ~0.71×; NPI=85 → ~0.92×; NPI=99 → ~0.995×; NPI ≥ 100 → 1.0×. Presidential primaries use a separate diminishing-return curve, `1 - exp(-NPI/45)`, which approaches 1.0 without a hard cap.
 - **Scope**: National (single value)
 
 ### Favorability
@@ -65,7 +65,7 @@
 - **Starting Value**: 0 (earned separately from Campaign Funds)
 - **Increased by**: Passive income streams, personal campaign donations (50% of amount converts to Cash on Hand)
 - **Decreased by**: Wire Transfers to other politicians
-- **Used for**: Wire Transfers only - sent via the Portfolio page
+- **Used for**: Investments, transfers, sponsored posts, and conversion into campaign funds where the relevant surface allows it
 - **Note**: Cross-country transfers are blocked; you can only wire to politicians in your own country
 
 ### Actions
@@ -91,7 +91,8 @@
 
 - **Scale**: Uncapped (starts at 1 for new characters)
 - **Increased by**: Build Donor Network action
-- **Cost to Increase**: $50,000 + $25,000 × current level
+- **Fund cost to increase**: ₳3,000 + ₳1,500 × current level, scaled by state GDP per capita
+- **Action cost to increase**: 4 to 20, following the donor-level cost curve
 - **Income**: Per-turn fund generation includes donor bonus (scaled by state population tier)
   - Small state (<2M): +$500/hr per level
   - Medium (2-8M): +$1,000/hr per level
@@ -104,18 +105,18 @@
 
 ### Standard Campaign Actions
 
-| Action                         | Actions | Funds                           | Effect                                                   |
-| ------------------------------ | ------- | ------------------------------- | -------------------------------------------------------- |
-| **Campaign**                   | 1       | -                               | +1% Political Influence                                  |
-| **Fundraise**                  | 3       | Earns $50k + $10k × donor level | Requires donor base > 0                                  |
-| **Run Advertisements**         | 5       | −$100,000                       | +1-3 Favorability (diminishing above 70%)                |
-| **Build Donor Network**        | 6       | −$50k − $25k × level            | +1 Donor Base Level                                      |
-| **Quick Poll**                 | 2       | −$25,000                        | Topline appeal + best/worst 5 groups                     |
-| **Full Demographic Poll**      | 6       | −$75,000                        | Complete breakdown by demographic category               |
-| **Post news (player feed)**    | 0       | -                               | Free article on `/news`; 12-hour cooldown per author     |
-| **Sponsored news post**        | 5       | −$100,000 **personal cash**     | Paid placement on `/news`; 30-minute cooldown per author |
-| **Personal Campaign Donation** | 2       | Converts chosen Cash on Hand    | 50% of amount → Campaign Funds; Infamy scales with size  |
-| **Rest**                       | 0       | -                               | No effect                                                |
+| Action                         | Actions | Funds                         | Effect                                                     |
+| ------------------------------ | ------- | ----------------------------- | ---------------------------------------------------------- |
+| **Campaign**                   | 1 to 5  | GDP-scaled campaign cost      | PI gain starts at +1 and diminishes above 50               |
+| **Fundraise**                  | 3       | Earns a dynamic quoted amount | Yield uses donor level, PI, Fundraising stat, and currency |
+| **Run Advertisements**         | 5 to 9  | GDP-scaled campaign cost      | +1-3 Favorability (diminishing above 70%)                  |
+| **Build Donor Network**        | 4 to 20 | GDP-scaled level cost         | +1 Donor Base Level                                        |
+| **Quick Poll**                 | 2       | −$25,000                      | Topline appeal + best/worst 5 groups                       |
+| **Full Demographic Poll**      | 6       | −$75,000                      | Complete breakdown by demographic category                 |
+| **Post news (player feed)**    | 0       | -                             | Free article on `/news`; 12-hour cooldown per author       |
+| **Sponsored news post**        | 5       | −$100,000 **personal cash**   | Paid placement on `/news`; 30-minute cooldown per author   |
+| **Personal Campaign Donation** | 2       | Converts chosen Cash on Hand  | 50% of amount → Campaign Funds; Infamy scales with size    |
+| **Rest**                       | 0       | -                             | No effect                                                  |
 
 ### Out-of-State Multipliers
 
@@ -123,7 +124,7 @@
 - Neighboring state: **1.25×**
 - Non-neighboring state: **1.5×**
 
-Applies to Campaign, Ads, and Attack actions targeting states outside your home state.
+Applies to interpersonal actions such as Support and Attack. Campaign and Advertise use GDP-based fund scaling instead.
 
 ---
 
@@ -133,8 +134,8 @@ These actions target another player character or NPP. They are taken from the ta
 
 | Action        | Actions | Funds     | Effect on Target                                             | Effect on You       |
 | ------------- | ------- | --------- | ------------------------------------------------------------ | ------------------- |
-| **Support**   | 2       | -         | +1% Favorability                                             | -                   |
-| **Attack**    | 2       | -         | −1% Favorability (fails if roll < Infamy × 10)               | +2% Infamy (always) |
+| **Support**   | 6       | -         | +1% Favorability, subject to the per-target swing cap        | -                   |
+| **Attack**    | 6       | -         | −1% Favorability (fails if roll < Infamy × 10)               | +2% Infamy (always) |
 | **Barnstorm** | 5       | −$100,000 | +1% Political Influence (+2% if target's home state matches) | -                   |
 
 **Support/Attack notes:**
@@ -156,13 +157,13 @@ These actions target another player character or NPP. They are taken from the ta
 
 Available to active candidates in a presidential election during the general phase.
 
-| Action     | Actions | Funds | Effect                                                      |
-| ---------- | ------- | ----- | ----------------------------------------------------------- |
-| **Travel** | 5       | -     | Set your travel state; earn +1% Favorability/turn passively |
+| Action     | Actions | Funds | Effect                                                                                    |
+| ---------- | ------- | ----- | ----------------------------------------------------------------------------------------- |
+| **Travel** | 3 to 10 | -     | Cost follows the destination's electoral-vote band; earn +1 Favorability/turn while there |
 
 - You can only travel to a **US state** (one at a time)
 - Your travel state is displayed as a badge on the electoral map and candidate list so opponents can see where you're focusing
-- Switching states costs another 5 actions
+- Switching states costs another 3 to 10 actions based on the new destination
 - Travel expires if you withdraw or the election ends
 
 ---

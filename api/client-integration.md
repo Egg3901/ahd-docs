@@ -8,14 +8,14 @@ Deployment is on **Railway** (development → staging → main), not Vercel.
 
 ## Authentication
 
-AHD uses **HTTP-only JWT cookies** for authentication. The cookie is named `token` and is set on login.
+AHD uses **HTTP-only JWT cookies** for player authentication. The cookie name is deployment-specific: `auth-token-<service-tag>`, derived from `RAILWAY_SERVICE_NAME` or `RAILWAY_ENVIRONMENT_NAME`, and falls back to `auth-token-local`. Clients must store the cookie from `Set-Cookie` rather than hardcoding its name.
 
 **For the desktop client:**
 
 - Use a persistent cookie jar (e.g., Electron's `session.cookies` or a custom `tough-cookie` jar with `axios`)
 - Log in via `POST /api/auth/login`, the cookie is set automatically in the response
 - All authenticated requests must include the cookie; there is no Bearer token alternative for player routes
-- Admin/automation routes accept `X-Api-Key: <key>` as an alternative (internal use only)
+- The read-only public v1 API separately accepts `X-API-Key` or `X-Bot-Token`; those headers are not a general replacement for the player cookie on authenticated game routes
 
 **Login request:**
 
@@ -23,16 +23,27 @@ AHD uses **HTTP-only JWT cookies** for authentication. The cookie is named `toke
 POST /api/auth/login
 Content-Type: application/json
 
-{ "username": "...", "password": "..." }
+{ "email": "email-or-username", "password": "..." }
 ```
 
 **Response:**
 
 ```json
-{ "success": true }
+{
+  "message": "Login successful",
+  "user": {
+    "id": "...",
+    "email": "...",
+    "username": "...",
+    "displayName": "...",
+    "role": "player",
+    "hasCompletedSetup": true,
+    "isAdmin": false
+  }
+}
 ```
 
-The `Set-Cookie: token=...` header in the response sets the auth cookie.
+The response's `Set-Cookie` header sets the deployment-specific auth cookie. Preserve cookie attributes and send it back only where the cookie jar's domain and path rules allow.
 
 ---
 
@@ -48,7 +59,7 @@ This is the primary polling endpoint for the client. Poll it every 30-60 seconds
 interface ClientNavResponse {
   user: { username: string; isAdmin: boolean } | null;
   hasCharacter: boolean;
-  characterCountryId: string | null; // "US" | "UK" | "CA" | "DE"
+  characterCountryId: string | null; // use the returned CountryId; do not hardcode a list
   unreadCount: number; // unread notifications
   unreadMailCount: number; // unread player mail
   homeState: { id: string; name: string } | null;
@@ -64,6 +75,8 @@ interface ClientNavResponse {
 }
 ```
 
+This is a minimum integration view, not an exhaustive schema. The route also carries feature-gated navigation and role fields such as corporation, union, cabinet, governor, imperial-character, wiki, conflict, and season-recap state. Clients must ignore unknown additive fields.
+
 `client-nav` does **not** carry funds, actions, cash-on-hand, or projected income, those are served by `GET /api/client-status`, the status-bar endpoint.
 
 ### `projectedIncome` (on `GET /api/client-status`)
@@ -72,7 +85,10 @@ interface ClientNavResponse {
 projectedIncome = (50000 + donorBaseLevel * 2000) * (1 + politicalInfluence / 100)
 ```
 
-`calculateFundraisingAmount()` in `src/lib/actions.ts`: a $50,000 floor plus $2,000 per donor base level, scaled by a state-influence multiplier (1.0x at 0% influence to 2.0x at 100%). This is the per-use Fundraise action yield.
+`projectedIncome` is `calculateFundraisingAmount(donorBaseLevel,
+character.politicalInfluence)`. The helper's second parameter is named
+`stateInfluence`, but this status-bar call site passes Political Influence:
+1.0x at 0 and 2.0x at 100. This is the per-use Fundraise action yield.
 
 ---
 
@@ -86,7 +102,7 @@ projectedIncome = (50000 + donorBaseLevel * 2000) * (1 + politicalInfluence / 10
 PATCH /api/settings/theme
 Content-Type: application/json
 
-{ "theme": "dark" }
+{ "theme": "oled" }
 ```
 
 ### Response
@@ -135,7 +151,12 @@ Returns a static versioned catalog. Cache it at startup; re-fetch if `version` c
       "category": "auth",
       "message": "Authentication required"
     },
-    { "code": "FORBIDDEN", "httpStatus": 403, "category": "auth", "message": "Forbidden" },
+    {
+      "code": "FORBIDDEN",
+      "httpStatus": 403,
+      "category": "auth",
+      "message": "Forbidden"
+    },
     {
       "code": "NOT_FOUND",
       "httpStatus": 404,
@@ -164,11 +185,7 @@ Always check `code` for programmatic handling; `error` is for display.
 
 ## Rate Limits
 
-| Endpoint                    | Limit                 |
-| ---------------------------- | ---------------------- |
-| `PATCH /api/settings/theme` | 30 req / 60s per user |
-| Most player action routes   | 20-30 req / 60s       |
-| Auth routes                 | 10 req / 60s          |
+Limits are route-family specific and can change as abuse controls evolve. Respect `429`, `Retry-After`, and any `X-RateLimit-*` response headers instead of encoding one global limit. Authentication routes use the strict auth bucket, while player writes and public reads use their own buckets.
 
 Rate-limited responses return `429` with a `Retry-After` header (seconds).
 
@@ -178,9 +195,9 @@ Rate-limited responses return `429` with a `Retry-After` header (seconds).
 
 There is no push channel for the desktop client, poll for all near-real-time state:
 
-| Data                               | Recommended approach              |
-| ------------------------------------ | ------------------------------------ |
-| Nav state (unread, party, election) | Poll `/api/client-nav` every 60s     |
-| Funds, actions, projected income   | Poll `/api/client-status` every 60s |
-| Theme sync                         | Re-fetch `/api/client-nav` after PATCH |
-| Turn updates / election results    | Poll the relevant status endpoint on a short interval |
+| Data                                | Recommended approach                                  |
+| ----------------------------------- | ----------------------------------------------------- |
+| Nav state (unread, party, election) | Poll `/api/client-nav` every 60s                      |
+| Funds, actions, projected income    | Poll `/api/client-status` every 60s                   |
+| Theme sync                          | Re-fetch `/api/client-nav` after PATCH                |
+| Turn updates / election results     | Poll the relevant status endpoint on a short interval |

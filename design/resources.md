@@ -6,7 +6,7 @@ Extractable resources model sovereign ownership of natural wealth. States hold a
 
 Six resources can be extracted, defined by `EXTRACTABLE_RESOURCES` in `src/lib/constants/commodities.ts`:
 
-| Resource    | Unit  | Typical role                                                                                       |
+| Resource    | Unit  | Typical role                                                                                        |
 | ----------- | ----- | --------------------------------------------------------------------------------------------------- |
 | Oil         | bbl   | Energy sector primary input                                                                         |
 | Coal        | tons  | Energy / industrial input                                                                           |
@@ -29,7 +29,10 @@ stateResourceCapacity: {
 }
 ```
 
-States with no capacity document are uncapped: all extraction sectors operate at full computed output (backward-compatible default).
+Every seeded state receives a capacity document. States without authored
+deposits receive an empty `resources` map, which gives them zero extraction
+capacity. Only a truly missing document uses the compatibility fallback of
+uncapped output.
 
 **Capacity is not strictly fixed over time.** R&D breakthroughs for extraction corps permanently `$inc` per-resource capacity on the sector's state (see `docs/design/corporations.md` → "R&D Budget & Innovation"). The increase is weighted by the sector's active strategy supply map, so `oil_gas` breakthroughs grow oil + natural gas, `iron_mining` grows iron only, etc. This is by design: R&D "unlocks new deposits." States with no capacity document are still skipped: the innovation phase does not auto-insert docs.
 
@@ -46,7 +49,8 @@ extractionContract: {
 }
 ```
 
-- **Over-allocation:** contracts can sum past 100%. Contracted sectors are each capped to their allocated share; remaining open-access pool collapses to zero.
+- **Player offers:** use offer and acceptance, royalties, and a 75% total-share headroom cap.
+- **Admin grants:** the direct admin POST path can over-allocate beyond 100%; the open-access pool then collapses to zero.
 - **Revocation:** soft-delete via `revokedTurn`. Revoked contracts are excluded from all queries (`revokedTurn: { $exists: false }`).
 
 ## Turn Processing Integration
@@ -65,7 +69,7 @@ Each turn in `commodityPriceTurn.ts`:
 - Contract holders are capped to `totalCapacity × share`. If output < cap → multiplier = 1 (not capped).
 - Open-access pool = `totalCapacity × (1 − Σ contractedShares)`. If total open-access demand ≤ pool → multiplier = 1; otherwise proportional squeeze.
 - Over-allocated states: open-access pool = 0, all uncontracted sectors produce nothing for that resource.
-- States with no capacity doc: multiplier = 1 for all sectors (uncapped).
+- A truly missing capacity doc uses multiplier 1 for compatibility. A normally seeded empty resource map has zero capacity.
 
 ## Contract Lifecycle
 
@@ -91,7 +95,11 @@ Legislature revokes → soft-delete (revokedTurn = currentTurn)
 
 **GET /api/contracts/extraction** query params: `stateId`, `corporationId`, `resource`, `countryId`.
 
-**POST /api/contracts/extraction** body:
+**Admin direct-grant path:** `POST /api/contracts/extraction` can create a
+contract directly and is the only path that may over-allocate. Player-created
+contracts use the offer and acceptance commands instead.
+
+Body:
 
 ```json
 {

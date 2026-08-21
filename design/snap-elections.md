@@ -1,8 +1,13 @@
 # Snap Elections
 
-Design doc for snap elections in parliamentary countries (UK, JP, and any future addition). Scope: dissolution of the lower chamber before its regular term ends, either by the sitting Prime Minister or automatically when a PM cannot be seated within a bounded window.
+Design doc for snap elections in parliamentary countries. Scope: dissolution
+of the lower chamber before its regular term ends, either by the sitting head
+of government or automatically when one cannot be seated within a bounded
+window.
 
-Presidential countries (US) and non-parliamentary federations without confidence mechanisms (DE as currently modelled) are unaffected.
+Presidential countries such as the US are unaffected. Germany is a
+parliamentary republic with both confidence and snap-election mechanisms and
+uses the shared path.
 
 ## Real-world grounding
 
@@ -16,12 +21,17 @@ The game captures both traditions through a single mechanic: any PM vacancy - ho
 
 A country is eligible for snap elections when `COUNTRY_CONFIGS[countryId].snapElectionsAllowed === true` **and** its `legislature.lowerChamber.key` is set.
 
+Examples of configured lower chambers:
+
 | Country | snapElectionsAllowed | lowerChamber.key | Snap election type |
 | ------- | -------------------- | ---------------- | ------------------ |
-| UK      | ✅                   | `commons`        | `snap_commons`     |
-| JP      | ✅                   | `shugiin`        | `snap_shugiin`     |
-| US      | ❌                   | -                | n/a                |
-| DE      | ❌                   | -                | n/a                |
+| UK      | yes                  | `commons`        | `snap_commons`     |
+| JP      | yes                  | `shugiin`        | `snap_shugiin`     |
+| DE      | yes                  | `bundestag`      | `snap_bundestag`   |
+| US      | no                   | `house`          | n/a                |
+
+This table is illustrative, not exhaustive. Ireland, Scotland, Wales, and
+several beta parliamentary countries also opt in through country config.
 
 Upper chambers (UK Lords, JP Sangiin) are explicitly excluded - Sangiin's `snapElectionsAllowed: false` is a hard gate; Lords are not elected.
 
@@ -54,9 +64,13 @@ When a lower-chamber general election resolves (regular or snap) in any country 
 - `failInProgressBills(db, countryId, now)` - fails every bill whose `currentChamber === lowerChamberKey` and whose status is one of `proposed`, `active`, `passed_origin`, `active_other`, `override_shugiin`, `veto_override`, `vetoed`. Bills in the upper chamber, in JP `cabinet_review`, or `enrolled` are preserved.
 - `cancelActiveNoConfidenceVotes(db, countryId, now)` - cancels every active VONC for the country. No-op for countries that don't use VONC (e.g., US).
 
-For parliamentary countries (UK, JP), the existing `resetParliamentaryGovernmentAfterElection` call still runs after these helpers.
+For parliamentary countries, the existing
+`resetParliamentaryGovernmentAfterElection` call still runs after these
+helpers.
 
-This fires for: `house` (US), `commons` + `snap_commons` (UK), `shugiin` + `snap_shugiin` (JP). Adding a new country with a configured `legislature.lowerChamber.key` unlocks the behavior automatically.
+This fires for any configured lower-chamber election and its snap type. Adding
+a new country with a configured `legislature.lowerChamber.key` unlocks the
+behavior automatically.
 
 ## Auto-trigger: 96-turn PM vacancy deadline
 

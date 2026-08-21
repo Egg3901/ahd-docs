@@ -8,14 +8,14 @@ Japan is a parliamentary constitutional monarchy. The Emperor is a ceremonial he
 
 ### House of Representatives (Shugiin)
 
-- **465 seats** elected by FPTP from 8 regional constituencies
+- **465 seats** allocated by Hare-quota PR across 8 regional constituencies
 - **4-year terms**, but can be dissolved by the PM for snap elections
 - Invests confidence in the Cabinet - the PM must command a Shugiin majority
-- Originates all bills; has override power over the Sangiin (2/3 supermajority)
+- Bills may originate in the Shūgiin, the Sangiin, or Cabinet review; the Shūgiin has override power over the Sangiin (2/3 supermajority)
 
 ### House of Councillors (Sangiin)
 
-- **248 seats** elected by FPTP on staggered 6-year terms
+- **248 seats** allocated by Hare-quota PR on staggered 6-year terms
 - Half elected every 3 game years (2 classes, alternating)
 - Cannot be dissolved - provides legislative continuity
 - Revises and can reject legislation, but Shugiin override is available
@@ -37,18 +37,19 @@ Japan is a parliamentary constitutional monarchy. The Emperor is a ceremonial he
 
 ## Cabinet
 
-10 ministerial positions, each with metric responsibilities:
+11 ministerial positions, each with metric responsibilities:
 
 1. Chief Cabinet Secretary - governance, transparency, press relations
 2. Minister of Finance - economy, employment, income
 3. Minister of Foreign Affairs - GDP growth, international relations
-4. Minister of Defense - public safety, national security
-5. Minister of Economy, Trade and Industry - business formation, robotics
-6. Minister of Health, Labour and Welfare - healthcare, elder care, work-life balance
-7. Minister of Education - test performance, workforce skill
-8. Minister of Land, Infrastructure, Transport and Tourism - transport, disaster preparedness
-9. Minister of the Environment - air quality, renewables, disaster preparedness
-10. Minister of Internal Affairs and Communications - broadband, demographic decline, turnout
+4. Minister of Justice - judicial and legal affairs
+5. Minister of Defense - public safety, national security
+6. Minister of Economy, Trade and Industry - business formation, robotics
+7. Minister of Health, Labour and Welfare - healthcare, elder care, work-life balance
+8. Minister of Education, Culture, Sports, Science and Technology - test performance, workforce skill
+9. Minister of Land, Infrastructure, Transport and Tourism - transport, disaster preparedness
+10. Minister of the Environment - air quality, renewables, disaster preparedness
+11. Minister of Internal Affairs and Communications - broadband, demographic decline, turnout
 
 ### Cabinet Bills (Japan-specific mechanic)
 
@@ -80,6 +81,12 @@ The PM or any Cabinet member can propose bills through Cabinet review before the
 - **Nippon Ishin no Kai** - neoliberal reform, Kansai stronghold
 - **DPFP** (Democratic Party for the People) - centrist reformist
 
+## Regional Government
+
+Each of the 8 regions elects a Governor on a 4-year cycle and a Regional
+Council. A Prime Minister may appoint eligible Cabinet members seated in
+either the Shūgiin or the Sangiin.
+
 ## Metrics
 
 Japan-specific regional metrics:
@@ -93,7 +100,7 @@ Japan-specific regional metrics:
 
 ## Central Bank
 
-Bank of Japan (BoJ) - Governor of the Bank of Japan, default prime rate 0.25%.
+Bank of Japan (BoJ) - Governor of the Bank of Japan, default prime rate 1.0%.
 
 ## Stock Exchange
 
