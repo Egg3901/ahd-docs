@@ -3,6 +3,12 @@
 > Audit date: 2026-03-23
 > Scope: Vitest unit/integration tests, Playwright E2E tests, test utilities, mock infrastructure
 
+> **Historical audit:** Do not use the file counts, route counts, or "zero
+> tests" findings below as a current coverage map. Auth guards and the phase
+> registry now have co-located tests, and the test corpus has grown
+> substantially. For living conventions, see AHDGame's `e2e/README.md` and the
+> co-located `*.test.ts` files.
+
 ---
 
 ## Investigation Summary
@@ -96,15 +102,15 @@ See Section 3 below for the full ranked list.
 
 ### Tier 1: Critical -- Core Game Loop and Security
 
-| #   | File                                                           | Lines | Conditionals | Blast Radius                                      | Why it matters                                                                                                                           |
-| --- | -------------------------------------------------------------- | ----- | ------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| #   | File                                                           | Lines | Conditionals | Blast Radius                                                 | Why it matters                                                                                                                           |
+| --- | -------------------------------------------------------------- | ----- | ------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | `src/lib/turnSystem.ts`                                        | 740   | ~48          | **Maximum** -- orchestrates ~105 runPhase calls / ~12 groups | A bug here corrupts the entire game state every hour. No test verifies phase ordering, error isolation, or group sequencing.             |
-| 2   | `src/lib/billLifecycle.ts`                                     | 31    | ~57          | **High** -- bill voting, passage, veto, enactment | Multi-chamber voting logic, presidential action windows, auto pocket-sign -- all untested. Only trivial helpers have tests.              |
-| 3   | `src/lib/auth.ts`                                              | 135   | ~24          | **Critical** -- every authenticated request       | `verifyAuth()`, `getAuthUser()`, JWT validation -- zero unit tests. Auth integration tests exist but mock jose entirely.                 |
-| 4   | `src/lib/api/requireAuth.ts`                                   | 80    | moderate     | **Critical** -- gates ~400 API routes             | The primary auth guard. No unit tests.                                                                                                   |
-| 5   | `src/lib/api/requireAdmin.ts`                                  | 21    | low          | **High** -- gates all admin operations            | Untested. `claude.md` explicitly warns about bypassing this.                                                                             |
-| 6   | `src/lib/turn/electionResolution.ts` (resolveGeneralElections) | ~200  | high         | **Critical** -- determines election winners       | `spawnHouseElection` has 4 tests; `resolveGeneralElections` has zero. This function updates electedOfficials, characters, and elections. |
-| 7   | `src/lib/turn/primaryResolution.ts`                            | 544   | ~53          | **High** -- primary election outcomes             | Complete absence of tests for primary vote counting and candidate advancement.                                                           |
+| 2   | `src/lib/billLifecycle.ts`                                     | 31    | ~57          | **High** -- bill voting, passage, veto, enactment            | Multi-chamber voting logic, presidential action windows, auto pocket-sign -- all untested. Only trivial helpers have tests.              |
+| 3   | `src/lib/auth.ts`                                              | 135   | ~24          | **Critical** -- every authenticated request                  | `verifyAuth()`, `getAuthUser()`, JWT validation -- zero unit tests. Auth integration tests exist but mock jose entirely.                 |
+| 4   | `src/lib/api/requireAuth.ts`                                   | 80    | moderate     | **Critical** -- gates ~400 API routes                        | The primary auth guard. No unit tests.                                                                                                   |
+| 5   | `src/lib/api/requireAdmin.ts`                                  | 21    | low          | **High** -- gates all admin operations                       | Untested. `claude.md` explicitly warns about bypassing this.                                                                             |
+| 6   | `src/lib/turn/electionResolution.ts` (resolveGeneralElections) | ~200  | high         | **Critical** -- determines election winners                  | `spawnHouseElection` has 4 tests; `resolveGeneralElections` has zero. This function updates electedOfficials, characters, and elections. |
+| 7   | `src/lib/turn/primaryResolution.ts`                            | 544   | ~53          | **High** -- primary election outcomes                        | Complete absence of tests for primary vote counting and candidate advancement.                                                           |
 
 ### Tier 2: High -- Major Subsystems
 

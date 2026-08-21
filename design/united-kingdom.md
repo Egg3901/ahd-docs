@@ -1,176 +1,104 @@
 # United Kingdom
 
-The UK uses the same core sim as the US, **turns**, **actions**, **parties**, **metrics**, and **economy**, with regional and parliamentary rules adapted for Commons and the Prime Minister.
+The UK uses the shared political and economic simulation with a parliamentary
+monarchy, country-specific electorate data, Commons elections, devolved
+regional offices, Prime Minister formation votes, and an era-aware Cabinet.
 
-## Regions as "states"
+## Regions and Commons seats
 
-UK gameplay uses **12 playable regions** (`UK_REGIONS` in `src/lib/constants/uk.ts`) for Commons elections and residency, 9 English NUTS1-style regions plus Scotland, Wales, and Northern Ireland, totaling **650 Commons seats**:
+UK gameplay uses 12 regions for residency, elections, demographics, and
+regional policy. The live modern Commons allocation comes from
+`UK_COMMONS_SEATS` in `src/lib/constants/states.ts`:
 
-| Code | Region                  | Nation | Commons seats |
-| ---- | ------------------------ | ------ | -------------- |
-| LON  | London                   | ENG    | 75             |
-| SEE  | South East England       | ENG    | 91             |
-| SWE  | South West England       | ENG    | 58             |
-| EAE  | East of England          | ENG    | 61             |
-| EMI  | East Midlands            | ENG    | 47             |
-| WMI  | West Midlands            | ENG    | 57             |
-| YHU  | Yorkshire & the Humber   | ENG    | 54             |
-| NWE  | North West England       | ENG    | 75             |
-| NEE  | North East England       | ENG    | 27             |
-| SCO  | Scotland                 | SCO    | 57             |
-| WAL  | Wales                    | WAL    | 32             |
-| NIR  | Northern Ireland         | NIR    | 18             |
+| Code | Region                   | Commons seats |
+| ---- | ------------------------ | ------------: |
+| LON  | London                   |            75 |
+| SEE  | South East England       |            90 |
+| SWE  | South West England       |            58 |
+| EAE  | East of England          |            60 |
+| EMI  | East Midlands            |            47 |
+| WMI  | West Midlands            |            57 |
+| YHU  | Yorkshire and the Humber |            54 |
+| NWE  | North West England       |            75 |
+| NEE  | North East England       |            27 |
+| SCO  | Scotland                 |            57 |
+| WAL  | Wales                    |            32 |
+| NIR  | Northern Ireland         |            18 |
 
-Your character's **home state** field uses these region codes for UK players. Many actions (e.g. [Canvassing](./canvassing.md)) are restricted to that home region.
+The modern total is 650, with a majority threshold of 326. The
+`1953-default` preset uses `UK_COMMONS_SEATS_1953`, totaling 625 seats with a
+313-seat majority. Do not use the `UK_REGIONS.constituencies` display metadata
+for seat allocation.
+
+UK regions use adapted census dimensions and country-specific group weights.
+They do not simply reuse the US demographic group ids.
 
 ## House of Commons elections
 
-- Each region runs its own **Commons** election cycle (perpetual scheduling once a cycle completes).
-- Vote accumulation and **multi-seat proportional** allocation follow the same family of rules as the US House implementation (largest-remainder style allocation, minimum share thresholds, spoiler handling where configured).
-- **Candidacy** is generally limited to your **home region**; party leaders may have broader options, check in-game election enter rules for your office.
+- Each region runs one multi-seat `commons` race.
+- Seats are allocated using Hare-quota largest remainder (`pr_hareQuota`).
+- The active election window is 48 hours: 24 hours of primary and 24 hours of
+  general election.
+- The regular cycle is 240 turns, or 5 game years. A snap election resets the
+  next regular-cycle anchor.
+- Candidacy is normally tied to the character's home region, subject to the
+  live entry rules for the office and candidate.
 
-Demographic **categories and groups** match the US model; regional flavor comes from population weights and leans, not from separate group IDs.
+See [UK Elections](./uk-elections.md) for preset-aware seat maps, vacancy
+handling, and cycle timing.
 
-## Prime Minister and confidence
+## Government formation
 
-After regional Commons cycles resolve nationally:
+The canonical record is `governmentFormations`, updated through
+`src/lib/turn/parliamentaryGovernment.ts`. Its status is `pending`, `formed`,
+or `collapsed`.
 
-1. **Seat totals** are summed across regions by party.
-2. The **largest party** attempts to form a government; its leader is nominated as **Prime Minister**.
-3. A **confidence vote** among MPs determines whether that PM is confirmed.
+After a Commons cycle, seat totals are refreshed and lower-chamber members may
+nominate a Prime Minister through the shared appointment-vote flow. Formation
+may be recorded as a majority, coalition, or minority government. Coalition
+party ids and their supporting seats are included when applicable. A successful
+appointment writes the PM to `governmentFormations`, marks the government
+formed, and clears the previous cabinet.
 
-Sitting MPs from the **ruling block** may also trigger **motions of no confidence** against the PM. If a motion succeeds, the PM is removed and the game proceeds to a new confidence process. Use the in-game **UK Government** hub at `/executive/uk` (Downing Street, PM, cabinet, Commons composition, confidence votes; `/uk/government` redirects there) for current status, votes, and deadlines.
+Votes of no confidence use a whole-chamber simple majority. Any eligible
+lower-chamber member may propose and vote; the mechanism is not restricted to
+the governing block. See [Parliamentary Government](./parliamentary-government.md)
+and [PM and No Confidence](./uk-pm-no-confidence.md).
 
-### Government Formation Logic
+The canonical Downing Street route is `/country/uk/executive`.
+`/executive/uk` and `/uk/government` redirect there.
 
-**Entry point:** `src/lib/turn/ukGovernmentFormation.ts` → `resolveUKGovernmentFormation()`
+## Cabinet
 
-```typescript
-// Seat tally from electedOfficials (officeType="commons", countryId="UK")
-const seatsByParty = await tallyCommonsSeatsByParty(db);
-const [governingPartyId, governingSeats] = ranked[0]; // Highest seat count
+The sitting PM appoints eligible player-controlled MPs to era-aware positions
+from `UK_CABINET_POSITIONS`. Appointees need not belong to the governing party
+or coalition. An appointment starts a 24-turn lock for that cabinet seat; the
+lock remains if the minister is fired. See [UK Cabinet](./uk-cabinet.md).
 
-// Majority threshold: 326 seats (50% + 1 of 650)
-const threshold = COUNTRY_CONFIGS.UK.coalitionThreshold; // 326
+## Legislation
 
-if (governingSeats >= threshold) {
-  status = "formed"; // Majority government, auto-triggers confidence vote
-  formationType = "majority";
-} else {
-  status = "minority_pending"; // Player must initiate minority government attempt
-  formationType = "minority";
-}
-```
+UK national bills use `UK_NATIONAL_CONFIG` in
+`src/lib/turn/billLifecycle/configs/uk.ts`:
 
-### Government Statuses
+1. The Commons votes by simple majority.
+2. About 28% of passed bills enter a 1 to 2 turn Lords-revision hold.
+3. The bill then receives automatic Royal Assent and is enacted.
 
-| Status             | Description                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `formed`           | Government is active with confirmed PM                            |
-| `minority_pending` | Largest party lacks majority; player must initiate formation vote |
-| `forming`          | Coalition negotiation in progress (future feature)                |
+The Lords are not a playable elected chamber. While
+`governmentFormations.status` is `pending`, the UK lifecycle is frozen through
+`skipWhenGovPending` and resumes automatically when a government forms.
 
-### Minority Government
+## Devolved regional executives
 
-There is no fixed minimum-seat threshold for attempting minority government formation. `resolveUKGovernmentFormation()` compares the largest party's seat count to `majorityThreshold` (326, 50%+1 of 650) only; falling short of that yields `minority_pending` at any seat count, and the player initiates the formation vote from there.
-
-### PM Appointment
-
-**Entry point:** `src/lib/turn/ukGovernmentFormation.ts` → `appointPrimeMinister()`
-
-```typescript
-// Clears any existing PM from both characters and NPPs
-await db
-  .collection("characters")
-  .updateMany({ isUkPm: true }, { $set: { isUkPm: false, ukPmAppointedAt: null } });
-
-await db.collection("npps").updateMany({ isUkPm: true }, { $set: { isUkPm: false } });
-
-// Appoints new PM (character or NPP)
-await db.collection<ParliamentaryGovernment>("parliamentaryGovernments").updateOne(
-  { _id: "UK" },
-  {
-    $set: {
-      pmCharacterId: characterId,
-      pmNppId: nppId ?? undefined,
-      pmName: characterName,
-      status: "formed",
-      formedAt: now,
-    },
-  }
-);
-```
-
-### Confidence Vote Trigger
-
-After majority formation or successful no-confidence, `triggerNextPMConfidenceVote()` initiates the confidence vote process (see [uk-pm-no-confidence](./uk-pm-no-confidence.md)).
-
-## UK Bill Lifecycle
-
-**Entry point:** `src/lib/turn/ukBillLifecycle.ts` → `processUKBillLifecycle()`
-
-UK bills have a simpler lifecycle than US bills:
-
-| Phase                  | US Bills                      | UK Bills                        |
-| ---------------------- | ----------------------------- | ------------------------------- |
-| **Voting**             | Active in originating chamber | Active in Commons or Lords      |
-| **Crossover**          | Must pass both chambers       | No bicameral crossover required |
-| **Executive approval** | Presidential signature        | Royal Assent (automatic)        |
-| **Enactment**          | After signature               | Immediate upon passage          |
-
-### Per-Turn Processing
-
-```typescript
-// src/lib/turn/ukBillLifecycle.ts
-
-// Find bills with expired voting windows
-const expiredBills = await db
-  .collection<Bill>("bills")
-  .find({
-    status: "active",
-    votingEndsAt: { $lte: now },
-    originChamber: { $in: ["commons", "lords"] },
-  })
-  .toArray();
-
-// Check passage (simple majority)
-const passed = didPass(bill.votesFor, bill.votesAgainst);
-
-if (passed) {
-  // Royal Assent is automatic, enacted immediately
-  await db.collection<Bill>("bills").updateOne(
-    { _id: bill._id },
-    {
-      $set: {
-        status: "signed",
-        passedOriginAt: now,
-        enactedAt: now,
-        updatedAt: now,
-      },
-    }
-  );
-
-  // Apply legislation effects
-  await applyLegislationEffect(db, bill);
-  await onBillEnacted(db, bill, currentTurn);
-} else {
-  await db
-    .collection<Bill>("bills")
-    .updateOne({ _id: bill._id }, { $set: { status: "failed", failedAt: now } });
-}
-```
-
-### Notification
-
-Bill sponsors receive notifications on enactment or failure via `notifyUKSponsor()`.
-
-Timing and exact costs for some motions may be tuned in balance passes, rely on UI copy for live numbers.
+Scotland, Wales, and Northern Ireland use First Minister labels; London uses a
+Mayor. English regions outside London do not have a devolved executive office.
+Regional legislation and assent use the country-aware regional office mapping
+described in [State-Level Power](./state-level-power.md).
 
 ## Related pages
 
-- [Getting Started](./getting-started.md), Onboarding for any country
-- [Election Mechanics](./elections.md), Shared primary/general concepts where applicable
-- [State-Level Power](./state-level-power.md), Analogies to governors / regional power
-- [Government Approval](./government-approval.md), National and regional approval
-- [National Budget & Treasury](./national-budget.md), UK treasury panels and public corporations
-- [Corporations](./corporations.md), FTSE-listed firms and UK sectors
+- [UK Elections](./uk-elections.md)
+- [UK Cabinet](./uk-cabinet.md)
+- [Parliamentary Government](./parliamentary-government.md)
+- [Snap Elections](./snap-elections.md)
+- [UK PM and No Confidence](./uk-pm-no-confidence.md)

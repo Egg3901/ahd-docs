@@ -2,11 +2,24 @@
 
 ## Electoral System
 
-Germany uses **AMS** (Additional Member System / MMP) for the Bundestag: half the seats are direct constituency wins, the other half are compensatory list seats allocated per Land to bring each party's total seats in line with its list vote share. Constituency + top-up computation lives in `germanyAMS.ts`; this document covers the **Landesliste** (state list) management layer that feeds the list-seat half. Source: `src/lib/elections/germanyLandesliste.ts`.
+Germany uses **AMS** (Additional Member System / MMP) for the Bundestag: 299
+direct Wahlkreis mandates plus compensatory list seats produce a 630-seat
+modern chamber. The `1953-default` preset uses 487 seats. Federal
+Sainte-Laguë allocation applies the 5% or three-direct-mandate threshold;
+each Land's list allocation is its quota minus direct seats, floored at zero.
+Constituency and top-up computation lives in
+`src/lib/turn/election/germanyAMS.ts`; this document covers the
+**Landesliste** management layer. Source:
+`src/lib/elections/germanyLandesliste.ts`.
 
 ## Landesliste
 
-A Landesliste is an ordered list of a party's candidates within one Bundesland. When a party wins list seats in a Land, the top N candidates on that party's list for that Land fill those seats in order. Stored in the `landeslisten` collection, keyed by `(countryId: "DE", partyId, landId, cycle)`.
+A Landesliste is an ordered list of a party's candidates within one
+Bundesland. List seats are stored as one aggregate elected-official record per
+party and Land, with `seatsHeld` recording the total. The list supplies the
+named representative for that aggregate record rather than creating one
+official document per seat. Lists are stored in the `landeslisten` collection,
+keyed by `(countryId: "DE", partyId, landId, cycle)`.
 
 ## Auto-Generation
 
@@ -31,7 +44,11 @@ A Landesliste is an ordered list of a party's candidates within one Bundesland. 
 
 ## Locking
 
-`lockLandesliste(db, { partyId, landId, cycle })` sets `lockedAt` on the list, permanently blocking further chair edits. Called at cycle start, after which the AMS seat resolver treats list order as final.
+`lockLandesliste(db, { partyId, landId, cycle })` sets `lockedAt` and blocks
+further chair edits. The helper exists, but the current spawn and AMS paths do
+not call it. Spawn generates lists, chair reordering can update them, and the
+resolver reads the current `candidates` order or falls back to NPI-ranked
+residents.
 
 ## Reading
 
@@ -39,14 +56,14 @@ A Landesliste is an ordered list of a party's candidates within one Bundesland. 
 
 ## Lifecycle Summary
 
-| Stage | Function | State |
-| --- | --- | --- |
-| Cycle start (spawn) | `generateLandeslistenForCycle` → `autoGenerateLandesliste` (`preserveExisting: true`) | Unlocked, NPI-ranked |
-| Edit window | `reorderLandesliste` (party chair action) | Unlocked, chair-ordered |
-| Cycle lock | `lockLandesliste` | `lockedAt` set, immutable |
-| Seat resolution | AMS resolver (`germanyAMS.ts`) reads `candidates` in order to fill list seats | Consumed |
+| Stage               | Function                                                                              | State                                          |
+| ------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Cycle start (spawn) | `generateLandeslistenForCycle` → `autoGenerateLandesliste` (`preserveExisting: true`) | Unlocked, NPI-ranked                           |
+| Edit window         | `reorderLandesliste` (party chair action)                                             | Unlocked, chair-ordered                        |
+| Optional lock       | `lockLandesliste`                                                                     | Available helper, not called by the live cycle |
+| Seat resolution     | `allocateBundestag` reads `candidates` or an NPI-ranked fallback                      | Consumed                                       |
 
 ## Related
 
-- Constituency + compensatory seat math: `src/lib/elections/germanyAMS.ts` (not covered here).
+- Constituency + compensatory seat math: `src/lib/turn/election/germanyAMS.ts` (not covered here).
 - Country config: `COUNTRY_CONFIGS.DE` in `src/lib/constants/countries.ts` defines the Bundestag's election type key (`bundestag`), which also drives its inclusion in `WESTMINSTER_STYLE_TYPES` and `NATIONAL_AGGREGATION_TYPES` for the live-results national board, see `live-election-results.md`.

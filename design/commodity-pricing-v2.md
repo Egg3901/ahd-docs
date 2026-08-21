@@ -1,13 +1,15 @@
 # Commodity pricing v2 - design note
 
-This document captures the **agreed migration plan** from the current two-layer blend (global + state) to a **three-layer** model with **tariff-sensitive weights** and **decomposed storage**. It supplements [commodities](./commodities.md); once implemented, fold the stable parts into `commodities.md` and keep this file as history or delete it.
+> **Historical migration plan:** The three-layer model has shipped. Use
+> [Commodities](./commodities.md) and `src/lib/tariffs/tariffEffects.ts` for
+> current behavior. Values below are retained as design history where noted.
 
 ## Goals
 
 1. **Three supply/demand pools** drive implied prices: **global**, **state (regional)**, and **national** (aggregate of all real states in the same `countryId`).
 2. **Blend weights** (same for price and margin logic where applicable):
    - At **T = 0** (no tariff stack): **50% global / 25% state / 25% national**.
-   - At **T = 100** (full stack): **⅓ global / ⅓ state / ⅓ national**.
+   - At **T = 100** (full stack), shipped weights are **25% global / 25% state / 50% national**.
    - **Linear interpolation** in `T/100` between those endpoints (weights always sum to 1).
 3. **T** = **full stacked** effective tariff signal used today for commodity blend pressure (same family of rules as `getTariffBlendWeights` / stacked layers - not economy-wide only).
 4. **National layer** uses **summed** state S/D across the country; apply a **small** stabilizer floor on national supply/demand (much smaller than global’s `BASE_COMMODITY_SUPPLY_DEMAND`).

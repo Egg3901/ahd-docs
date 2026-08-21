@@ -16,6 +16,7 @@ const SRC = process.env.DOCS_SRC || new URL("..", import.meta.url).pathname;
 const GAME = process.env.GAME_REPO || "/root/projects/AHDGame";
 const GAME_REF = process.env.GAME_REF || "origin/development";
 const OUT = process.env.DOCS_OUT || "/srv/lakeside-docs";
+const GAME_SITE = "https://www.ahousedividedgame.com";
 const LOGO_SRC = `${GAME}/public/ahd-logo.png`;
 const WIKI_JSON = "/tmp/wiki-pages.json";
 const FILE_META_CACHE = new URL("./.file-meta-cache.json", import.meta.url).pathname;
@@ -1120,7 +1121,12 @@ for (let i = 0; i < pages.length; i++) {
     .replace(/href="\/wiki\/([\w-]+)"/g, (m, s) => byWikiSlug.has(s) ? `href="/wiki/${s}.html"` : `href="https://www.ahousedividedgame.com/wiki/${s}"`)
     .replace(/href="(\.\/)?([\w-]+)\.md(#[\w-]*)?"/g, (m, _d, name, h) =>
       byDocFile.has(name + ".md") ? `href="${byDocFile.get(name + ".md").href}${h || ""}"` : m)
-    .replace(/href="\.\.\/(design|engineering|api)\/([\w-]+)\.md(#[\w-]*)?"/g, 'href="/$1/$2.html$3"');
+    .replace(/href="\.\.\/(design|engineering|api)\/([\w-]+)\.md(#[\w-]*)?"/g, 'href="/$1/$2.html$3"')
+    .replace(/href="(\/[^"]*)"/g, (m, href) => {
+      const pathname = href.split(/[?#]/, 1)[0];
+      if (pathname === "/" || pathname.endsWith(".html")) return m;
+      return `href="${GAME_SITE}${href}"`;
+    });
   html = wrapGloss(html);
   html = wrapSrc(html, p.srcFiles);
   const h2s = [...p.md.matchAll(/^##\s+(.+)$/gm)].map(m => m[1].replace(/[*`]/g, ""));

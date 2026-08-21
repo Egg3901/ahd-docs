@@ -8,13 +8,13 @@ Supply is not an abstract number: under the live market mode (`marketSystemMode:
 
 28 commodity types trade across the economy:
 
-| Category       | Commodities                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Extractable    | Iron Ore, Coal, Crude Oil, Rare Earth Minerals (merged with copper), Natural Gas, Timber                                             |
-| Industrial     | Steel, Electronics, Chemicals, Plastics, Ordnance                                                                                     |
-| Energy & Fuels | Electricity (Energy), Fertilizers, Pharmaceuticals, Vehicles                                                                          |
-| Food           | Food Products                                                                                                                         |
-| Construction   | Building Materials, Construction Services                                                                                             |
+| Category       | Commodities                                                                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Extractable    | Iron Ore, Coal, Crude Oil, Rare Earth Minerals (merged with copper), Natural Gas, Timber                                                                             |
+| Industrial     | Steel, Electronics, Chemicals, Plastics, Ordnance                                                                                                                    |
+| Energy & Fuels | Electricity (Energy), Fertilizers, Pharmaceuticals, Vehicles                                                                                                         |
+| Food           | Food Products                                                                                                                                                        |
+| Construction   | Building Materials, Construction Services                                                                                                                            |
 | Services       | Software, Financial Services, Healthcare Services, Real Estate Services, Advertising, Consulting Services, Freight, Retail, Network Services, Entertainment Services |
 
 Each sector type supplies and demands specific commodities at rates tied to sector revenue. **Retail** demands many inputs and supplies the Consumer Goods (`retail`) commodity. Only **owned** corporate sectors participate in a state's commodity flow.
@@ -59,7 +59,11 @@ Sellers in scarce markets get an equivalent **surplus bonus** (same formula, pos
 
 **Per-commodity soft cap:** No single commodity can contribute more than ±50 percentage points to the modifier (`COMMODITY_PER_ITEM_CAP = 50`).
 
-**Aggregate caps:** After blending, the combined input modifier is floored at `−COMMODITY_AGGREGATE_INPUT_CAP (30)` and the surplus modifier is ceilinged at `+COMMODITY_AGGREGATE_SURPLUS_CAP (30)`. This prevents stacked multi-commodity pressure from commercially destroying a sector under routine market conditions.
+**Aggregate caps:** After blending, the input leg is floored at
+`−COMMODITY_AGGREGATE_INPUT_CAP (30)` and the surplus leg is capped at
+`+COMMODITY_AGGREGATE_SURPLUS_CAP (30)`. If input plus surplus falls below
+`−COMMODITY_COMBINED_FLOOR (15)`, both legs are scaled so the combined channel
+cannot go below −15 percentage points.
 
 **State stabilizers:** A state-level stabilizer prevents extreme ratios when a state has zero local supply, applied only in the margin path (state prices remain fully dynamic).
 

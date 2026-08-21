@@ -13,7 +13,7 @@ A country enters a sovereign crisis (`sovereignCrisisState: "crisisPending"`) th
 - `DEMAND_UNDERSUBSCRIBED_THRESHOLD = 0.7`, an auction is "failed" when demand falls below 70% of the offering.
 - `FAILED_AUCTION_COUNT_FOR_CRISIS = 3`, three consecutive failed annual auctions trigger `crisisPending`.
 
-Once in `crisisPending`, the executive has `EXECUTIVE_DECISION_TURNS = 12` turns to choose a resolution: repudiate, restructure, or **bailout**. If no executive decision lands in time, `crisisAutoAction.ts` and the legislative flow (`LEGISLATIVE_VOTE_TURNS_PER_CHAMBER = 24` per chamber) resolve it automatically.
+Once in `crisisPending`, the executive has `EXECUTIVE_DECISION_TURNS = 12` turns to choose repudiate, restructure, **bailout**, or **monetize**. Monetize is blocked at 8% inflation or above. If no executive decision lands in time, `crisisAutoAction.ts` automatically selects Repudiate; the legislative flow uses `LEGISLATIVE_VOTE_TURNS_PER_CHAMBER = 24` per chamber.
 
 ## Applying the bailout: `applyBailoutResolution`
 
@@ -43,15 +43,15 @@ const principal = rollover + deficit;
 
 These four values (principal, rate, amortization turns, capture fraction) are written onto the `federalBudget` row as:
 
-| Field | Meaning |
-|---|---|
-| `imfSovereignBailoutActive` | Facility is live |
-| `imfSovereignFacilityPrincipalOutstanding` | Remaining principal (₳) |
-| `imfSovereignFacilityAnnualRate` | Annual rate, percent |
-| `imfSovereignFacilityAmortizationTurnsRemaining` | Turns left on the amortization clock |
-| `imfSovereignFacilityIncomeCaptureFraction` | Fraction of per-turn revenue captured |
-| `imfSovereignFacilityImfCorporationId` | IMF Corp receiving payments |
-| `imfSovereignFacilityCumulativePaidAnchor` | Lifetime anchor (₳) paid into the facility |
+| Field                                            | Meaning                                    |
+| ------------------------------------------------ | ------------------------------------------ |
+| `imfSovereignBailoutActive`                      | Facility is live                           |
+| `imfSovereignFacilityPrincipalOutstanding`       | Remaining principal (₳)                    |
+| `imfSovereignFacilityAnnualRate`                 | Annual rate, percent                       |
+| `imfSovereignFacilityAmortizationTurnsRemaining` | Turns left on the amortization clock       |
+| `imfSovereignFacilityIncomeCaptureFraction`      | Fraction of per-turn revenue captured      |
+| `imfSovereignFacilityImfCorporationId`           | IMF Corp receiving payments                |
+| `imfSovereignFacilityCumulativePaidAnchor`       | Lifetime anchor (₳) paid into the facility |
 
 ## Per-turn payment: `processSovereignImfFacilityPayments`
 
@@ -90,16 +90,16 @@ Entering the facility puts the country into `sovereignCrisisState: "recovering"`
 
 ## Contrast with the corporate IMF bailout
 
-| | Sovereign facility | Corporate bailout |
-|---|---|---|
-| Debtor | Country `federalBudget` row | `Corporation` document |
-| Trigger | Failed-auction sovereign crisis, executive chooses bailout | Admin-initiated restructuring of a distressed corp |
-| Rate | Fixed 6% annual (`IMF_SOVEREIGN_DEFAULT_RATE`) | Design-tunable per corp (`imfFacilityAnnualRate`) |
-| Amortization | 240 turns (`IMF_SOVEREIGN_AMORTIZATION_TURNS`) | Term set at bailout time |
-| Payment cap | Income-capture fraction 10-30%, default 20%, of per-turn revenue | 45% of per-turn corporate income |
-| Equity | None, no ownership dilution | IMF receives new shares up to a target ownership percent |
-| Oversight | IMF Board 12-turn override window (rate/capture nudge or public statement) | Admin-only controls, no board mechanic |
-| Math kernel | Shared `computeImfFacilityPaymentTurn` (`src/lib/imf/imfFacilityMath.ts`) | Same shared kernel |
+|              | Sovereign facility                                                         | Corporate bailout                                        |
+| ------------ | -------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Debtor       | Country `federalBudget` row                                                | `Corporation` document                                   |
+| Trigger      | Failed-auction sovereign crisis, executive chooses bailout                 | Admin-initiated restructuring of a distressed corp       |
+| Rate         | Fixed 6% annual (`IMF_SOVEREIGN_DEFAULT_RATE`)                             | Design-tunable per corp (`imfFacilityAnnualRate`)        |
+| Amortization | 240 turns (`IMF_SOVEREIGN_AMORTIZATION_TURNS`)                             | Term set at bailout time                                 |
+| Payment cap  | Income-capture fraction 10-30%, default 20%, of per-turn revenue           | 45% of per-turn corporate income                         |
+| Equity       | None, no ownership dilution                                                | IMF receives new shares up to a target ownership percent |
+| Oversight    | IMF Board 12-turn override window (rate/capture nudge or public statement) | Admin-only controls, no board mechanic                   |
+| Math kernel  | Shared `computeImfFacilityPaymentTurn` (`src/lib/imf/imfFacilityMath.ts`)  | Same shared kernel                                       |
 
 ## Key Files
 

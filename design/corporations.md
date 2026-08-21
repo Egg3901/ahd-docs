@@ -4,46 +4,43 @@ The corporation system lets players found and manage businesses that operate acr
 
 ## Founding a Corporation
 
-- **Cost:** $1,000,000 (deducted from character's cash on hand)
-- **Starting capital:** $1,000,000 liquid capital
-- **CEO shares:** 10,000,000 shares at $0.10 initial price
-- **Requirement:** One corporation per character
+- **Cost and starter plant:** In plants worlds, founding charges an era-scaled entry fee plus a discounted starter build. The build is queued at zero capital stock and comes online after its shortened greenfield construction time.
+- **CEO shares:** Founder equity is created by the founding flow; IPO structure and dual-class selection can change voting control.
+- **Requirement:** One active CEO seat per character. Founding starts a 168-turn per-user cooldown before that user can re-found after leaving.
 - **Starting marketing strength:** 10 (`marketingStrength`, used for market capture; grows further from marketing spend each turn)
 
 Players choose from 17 sector types:
 
-| Sector              | Label                          |
-| ------------------- | ------------------------------ |
-| financial           | Financial                      |
-| media               | Media                          |
-| manufacturing       | Manufacturing                  |
-| healthcare          | Healthcare                     |
-| retail              | Retail                         |
-| automobiles         | Automobiles                    |
-| technology          | Technology                     |
-| energy              | Energy                         |
-| agriculture         | Agriculture                    |
-| real_estate         | Real Estate                    |
-| defense             | Defense                        |
-| telecommunications  | Telecommunications             |
-| entertainment       | Entertainment                  |
-| logistics           | Logistics                      |
-| extraction          | Extraction & Mining            |
-| chemical_industries | Chemical Industries            |
-| construction        | Construction                   |
+| Sector              | Label               |
+| ------------------- | ------------------- |
+| financial           | Financial           |
+| media               | Media               |
+| manufacturing       | Manufacturing       |
+| healthcare          | Healthcare          |
+| retail              | Retail              |
+| automobiles         | Automobiles         |
+| technology          | Technology          |
+| energy              | Energy              |
+| agriculture         | Agriculture         |
+| real_estate         | Real Estate         |
+| defense             | Defense             |
+| telecommunications  | Telecommunications  |
+| entertainment       | Entertainment       |
+| logistics           | Logistics           |
+| extraction          | Extraction & Mining |
+| chemical_industries | Chemical Industries |
+| construction        | Construction        |
 
 ## Sector Expansion
 
-Corporations expand into state markets by acquiring sectors. Each state's total sector market size is derived from its GDP:
+Under plants, corporations expand by founding a sector and queueing physical
+capacity. The entry fee and starter-build price are era-scaled. A new plant
+begins with zero `capitalStock`; it does not receive a fixed $1 million revenue
+or 500-worker allocation.
 
-```
-stateMarketPerSector = stateGDP (millions) x 100 / 17 sectors
-```
-
-- **Expansion cost:** $100,000 base per new state sector
-- **Starting revenue:** $1,000,000 per sector
-- **Starting workers:** 500 per sector
-- **Default profit margin:** 35%
+- **Sector choice:** Any sector may be founded. Primary and secondary industry types affect margin bonuses rather than entry eligibility.
+- **Revenue:** Derived from owned capacity, realized output, and clearing rather than a fixed starter value.
+- **Workers and cost:** Derived from the sector's plants model and era-scaled build order.
 
 ### Market Capture
 
@@ -59,7 +56,9 @@ The escalation prevents spam-splitting while the decay ensures the cost resets o
 
 ### Unowned Sector Regeneration
 
-Unowned sectors are persistent documents that **grow each turn** at the average growth rate of same-type same-state corporate sectors (fallback 1%/turn if no corps exist). This means unowned market share naturally regenerates over time instead of being permanently drained. Splitting reduces the unowned doc's revenue; growth restores it. See `src/lib/turn/unownedSectorGrowth.ts` for the turn phase implementation.
+In pre-plants modes, unowned sectors grow at half the average owned growth rate,
+with the legacy fallback. In plants worlds, unowned headroom grows from the
+state's `economic.gdpGrowth`. See `src/lib/turn/unownedSectorGrowth.ts`.
 
 ### Vacant CEO market decay
 
@@ -226,7 +225,7 @@ Boosts are `$inc`'d directly on the sector's revenue in corp-local currency, no 
 
 **Extraction state capacity growth:**
 
-Each extraction breakthrough increases, for every extractable resource in the **sector's active strategy supply map**, the state's capacity for that resource independently, each resource gets its own uniform random roll of `RD_CAPACITY_BOOST_MIN_PCT` to `RD_CAPACITY_BOOST_MAX_PCT` (1%-15%) of that resource's *current* state capacity:
+Each extraction breakthrough increases, for every extractable resource in the **sector's active strategy supply map**, the state's capacity for that resource independently, each resource gets its own uniform random roll of `RD_CAPACITY_BOOST_MIN_PCT` to `RD_CAPACITY_BOOST_MAX_PCT` (1%-15%) of that resource's _current_ state capacity:
 
 ```
 per-resource increase = currentCapacity[resource] × uniformRoll(0.01, 0.15)
@@ -301,25 +300,25 @@ Formula: `getCorruptionMarginModifier(corruptionIndex)` in `src/lib/constants/co
 
 A single source of truth function `computeAllMarginModifiers()` in `src/lib/constants/corporations.ts` computes all modifiers for both display and turn processing.
 
-| Modifier          | Max Effect       | Sectors Affected                                                                             | Threshold/Pivot                         |
-| ----------------- | ---------------- | -------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Sector Type Match | +5% / -15%       | All                                                                                          | Match vs mismatch                       |
-| Home Location     | +10% / +5%       | All                                                                                          | HQ state = +10%, same country = +5%     |
-| Unemployment      | ±5%              | All                                                                                          | Pivot at 3%                             |
-| Power Grid        | -4%              | All                                                                                          | Gate 95%, floor 85%                     |
-| Corruption        | -3%              | All                                                                                          | Linear to index 100                     |
-| Inflation         | +2% to -8%       | All (country-wide)                                                                           | Bonus below 2% target; penalty above    |
-| Debt-to-GDP       | -5% cap          | All (country-wide)                                                                           | Penalty starts at 50% D/GDP             |
-| Deficit-to-GDP    | +5% max          | All (country-wide)                                                                           | Stimulative bonus: +0.5% per 1% deficit |
-| Workforce Skill   | ±4%              | Technology, Chemical Industries, Healthcare, Manufacturing, Defense                          | Pivot at skill index 50                 |
-| Crime Rate        | -5%              | Retail, Real Estate, Entertainment                                                           | 1500→3500 per 100k                      |
-| Broadband Access  | -4%              | Technology, Telecom, Media, Financial                                                        | Gate 70%, floor 40%                     |
-| Road Condition    | ±3%              | Manufacturing, Retail, Agriculture, Automobiles, Construction, Logistics, Extraction         | Pivot at condition index 60             |
-| Carbon Emissions  | -3%              | Energy, Chemical Industries, Manufacturing, Automobiles, Extraction                          | 3→25 MT/capita                          |
-| Cost of Living    | ±3%              | Chemical Industries, Manufacturing, Retail, Agriculture, Construction, Logistics, Extraction | Pivot at index 100                      |
-| Commodity Markets | Uncapped         | Sector-dependent                                                                             | Logarithmic D/S ratio                   |
+| Modifier          | Max Effect        | Sectors Affected                                                                             | Threshold/Pivot                         |
+| ----------------- | ----------------- | -------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Sector Type Match | +5% / -15%        | All                                                                                          | Match vs mismatch                       |
+| Home Location     | +10% / +5%        | All                                                                                          | HQ state = +10%, same country = +5%     |
+| Unemployment      | ±5%               | All                                                                                          | Pivot at 3%                             |
+| Power Grid        | -4%               | All                                                                                          | Gate 95%, floor 85%                     |
+| Corruption        | -3%               | All                                                                                          | Linear to index 100                     |
+| Inflation         | +2% to -8%        | All (country-wide)                                                                           | Bonus below 2% target; penalty above    |
+| Debt-to-GDP       | -5% cap           | All (country-wide)                                                                           | Penalty starts at 50% D/GDP             |
+| Deficit-to-GDP    | +5% max           | All (country-wide)                                                                           | Stimulative bonus: +0.5% per 1% deficit |
+| Workforce Skill   | ±4%               | Technology, Chemical Industries, Healthcare, Manufacturing, Defense                          | Pivot at skill index 50                 |
+| Crime Rate        | -5%               | Retail, Real Estate, Entertainment                                                           | 1500→3500 per 100k                      |
+| Broadband Access  | -4%               | Technology, Telecom, Media, Financial                                                        | Gate 70%, floor 40%                     |
+| Road Condition    | ±3%               | Manufacturing, Retail, Agriculture, Automobiles, Construction, Logistics, Extraction         | Pivot at condition index 60             |
+| Carbon Emissions  | -3%               | Energy, Chemical Industries, Manufacturing, Automobiles, Extraction                          | 3→25 MT/capita                          |
+| Cost of Living    | ±3%               | Chemical Industries, Manufacturing, Retail, Agriculture, Construction, Logistics, Extraction | Pivot at index 100                      |
+| Commodity Markets | Uncapped          | Sector-dependent                                                                             | Logarithmic D/S ratio                   |
 | Subsidies         | +7.5% per subsidy | Qualifying sector types                                                                      | Federal and state stack separately      |
-| Logistical Sprawl | Uncapped         | All (corp-wide)                                                                              | >15 sectors threshold                   |
+| Logistical Sprawl | Uncapped          | All (corp-wide)                                                                              | >15 sectors threshold                   |
 
 ### Home Location Bonus (implemented)
 
@@ -466,7 +465,7 @@ Each sector type has 3-4 operating strategies that alter its commodity supply an
 
 - **Cost:** 25% of sector daily revenue (`STRATEGY_RETOOL_COST_FRACTION`)
 - **Transition:** 12 turns with a **-5% margin penalty** during transition. Supply/demand rates linearly interpolate from old to new strategy over the transition period.
-- **Cooldown:** 24 turns after transition completes before another change is allowed.
+- **Cooldown:** The 12-turn transition is the lock. Its cooldown field is cleared on completion, so another change is then allowed immediately.
 
 ### Strategy Confirmation
 
@@ -533,12 +532,17 @@ Three-component fundamental value formula: `fundamentalValue = tangibleBookWeigh
 // 1. Tangible book per share (liquidation floor): cash + sector NPV + construction
 // in progress + tech assets + haircut bond holdings, minus issued bond debt.
 const tangibleBook =
-  liquidCapitalAnchor + sectorNPVAnchor + constructionInProgressAnchor + techAssetValueAnchor +
-  BOND_INCOME_SHARE_PRICE_DISCOUNT * bondHoldingsAnchor - issuedBondDebt;
+  liquidCapitalAnchor +
+  sectorNPVAnchor +
+  constructionInProgressAnchor +
+  techAssetValueAnchor +
+  BOND_INCOME_SHARE_PRICE_DISCOUNT * bondHoldingsAnchor -
+  issuedBondDebt;
 const tangibleBookPerShare = Math.max(0, tangibleBook) / totalShares;
 
 // 2. Earnings power per share (risk-adjusted earnings capitalized at cost of capital)
-const earningsPowerPerShare = riskAdjustedEarnings / costOfCapital / totalShares;
+const earningsPowerPerShare =
+  riskAdjustedEarnings / costOfCapital / totalShares;
 
 // 3. Growth premium per share (Gordon Growth Model terminal value, g capped below costOfCapital)
 const growthPremiumPerShare =
@@ -558,22 +562,22 @@ Bond-coupon income over-reliance (>75% of normalized earnings) applies a graduat
 
 **Constants:**
 
-| Constant                              | Value | Description                                                       |
-| -------------------------------------- | ----- | ------------------------------------------------------------------ |
-| `FUNDAMENTAL_TANGIBLE_BOOK_WEIGHT`     | 1.0   | Weight on tangible-book-per-share                                  |
-| `FUNDAMENTAL_EARNINGS_POWER_WEIGHT`    | 0.4   | Weight on earnings-power-per-share                                 |
-| `FUNDAMENTAL_GROWTH_PREMIUM_WEIGHT`    | 0.1   | Weight on growth-premium-per-share                                 |
-| `BOND_INCOME_SHARE_PRICE_DISCOUNT`     | 0.75  | Haircut on bond-coupon-derived earnings and held bonds in book     |
-| `BOND_INCOME_RELIANCE_THRESHOLD`       | 0.75  | Bond-coupon share of earnings above which the reliance penalty starts |
-| `BOND_INCOME_MAX_RELIANCE_PENALTY`     | 0.5   | Floor multiplier on earnings components at 100% bond reliance      |
-| `SHARE_PRICE_MAX_TURN_MOVE`            | 0.35  | Max fractional per-turn price move (rate limiter)                  |
-| `SHARE_PRICE_RATE_LIMIT_MIN_PREV`      | $1.00 | Rate limiter skipped at/below this previous price                  |
-| `INSIDER_CONCENTRATION_THRESHOLD`      | 0.65  | CEO ownership fraction above which the concentration discount starts |
-| `INSIDER_CONCENTRATION_MAX_PENALTY`    | 0.3   | Max discount (-30%) at 100% CEO ownership                          |
-| `STOCK_SPLIT_PRICE_SMOOTHING_TURNS`    | 2     | Turns of post-split smoothing before the rate limiter resumes      |
-| `STOCK_SPLIT_SMOOTHING_PREV_WEIGHT`    | 0.7   | Weight on previous price during post-split smoothing               |
-| `MIN_SHARE_PRICE`                      | $0.01 | Hard floor on share price                                          |
-| `NPV_ANNUAL_DISCOUNT_RATE`             | 0.15  | 15% discount rate for sector NPV                                   |
+| Constant                            | Value | Description                                                           |
+| ----------------------------------- | ----- | --------------------------------------------------------------------- |
+| `FUNDAMENTAL_TANGIBLE_BOOK_WEIGHT`  | 1.0   | Weight on tangible-book-per-share                                     |
+| `FUNDAMENTAL_EARNINGS_POWER_WEIGHT` | 0.4   | Weight on earnings-power-per-share                                    |
+| `FUNDAMENTAL_GROWTH_PREMIUM_WEIGHT` | 0.1   | Weight on growth-premium-per-share                                    |
+| `BOND_INCOME_SHARE_PRICE_DISCOUNT`  | 0.75  | Haircut on bond-coupon-derived earnings and held bonds in book        |
+| `BOND_INCOME_RELIANCE_THRESHOLD`    | 0.75  | Bond-coupon share of earnings above which the reliance penalty starts |
+| `BOND_INCOME_MAX_RELIANCE_PENALTY`  | 0.5   | Floor multiplier on earnings components at 100% bond reliance         |
+| `SHARE_PRICE_MAX_TURN_MOVE`         | 0.35  | Max fractional per-turn price move (rate limiter)                     |
+| `SHARE_PRICE_RATE_LIMIT_MIN_PREV`   | $1.00 | Rate limiter skipped at/below this previous price                     |
+| `INSIDER_CONCENTRATION_THRESHOLD`   | 0.65  | CEO ownership fraction above which the concentration discount starts  |
+| `INSIDER_CONCENTRATION_MAX_PENALTY` | 0.3   | Max discount (-30%) at 100% CEO ownership                             |
+| `STOCK_SPLIT_PRICE_SMOOTHING_TURNS` | 2     | Turns of post-split smoothing before the rate limiter resumes         |
+| `STOCK_SPLIT_SMOOTHING_PREV_WEIGHT` | 0.7   | Weight on previous price during post-split smoothing                  |
+| `MIN_SHARE_PRICE`                   | $0.01 | Hard floor on share price                                             |
+| `NPV_ANNUAL_DISCOUNT_RATE`          | 0.15  | 15% discount rate for sector NPV                                      |
 
 ### Collections
 
@@ -587,7 +591,7 @@ Corporations can issue bonds to raise capital. Bonds are fixed-income debt instr
 
 - **Minimum issuance:** $100,000
 - **Maximum:** Total debt cannot exceed 2× equity
-- **Maturity options:** 48 turns (1yr), 96 turns (2yr), 240 turns (5yr), 336 turns (7yr)
+- **Maturity options:** 96 turns (2yr), 240 turns (5yr), or 336 turns (7yr). A 48-turn corporate maturity is legacy-only.
 - **Coupon rate:** `primeRate + creditRatingSpread + CORPORATE_BOND_SPREAD_PREMIUM (1.0pp) + termPremium`. Term premium by maturity: 48/96 turns = 0, 240 turns = +1.0pp, 336 turns = +1.75pp.
 - **Cooldown:** `BOND_ISSUANCE_COOLDOWN_TURNS` between issuances
 - **Unit size:** $1,000 face value per unit (`BOND_UNIT_FACE_VALUE`)
@@ -654,8 +658,8 @@ The UK has an NHS-style public healthcare corporation seeded at game setup. Heal
 
 Governments can issue sovereign debt instruments, extending the corporate bond system to national-level finance.
 
-- **Issuance:** Sovereign bonds are issued via admin routes with debt-driven demand mechanics
-- **Demand:** Bond demand scales with national debt levels, higher debt increases demand for sovereign instruments
+- **Issuance:** Every country in `COUNTRY_ORDER` automatically issues scheduled sovereign paper every 12 turns. Admin routes also support testing and reconciliation.
+- **Demand:** Demand falls once debt/GDP rises above 0.6, with a steeper cliff above 2.0. Coupon premium, inflation, FX depreciation, trust, holdings, and default scar also contribute.
 - **Display:** Sovereign bonds appear on country stock exchange pages alongside corporate bonds
 - **Admin testing:** A test issuance route (`/api/admin/sovereign-debt/`) allows admins to create sovereign bond instruments for testing
 
@@ -664,17 +668,14 @@ Governments can issue sovereign debt instruments, extending the corporate bond s
 - `src/app/api/admin/sovereign-debt/`, Sovereign debt test issuance route
 - `src/app/api/bonds/`, Shared bond trading infrastructure (corporate + sovereign)
 
-## Sector Production Modes
+## Sector Production Policy
 
-Sectors can operate in one of three production modes, configurable by the CEO:
-
-| Mode             | Effect                                                       |
-| ---------------- | ------------------------------------------------------------ |
-| **Normal**       | Default balanced operation                                   |
-| **Aggressive**   | Higher output volume, lower margins, grow revenue faster    |
-| **Conservative** | Lower output volume, higher margins, preserve profitability |
-
-Mode changes are subject to a transition cooldown. Cooldown timer starts at transition initiation and displays countdown badges on sector cards showing time remaining until the switch completes.
+Production policy is a continuous target from -25 to +25, not three discrete
+modes. The active value trends toward the target by 1 point per turn. Positive
+values increase revenue and commodity throughput; negative values reduce
+output and cut input consumption more sharply. The UI may label the ends
+Aggressive and Conservative, with zero as Neutral, but every integer level is
+meaningful.
 
 ## HQ Relocation
 
@@ -779,7 +780,7 @@ Every corp-economic money field is stored in the corp's `liquidCurrencyCode`. Cr
 | Corporate bond face value / coupon / `totalIssued`                                             | `bond.currencyCode` (stamped at issuance from issuing corp's `liquidCurrencyCode`)     |
 | Tax bases written from corp turn (`corporateProfits`, `taxableSales`)                          | country's currency (corp turn accumulates in ₳ then multiplies by country FX at write) |
 | Cross-corp aggregates (global GDP, global market cap, commodity demand)                        | computed in ₳; displayed via wallet preference                                         |
-| `sharePriceFormula` intermediate                                                               | ₳ (anchor), converted to corp-local at persistence boundary                           |
+| `sharePriceFormula` intermediate                                                               | ₳ (anchor), converted to corp-local at persistence boundary                            |
 | `corporationHistory`, `marketCapHistory`, `corporationPortfolioHistory` money columns          | corp's `liquidCurrencyCode` at time of write (`currencyCode` stamped on each row)      |
 
 **History backfill (option 3):** the v0.2.6 migration rescales every existing history row at **today's** FX rate so charts stay visually continuous across the migration moment. Historical FX accuracy is intentionally sacrificed.

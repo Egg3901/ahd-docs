@@ -1,6 +1,8 @@
 # UK Devolution Policy + Independence/Reunification Desire
 
-**Status:** Active (started 2026-05-20)
+**Status:** Proposal and implementation-history document. Devolved executive
+offices have shipped, but policy details and open phase notes below are not a
+current shipped-behavior specification.
 **Branch:** `rework/political-system-update`
 **Depends on:** UK FM/Mayor wiring (Phases 1-4 of `uk-jp-devolved-executives.md`)
 
@@ -113,7 +115,7 @@ When resolving general elections in SCO/WAL/NIR, two stacked effects apply:
 
 ### (a) Soft electoral transfer (vote-share redistribution)
 
-Pro-indy party gets a bonus, unionist rivals split a matching penalty  - 
+Pro-indy party gets a bonus, unionist rivals split a matching penalty -
 total votes preserved. Magnitude: `(desire - 50) * 0.001` per pro-indy
 party (so at desire=100, +5pp bonus and split penalty to rivals). Capped
 to ±5pp per party.

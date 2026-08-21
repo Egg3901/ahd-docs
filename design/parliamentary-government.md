@@ -1,14 +1,14 @@
 # Parliamentary Government
 
-Design doc for parliamentary-country government formation, PM appointment votes, Votes of No Confidence (VONC), Confidence Motions, and the legislation freeze. Scope: UK and JP today; applies to any country with `governmentType === "parliamentary"` in `COUNTRY_CONFIGS`.
+Current behavior for parliamentary-country government formation, head-of-government appointment votes, Votes of No Confidence (VONC), Confidence Motions, and the legislation freeze. It applies wherever `isParliamentarySystem(config)` is true: parliamentary monarchies, parliamentary republics, and one-party states. This includes the UK, Japan, Germany, Ireland, and one-party countries that seat a head of government through the shared path.
 
 ## Core collections
 
-- `governmentFormations` (`_id: CountryId`), current government state. Key fields: `status` (`"formed" | "pending"`), `pmCharacterId`, `pmName`, `governingPartyId`, `coalitionId`, `coalitionPartyIds`, `formationType`, `cycle`, `seatsByParty`, `pmVacancyDeadlineTurn`, `collapsedAt`, `formedAt`, `formedTurn`.
+- `governmentFormations` (`_id: CountryId`), current government state. Key fields: `status` (`"pending" | "formed" | "collapsed"`), `pmCharacterId`, `pmName`, `governingPartyId`, `coalitionId`, `coalitionPartyIds`, `formationType`, `cycle`, `seatsByParty`, `pmVacancyDeadlineTurn`, `collapsedAt`, `formedAt`, `formedTurn`.
 - `pmAppointmentVotes`, active / resolved PM appointment votes. 24h duration (`PM_VOTE_DURATION_HOURS`). Gains an `isConfidenceMotion?: boolean` flag in the S#17 work.
 - `noConfidenceVotes`, active / resolved VONC docs targeting a sitting PM.
 
-## Confidence Motion (S#17)
+## Confidence Motion
 
 When a lower-chamber general election resolves and the incumbent Prime Minister **retained their seat**, a **Confidence Motion** is auto-filed in the `pmAppointmentVotes` collection with `isConfidenceMotion: true`, the incumbent as nominee, and a 24h duration. The PM stays in office (`gov.status` remains `"formed"`) during the motion window.
 
@@ -24,7 +24,7 @@ NPP PMs: `pmCharacterId` is `null` for NPP-held PM seats, which means no confide
 
 Data-flow entry point: `runPostElectionGovernmentPhases` in `src/lib/turn/countryPhases.ts` → `openConfidenceMotionForIncumbent` + `updateSeatCountsOnly` (the latter refreshes `cycle` + `seatsByParty` + `governingPartyId` without touching PM state).
 
-## Legislation Freeze (S#17)
+## Legislation Freeze
 
 While `governmentFormations.status === "pending"` for a parliamentary country, legislation is strictly frozen:
 
@@ -33,7 +33,7 @@ While `governmentFormations.status === "pending"` for a parliamentary country, l
   - `POST /api/country/[code]/legislature/cabinet-bills` (cabinet bill proposal)
   - `POST /api/country/[code]/legislature/cabinet-bills/[id]/vote` (cabinet bill vote)
   - `POST /api/country/[code]/international-organizations/[orgId]/propose-leave` (propose leaving an international organization)
-- **Turn-phase gates**: `processUKBillLifecycle` and `processJPBillLifecycle` return early with `{ skipped: true }` while the country's gov is pending. Bills in-flight stay in their current status until the freeze lifts.
+- **Turn-phase gates**: Country bill-lifecycle configs with `skipWhenGovPending: true`, including `UK_NATIONAL_CONFIG` and `JP_NATIONAL_CONFIG`, are skipped by `src/lib/turn/billLifecycle/engine.ts` while government is pending. Bills in flight stay in their current status until the freeze lifts.
 - **NPP path**: NPP autonomous bill sponsorship (`src/lib/turn/npp/billSponsorship.ts`) calls `isLegislationFrozen` directly to skip the country during the turn loop, applying the identical rule as the HTTP gate so the two paths cannot drift apart.
 - **Lift is automatic**: the next turn tick sees `gov.status === "formed"` and processes normally.
 
@@ -41,7 +41,7 @@ Non-parliamentary countries (US, CA) have no `governmentFormations.pending` stat
 
 The shared gate helper is `checkLegislationFreeze(countryId)` in `src/lib/api/parliamentaryFreeze.ts`, which wraps the underlying rule `isLegislationFrozen(db, countryId)` in `src/lib/government/legislationFreeze.ts`.
 
-## VONC-Parallel PM Nominations (S#17)
+## VONC-Parallel PM Nominations
 
 PM appointment votes can be filed when **either**:
 
@@ -53,7 +53,7 @@ Implementation: the gate in `src/app/api/country/[code]/pm/appoint/route.ts` che
 ### VONC resolution interaction
 
 - **VONC passes** → incumbent removed, gov transitions to `pending` via `unformGovernmentAndVacatePM`. Parallel appointment votes keep running on their existing timers and resolve normally in the new pending window.
-- **VONC fails** → the sitting PM survives. All active PM appointment votes for the country are cancelled (`status → "cancelled"`, `closedAt = now`) and each nominee receives a notification explaining why. This is the S#17 cleanup.
+- **VONC fails** → the sitting PM survives. All active PM appointment votes for the country are cancelled (`status → "cancelled"`, `closedAt = now`) and each nominee receives a notification explaining why.
 
 ## Related systems
 

@@ -7,7 +7,7 @@ State-level offices are the stepping stones of political careers and the foundat
 ### Governor
 
 - **Election** - Statewide single-winner race
-- **Benefits** - +2 bonus actions/turn, +$20k/hr fund bonus (matching Senate)
+- **Benefits** - +2 bonus actions/turn, +$15k/hr fund bonus (matching Senate)
 - **Power** - Highest state-level office; strong influence on state politics
 - **Government approval** - Governor's party benefits from state approval ratings in elections
 
@@ -28,7 +28,7 @@ State-level offices are the stepping stones of political careers and the foundat
 State party organization (0-100) is crucial for election success:
 
 - **Org strength** - Higher org = more votes per turn for your party's candidates
-- **Org cap** - Based on state lean; parties perform better in aligned states
+- **Org cap** - Starts from a base of 15 and gains office-specific contributions from the party's Governor, Senate, House, and State Senate performance
 - **Momentum** (-10 to +10) - Positive momentum grows org; negative shrinks it
 
 ### Building Party Org
@@ -56,11 +56,19 @@ Each state party has three elected positions:
 
 ## State Demographics
 
-Each state has a unique demographic profile:
+Each state has a granular electorate assembled from census-backed dimensions
+such as age, education, income, geography, race and ethnicity, religion, and
+occupation. Country-specific seeds adapt the dimensions and weights to each
+country rather than reusing a fixed set of 12 US archetypes. See
+[Demographics and Targeting](./demographics-targeting.md) and
+[Granular Electorate as Shipped](./granular-electorate-as-shipped.md).
 
-- 12 voter archetypes with varying populations
-- Ideology-modulated leans shift groups based on state composition
-- Understanding your state's demographics is essential for winning
+## Equivalent Regional Offices
+
+The regional executive pattern is country-aware. It appears as a US Governor,
+German Minister-President, Japanese regional Governor, Chinese Governor, and
+as a UK First Minister in Scotland, Wales, or Northern Ireland. London uses a
+Mayor. English UK regions outside London have no devolved executive office.
 
 ## Geographic Strategy
 

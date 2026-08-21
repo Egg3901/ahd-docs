@@ -20,12 +20,12 @@ Key fields on the `LegislationType` interface (`src/lib/db/types/legislation.ts`
 
 | Field                                 | Description                                                                                                                                                                                                                                                                                  |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `countryScope`                        | `"us"` \| `"uk"` \| `"international"`, which country this type belongs to. All US types are `"us"` or `"international"`; 19 UK types are `"uk"`.                                                                                                                                            |
+| `countryScope`                        | `"us"` \| `"uk"` \| `"international"`, which country this type belongs to. All US types are `"us"` or `"international"`; 19 UK types are `"uk"`.                                                                                                                                             |
 | `effectTargetsWeighted`               | Array of weighted metric targets applied when a bill using this type is enacted.                                                                                                                                                                                                             |
-| `policyOptions[].metricEffects`       | Per-option `{ category, metricId, ratePerTurn }`, direct additive metric change applied **each turn** the policy is active. Scaled for ~10-year full reversal: extreme ≈ ±0.06/turn, center = 0.                                                                                            |
+| `policyOptions[].metricEffects`       | Per-option `{ category, metricId, ratePerTurn }`, direct additive metric change applied **each turn** the policy is active. Scaled for ~10-year full reversal: extreme ≈ ±0.06/turn, center = 0.                                                                                             |
 | `policyOptions[].annualCostPerCapita` | **Absolute** per-capita spending level in $ per year (not a delta). Represents the total program cost at that policy level. `$0` = full abolition of the program. Positive = spending; negative = net savings/revenue (e.g., tax increases). Applied to national/state budgets when enacted. |
 | `policyOptions[].minimumWageRate`     | (Minimum wage types only) The actual hourly wage in $/hour for this option. Stored alongside the standard economic/social scores so the UI can display the real dollar figure.                                                                                                               |
-| `positions[].chamber`                 | `"house" \| "senate" \| "commons" \| "lords"`, committee positions for the type.                                                                                                                                                                                                            |
+| `positions[].chamber`                 | `"house" \| "senate" \| "commons" \| "lords"`, committee positions for the type.                                                                                                                                                                                                             |
 
 ### US Tax System, 11-Bracket Model
 
@@ -81,7 +81,10 @@ Configured via `FEDERAL_MULTIPLIER` in `src/lib/demographicEffects.ts`.
 
 **7 tax types** use 11 brackets with explicit rates, LARP-style titles, and economic scores. National taxes: `uk_income_tax_rate`, `uk_national_insurance`, `uk_vat`, `uk_corporation_tax`, `uk_excise_customs`. Regional taxes: `uk_council_tax`, `uk_business_rates`.
 
-**Key national type:** `uk_local_government_funding` controls the Westminster grant to regions, the primary funding lever for regional council budgets. Future Chancellor of the Exchequer office will allocate this pool across regions.
+**Key national type:** `uk_local_government_funding` controls the Westminster
+grant to regions. The seated Chancellor of the Exchequer can allocate that pool
+through the cabinet allocation route; `src/lib/turn/regionalBudget.ts` applies
+the configured percentages, defaulting to an equal split.
 
 **UK-specific metrics:** 14 metrics unique to the UK (e.g., `nhsWaitingTime`, `childPoverty`, `housingAffordability`, `devolutionSatisfaction`, `bbcTrust`). 4 US-only metrics excluded from UK (`uninsuredRate`, `affordabilityIndex`, `highSchoolGradRate`, `collegeEnrollment`). National effect division uses `UK_FEDERAL_MULTIPLIER = 1/12` (12 regions vs US 50 states).
 
@@ -99,7 +102,7 @@ Bills move through a strict status pipeline managed by the turn processor each h
 | `passed_origin` | Passed origin chamber; pending transmission to second chamber       |
 | `active_other`  | Voting open in the second chamber (24-hour window)                  |
 | `enrolled`      | Passed both chambers; awaiting presidential action (10-hour window) |
-| `signed`        | President signed, bill is law                                      |
+| `signed`        | President signed, bill is law                                       |
 | `vetoed`        | President vetoed the bill                                           |
 | `failed`        | Failed a chamber vote or pocket-expired without presidential action |
 | `withdrawn`     | Sponsor withdrew before voting opened                               |

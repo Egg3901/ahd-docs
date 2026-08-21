@@ -42,14 +42,14 @@ Next.js 16 App Router. Every subdirectory is a page route or API route group.
 
 React components organized by feature domain.
 
-| Sub-path                                                                                                                                                            | Purpose                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `ui/`                                                                                                                                                               | **Primitives**, Button, Input, Label, Skeleton, Toast, ResponsiveTable, etc. (16 files) |
-| `admin/`                                                                                                                                                            | Admin panel components                                                                  |
-| `budget/`, `charts/`, `demographics/`, `elections/`, `legislation/`, `news/`, `officials/`, `party/`, `state/`, `corporation/`, `governors/`, `influence/`, `wiki/` | Feature-specific component groups                                                       |
-| `landing/`                                                                                                                                                          | Landing/marketing page components                                                       |
-| `uk/`                                                                                                                                                               | UK-specific components                                                                  |
-| `FeedbackModal/`                                                                                                                                                    | User feedback widget                                                                    |
+| Sub-path                                                                                                                                                            | Purpose                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `ui/`                                                                                                                                                               | **Primitives**, including Button, Input, Label, Skeleton, Toast, Card, Modal, Slider, and ResponsiveTable |
+| `admin/`                                                                                                                                                            | Admin panel components                                                                                    |
+| `budget/`, `charts/`, `demographics/`, `elections/`, `legislation/`, `news/`, `officials/`, `party/`, `state/`, `corporation/`, `governors/`, `influence/`, `wiki/` | Feature-specific component groups                                                                         |
+| `landing/`                                                                                                                                                          | Landing/marketing page components                                                                         |
+| `uk/`                                                                                                                                                               | UK-specific components                                                                                    |
+| `FeedbackModal/`                                                                                                                                                    | User feedback widget                                                                                      |
 
 ### 1.3 Domain Logic, `src/lib/`
 
@@ -110,7 +110,7 @@ Database scripts, seeds, migrations, audits, and debug utilities.
 
 | Location                                                   | Framework  | Purpose                                                                                                   |
 | ---------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------- |
-| `*.test.ts` / `*.integration.test.ts` co-located in `src/` | Vitest     | Unit and integration tests, co-located with code they test (~3123 test files)                             |
+| `*.test.ts` / `*.integration.test.ts` co-located in `src/` | Vitest     | Thousands of unit and integration tests, co-located with the code they test; the count changes frequently |
 | `src/lib/__tests__/`                                       | Vitest     | Cross-cutting integration tests (phase-level, country-parameterized) that don't belong to a single module |
 | `e2e/`                                                     | Playwright | E2E tests (smoke, critical-flows, performance)                                                            |
 

@@ -108,7 +108,7 @@ GitHub Actions workflow: `.github/workflows/ci.yml` (a-house-divided app repo).
 1. `git fetch` and branch from **`development`** (see `AGENTS.md`, feature → development → staging → main).
 2. Implement changes; keep scope tight.
 3. Before commit or push: `npm run verify`.
-4. If you touched release-facing behavior, update `CHANGELOG.md` per project conventions.
+4. If release-facing behavior is in scope, run `npm run changelog:new -- "Title"` to create a post under `content/changelog/dev/`. Root `CHANGELOG.md` is an index.
 5. Husky runs **lint-staged** on commit (see `package.json` → `lint-staged`); it does not replace full-repo `verify`.
 
 ### AI-assisted sessions

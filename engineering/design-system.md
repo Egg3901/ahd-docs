@@ -84,19 +84,19 @@ Fonts are wired via `next/font` in `src/app/layout.tsx`: `--font-geist-sans`, `-
 
 AHD ships **12 themes**. Full tables in [`design-system-themes.md`](design-system-themes.md).
 
-| Theme          | Mood                                              | Use case                                                                                |
-| -------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `default`      | Warmed graphite, soft ivory text                  | The canonical look.                                                                     |
-| `oled`         | True `#000` with punched accents                  | AMOLED devices, night play.                                                             |
-| `usa`          | Navy + crimson + parchment                        | Patriotic "prestige" look.                                                              |
-| `light`        | Slate-50 clean                                    | Day mode, professional.                                                                 |
-| `pastel`       | Fuchsia/violet soft                               | Approachable day mode.                                                                  |
-| `dark-pastel`  | Purple + cyan neo                                 | Alt dark.                                                                               |
-| `retro`        | Green-phosphor CRT                                | Novelty / nostalgic.                                                                    |
-| `solarized`    | Burnt orange + teal                               | Classic terminal.                                                                       |
-| `cloakroom`    | Ivory on warm graphite, oxblood + brass           | Statesman mood; leadership screens.                                                     |
-| `broadsheet`   | Cream paper + deep ink + crimson                  | Editorial day mode.                                                                     |
-| `coldwar`      | Amber on near-black                               | Sit-room console at night.                                                              |
+| Theme          | Mood                                              | Use case                                                                                                                                             |
+| -------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`      | Warmed graphite, soft ivory text                  | The canonical look.                                                                                                                                  |
+| `oled`         | True `#000` with punched accents                  | AMOLED devices, night play.                                                                                                                          |
+| `usa`          | Navy + crimson + parchment                        | Patriotic "prestige" look.                                                                                                                           |
+| `light`        | Slate-50 clean                                    | Day mode, professional.                                                                                                                              |
+| `pastel`       | Fuchsia/violet soft                               | Approachable day mode.                                                                                                                               |
+| `dark-pastel`  | Purple + cyan neo                                 | Alt dark.                                                                                                                                            |
+| `retro`        | Green-phosphor CRT                                | Novelty / nostalgic.                                                                                                                                 |
+| `solarized`    | Burnt orange + teal                               | Classic terminal.                                                                                                                                    |
+| `cloakroom`    | Ivory on warm graphite, oxblood + brass           | Statesman mood; leadership screens.                                                                                                                  |
+| `broadsheet`   | Cream paper + deep ink + crimson                  | Editorial day mode.                                                                                                                                  |
+| `coldwar`      | Amber on near-black                               | Sit-room console at night.                                                                                                                           |
 | `command-1953` | Green-phosphor CRT scanlines, JetBrains Mono body | Console-room mood for the 1953 command era; heaviest per-theme override block in `src/app/globals.css` (body background, focus ring, tables, media). |
 
 The `default` theme is applied automatically on unauthenticated / marketing pages. User selection persists to `User.theme` (see [`design-system-themes.md`](design-system-themes.md) for the server sync flow).
@@ -157,8 +157,8 @@ Before opening a PR that adds or changes UI, confirm:
 - [ ] Interactive elements have a `:hover`, `:active`, and `:focus-visible` state.
 - [ ] Respects `prefers-reduced-motion`.
 - [ ] Mobile layout verified at 375px width.
-- [ ] Copy follows the voice rules: sentence case UI, specific numbers, em-dashes for asides.
-- [ ] Icons use inline Heroicons v1 outline with `currentColor`.
+- [ ] Copy follows the voice rules: sentence case UI, specific numbers, and no em or en dashes in player-facing copy.
+- [ ] Icons use `lucide-react` with `currentColor`; do not paste new Heroicons SVGs.
 - [ ] Uses an existing UI primitive where one fits (don't re-roll a Button).
 
 ## Adding a new token

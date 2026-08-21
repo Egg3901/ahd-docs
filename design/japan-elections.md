@@ -2,7 +2,9 @@
 
 ## Electoral System
 
-Japan uses **FPTP** (First Past the Post) for all elections in v1. Mixed-member proportional representation for the Shugiin is deferred to a post-launch enhancement.
+Japan uses **Hare-quota proportional representation** (`pr_hareQuota`) for
+Shūgiin, Sangiin, and Regional Council seats. Mixed-member proportional
+representation is not implemented.
 
 ## Election Types
 
@@ -27,7 +29,7 @@ Japan uses **FPTP** (First Past the Post) for all elections in v1. Mixed-member 
 
 - **1 per region** (8 total)
 - **Duration:** 192 hours (144h primary + 48h general)
-- **Term cycle:** 6 game years
+- **Term cycle:** 4 game years (192 turns)
 - Uses generic `ensurePerpetualElections` path (same as US governors)
 
 ## Snap Elections
@@ -47,8 +49,8 @@ The PM can dissolve the Shugiin and trigger a snap election.
 
 - All active/upcoming regular Shugiin elections are cancelled
 - Fresh snap elections spawn for all 8 regions
-- After resolution, perpetual cycle continues on original schedule
-- All JP bills not yet finalized are cancelled (`status → "failed"`)
+- After resolution, the next regular Shūgiin cycle is anchored at the snap election's end turn plus 192 turns
+- In-progress Shūgiin bills are failed. Sangiin-origin, Cabinet-review, and enrolled bills are preserved.
 - Government resets to "pending" - new PM appointment process begins
 
 ### Tracking
@@ -63,7 +65,8 @@ The PM can dissolve the Shugiin and trigger a snap election.
 
 ## Major Party Spoiler Modeling
 
-FPTP regions use major party sets for spoiler vote redistribution:
+Vote accumulation still uses configured major-party sets when applying spoiler
+redistribution before PR allocation:
 
 - **Kansai (KNS):** `{ ishin, ldp }` - Nippon Ishin dominates as opposition
 - **All other regions:** `{ ldp, cdp }` - from `COUNTRY_CONFIGS.JP.majorPartyIds`

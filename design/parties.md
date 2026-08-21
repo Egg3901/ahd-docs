@@ -5,7 +5,7 @@
 ### Current Implementation
 
 - **Multi-Party System**: Democrat, Republican, and custom third parties are supported
-- **Default Status**: Players are **Independent by default** (cannot run in a party primary until joining)
+- **Default Status**: Players are **Independent by default**. Independents use the independent-primary route where that race supports it; party members enter their party's primary.
 - **Party Formation**: Players can create custom parties; new parties start with the base organization cap (15) in all states, which grows based on election performance
 
 ## Party Membership
@@ -13,8 +13,8 @@
 ### Joining a Party
 
 - **Timing**: Anytime before running for office
-- **Requirement**: Must join a party to run in primaries
-- **Default**: Independent (cannot run for office until joining a party)
+- **Requirement**: Party membership is required for a named party's primary, not for the independent-primary route
+- **Default**: Independent
 
 ### Switching Parties
 
@@ -41,8 +41,10 @@
 
 ### Player-to-Player Endorsements
 
-- **Status**: Not implemented in main action system
-- Party leadership endorsements may carry more weight (planned)
+- **Status**: Implemented for active presidential elections
+- **Eligibility**: A human-controlled character may endorse another active candidate in the same country's presidential election. Candidates cannot endorse themselves, and a suspended presidential candidate cannot issue an endorsement.
+- **One active endorsement**: Posting a new endorsement replaces the character's previous endorsement in that election. It can also be withdrawn.
+- **Effect**: Endorsing a player candidate applies a one-time Support bump. Replacing or withdrawing the endorsement reverses the prior bump. NPP candidates can be endorsed, but do not receive that character Support adjustment.
 
 ## Primary System
 
@@ -56,9 +58,13 @@
 ### Primary Timeline
 
 - Duration varies by race type (see [Election Mechanics](./elections.md))
-- **House**: 12h primary / 48h total
-- **Senate / Governor**: 48h primary / 144h total
-- **State Senate**: 24h primary / 96h total
+- **US House**: 48h primary / 96h total
+- **US Senate**: 240h primary / 288h total
+- **US Governor and State Senate**: 144h primary / 192h total
+- **US President**: 144h primary / 192h total
+- **Most parliamentary races**: 24h primary / 48h total. Japan's regular Shūgiin and Sangiin races use longer country-specific windows.
+
+These are active-election windows. The gap between regular elections is controlled separately by each office's turn cycle.
 
 ### Primary Rules
 

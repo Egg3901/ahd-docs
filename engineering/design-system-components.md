@@ -29,11 +29,13 @@ If you need a primitive that isn't in this list, check `src/components/ui/index.
 `src/components/ui/Button.tsx`
 
 ```tsx
+import { Plus } from "lucide-react";
+
 <Button variant="primary" size="md">Run for office</Button>
 <Button variant="secondary" size="sm">Cancel</Button>
 <Button variant="ghost">Skip</Button>
 <Button variant="destructive" isLoading>Resign</Button>
-<Button variant="primary" iconOnly aria-label="Add"><PlusIcon /></Button>
+<Button variant="primary" iconOnly aria-label="Add"><Plus /></Button>
 ```
 
 **Props**

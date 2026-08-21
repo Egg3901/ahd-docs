@@ -1,6 +1,7 @@
 # Price Indexing & Nominal Repricing
 
-**Status:** Plan (not yet implemented)
+**Status:** Partially shipped. The household price index described below now
+exists; full nominal repricing of constants remains a plan.
 **Scope:** Cumulative price-level index per country, global weighted inflation series for the forex page, and a nominal-repricing layer for in-game constants (commodity base prices, action costs, startup capital).
 
 **Reviewed against:** `src/lib/budget/inflation.ts`, `src/lib/turn/inflationRecalc.ts`, `src/lib/turn/interestRateSnapshot.ts`, `src/lib/db/types/marketCapHistory.ts`, `src/lib/constants/exchangeRegistry.ts`, `src/lib/constants/commodities.ts`, `docs/design/currency-exchange.md`.
@@ -9,7 +10,14 @@
 
 ## 1. What the stored inflation value actually represents
 
-The per-turn `budget.economicFactors.inflationRate` (mirrored into `CentralBank.inflationHistory` via `interestRateSnapshot.ts`) is an **annualized inflation estimate for "this turn's conditions."** It is **not** a measured YoY over the last 48 turns, and it is **not** a per-week price delta. It is smoothed with inertia (weight 0.2) and clamped to `[-2%, +15%]`.
+The per-turn `budget.economicFactors.inflationRate` is an **annualized inflation estimate for this turn's conditions**. It is not a measured trailing 48-turn rate. Inflation uses `INERTIA = 0.35` plus mean reversion in `src/lib/budget/inflation.ts`.
+
+The shipped country household index lives in
+`src/lib/economy/householdPriceIndex.ts`. It starts at 1.0 and advances each
+turn using 75% CPI passthrough divided by `TURNS_PER_YEAR`. The real-economy
+panel uses it to deflate median income. It does not yet reprice commodity bases,
+action costs, startup capital, or the other constants proposed later in this
+document.
 
 Consequence: we cannot sum/average these values across turns to get "cumulative inflation." We need a separately-maintained **price-level index**.
 

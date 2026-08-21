@@ -44,7 +44,9 @@ Avoid sprinkling raw `/^[a-f0-9]{24}$/i` across the codebase; extend `objectIdHe
 
 ## API routes
 
-Follow `claude.md`: `requireAuth` / `requireAdmin`, `parseJsonBody`, `handleRouteError`, and shared schemas under `src/lib/api/schemas/`.
+Follow `AGENTS.md` and [API Route Checklist](./api-route-checklist.md): use the
+appropriate `require*` guard, `parseJsonBody`, `handleRouteError`, and shared
+schemas under `src/lib/api/schemas/`.
 
 For **numeric query params** with defaults and min/max caps, use **`parseBoundedIntParam`** so missing keys, `NaN`, and out-of-range values behave consistently.
 

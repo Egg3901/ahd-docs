@@ -85,7 +85,10 @@ This is a minimum integration view, not an exhaustive schema. The route also car
 projectedIncome = (50000 + donorBaseLevel * 2000) * (1 + politicalInfluence / 100)
 ```
 
-`calculateFundraisingAmount()` in `src/lib/actions.ts`: a $50,000 floor plus $2,000 per donor base level, scaled by a state-influence multiplier (1.0x at 0% influence to 2.0x at 100%). This is the per-use Fundraise action yield.
+`projectedIncome` is `calculateFundraisingAmount(donorBaseLevel,
+character.politicalInfluence)`. The helper's second parameter is named
+`stateInfluence`, but this status-bar call site passes Political Influence:
+1.0x at 0 and 2.0x at 100. This is the per-use Fundraise action yield.
 
 ---
 
@@ -99,7 +102,7 @@ projectedIncome = (50000 + donorBaseLevel * 2000) * (1 + politicalInfluence / 10
 PATCH /api/settings/theme
 Content-Type: application/json
 
-{ "theme": "dark" }
+{ "theme": "oled" }
 ```
 
 ### Response

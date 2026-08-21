@@ -1,6 +1,8 @@
 # UK + JP Devolved Executives - Design & Phased Plan
 
-**Status:** Active (started 2026-05-20)
+**Status:** Historical implementation plan; the regional executive offices and
+election wiring described here have shipped. Do not treat unresolved questions
+or phase checklists below as current behavior.
 **Branch:** `rework/political-system-update`
 **Closes:** Gate 0 finding - `getRegionalExecutive()` returns `null` for UK/JP.
 
@@ -66,7 +68,8 @@ function getExecutiveLabel(countryId, stateId): string | null {
   if (countryId === "JP") return "Governor";
   if (countryId === "UK") {
     if (stateId === "LON") return "Mayor of London";
-    if (stateId === "SCO" || stateId === "WAL" || stateId === "NIR") return "First Minister";
+    if (stateId === "SCO" || stateId === "WAL" || stateId === "NIR")
+      return "First Minister";
     return null; // English non-London regions
   }
   return null;

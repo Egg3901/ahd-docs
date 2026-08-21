@@ -14,14 +14,14 @@ This document describes how **compile-time types** and **runtime validation** wo
 
 ## Trust boundaries (what to validate)
 
-| Boundary             | Typical mechanism                                              | Notes                                                                                           |
-| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| HTTP request bodies  | `parseJsonBody(request, zodSchema)` in `@/lib/api/validate`    | Always validate JSON before use.                                                                |
-| URL / search params  | `parseBoundedIntParam`, `schemas.objectId`, route-specific Zod | ObjectIds must match hex length/pattern before `new ObjectId`.                                  |
-| Environment          | `envSchema` in `@/lib/env`                                     | Eager validation on startup (skipped in `NODE_ENV===test`).                                     |
-| JWT cookie payload   | `userPayloadSchema` in `@/lib/auth`                            | Cryptographic verification is not enough; claims must match expected shape.                     |
-| Public API responses | Strip server secrets before JSON (e.g. `toPublicGameConfig`)   | Never return Discord webhook URLs or other automation secrets to browsers.                      |
-| Database reads       | Typed collections + domain logic                               | Use precise TS types for maintainability; add parsing when accepting arbitrary/aggregated data. |
+| Boundary             | Typical mechanism                                              | Notes                                                                                                       |
+| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| HTTP request bodies  | `parseJsonBody(request, zodSchema)` in `@/lib/api/validate`    | Always validate JSON before use.                                                                            |
+| URL / search params  | `parseBoundedIntParam`, `schemas.objectId`, route-specific Zod | ObjectIds must match hex length/pattern before `new ObjectId`.                                              |
+| Environment          | `getValidatedEnv()` in `@/lib/env`                             | Lazy validation on first runtime auth/DB use; skipped in tests so `next build` can compile without secrets. |
+| JWT cookie payload   | `userPayloadSchema` in `@/lib/auth`                            | Cryptographic verification is not enough; claims must match expected shape.                                 |
+| Public API responses | Strip server secrets before JSON (e.g. `toPublicGameConfig`)   | Never return Discord webhook URLs or other automation secrets to browsers.                                  |
+| Database reads       | Typed collections + domain logic                               | Use precise TS types for maintainability; add parsing when accepting arbitrary/aggregated data.             |
 
 ## When TypeScript alone is enough
 
@@ -38,7 +38,7 @@ This document describes how **compile-time types** and **runtime validation** wo
 
 ## Project conventions
 
-- **Bundling:** The `mongodb` package is Node-only. Do not import `src/lib/utils/objectId.ts` (uses `ObjectId`) from Client Components or from modules imported by them. Use `src/lib/utils/objectIdHex.ts` for `HEX_OBJECT_ID_REGEX` and `isHexObjectIdString` in shared code; see `docs/engineering/shared-utility-guidelines.md`.
+- **Bundling:** The `mongodb` package is Node-only. Do not import `src/lib/utils/objectId.ts` (uses `ObjectId`) from Client Components or from modules imported by them. Use `src/lib/utils/objectIdHex.ts` for `HEX_OBJECT_ID_REGEX` and `isHexObjectIdString` in shared code; see [Shared Utility Guidelines](./shared-utility-guidelines.md).
 - Shared Zod pieces live under `src/lib/api/schemas/`; shared primitives (e.g. `schemas.objectId`) live in `src/lib/api/validate.ts`.
 - MongoDB document shapes live in `src/lib/db/types/` as TypeScript interfaces; keep them aligned with seeds and migrations when fields change.
 - Prefer `z.infer<typeof schema>` for API DTOs to avoid two sources of truth.
