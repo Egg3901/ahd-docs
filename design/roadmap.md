@@ -2,6 +2,8 @@
 
 _Last updated: 2026-08-11_
 
+> Product snapshot, not a mechanics reference. Feature counts and balance constants in this page can age quickly. Use the in-game wiki for player rules and the as-shipped engineering/design pages for current implementation details.
+
 Status of features across the game. Working = shipped. Partial = core done, gaps remain. Missing = not built. Planned = in the roadmap.
 
 ---
@@ -32,7 +34,7 @@ Status of features across the game. Working = shipped. Partial = core done, gaps
 | **Corporations**        | Founding, sectors, shares, dividends, bonds, CEO elections, commodity market (11 types), config-driven exchanges (NYSE/FTSE/DAX/Nikkei), 3-mode sector production, HQ relocation, shareholder address |
 | **National budgets**    | Active-country treasury panels, spending categories, fiscal costs, public enterprise revenue, sovereign bonds, heal tools                                                                             |
 | **Campaigns**           | Fundraising-level income model (L0 $20k → L10 $5M/turn), party org scalar (1.0-1.6×), season multiplier (2× final 4 turns), presidential endorsements, donation tracking                              |
-| **Travel**              | Presidential candidate travel to states (5 actions), +1% favorability/turn passive bonus, travel state badges on electoral map                                                                        |
+| **Travel**              | Presidential candidate travel to states (3, 5, 7, or 10 actions by electoral-vote tier), +1% favorability/turn passive bonus, travel state badges on electoral map                                     |
 | **Admin**               | Elections, NPPs, officials, demographics, logs, wiki, feedback, setup dashboard, seed, party elections, leadership elections, legislation (country tabs), mail reports, heal tools                    |
 | **Monitoring**          | Sentry error reporting across turn processor, API, UI, and cron jobs                                                                                                                                  |
 | **Discord bot**         | Sync-roles, predictions, corporation lookup, /government, /autocomplete, stock-chart, country-specific game event webhooks, changelog webhook                                                         |
@@ -105,7 +107,7 @@ _Out of scope: real-time chat, microtransactions, PvP leaderboards._
 
 ## Country Expansion Status
 
-`src/lib/constants/countries.ts` currently marks six countries `status: "active"`: US, UK, DE, JP, IE, and CN. Germany (DE) includes Bundestag/Bundesrat labels, Chancellor executive structure, AMS election config, major parties, `de_archetypes`, EUR/ECB currency mapping, DAX exchange wiring, country routes, and DE regional budget processing. Ireland (IE) and China (CN) are also live in runtime config (IE: Dáil/Taoiseach, PR-STV, Central Bank of Ireland; CN: Premier/President structure with a sector-driven State-Capitalist economic model), not just scaffolded.
+`src/lib/constants/countries.ts` currently marks six countries `status: "active"`: US, UK, DE, JP, IE, and CN. Germany (DE) includes Bundestag/Bundesrat labels, Chancellor executive structure, AMS election config, major parties, `de_archetypes`, EUR/ECB currency mapping, DAX exchange wiring, country routes, and DE regional budget processing. Ireland (IE) and China (CN) are also live in runtime config (IE: Dáil/Taoiseach, configured Hare-quota largest-remainder allocation, Central Bank of Ireland; CN: Premier/President structure with a sector-driven State-Capitalist economic model), not just scaffolded.
 
 The rest of `COUNTRY_ORDER` (BR, NG, HU, PL, RO, YU, BG, CS, RU, FR, IT, ES, SE, TR, GR, AT, FI, DD, plus SCO and WAL, which sit outside `COUNTRY_ORDER`) is `status: "coming-soon"`: authored but not launched.
 

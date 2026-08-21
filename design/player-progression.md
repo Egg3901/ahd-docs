@@ -46,7 +46,7 @@ When a player first joins the game:
 
 ### Phase 2: Join Party
 
-- Join Democrat, Republican, or a custom party (required before running for office)
+- Join a default or custom party, or remain independent and use the independent primary path
 - Party membership starts building **Party Influence** - the higher your party influence relative to other members, the more bonus actions you receive each turn from the party pool
 - Policy alignment to the party platform amplifies how efficiently your party influence converts to bonus actions
 - Can switch parties later (with stat penalties: Favorability and PI drop)
@@ -63,7 +63,7 @@ When a player first joins the game:
 ### Phase 4: General Election
 
 - Compete against other party nominees
-- Vote accumulation each turn; final 4 turns worth 25% of pool
+- Vote accumulation each turn; the final 4 turns receive 30% of the vote pool
 - Sustained campaigning matters; policy alignment and Favorability affect votes
 - **State races**: Political Influence (PI) drives reach and appeal
 - **Presidential race**: NPI drives reach and appeal - uncapped, logarithmic scaling rewards long-term accumulation
@@ -71,11 +71,11 @@ When a player first joins the game:
 
 #### Presidential Candidate: Travel
 
-During a presidential **general election**, active candidates can **Travel** to any US state (5 actions). While traveling:
+During a presidential **general election**, active candidates can **Travel** to any US state. The cost is based on the state's electoral-vote tier: 3, 5, 7, or 10 actions. While traveling:
 
 - You earn **+1% Favorability per turn** passively (no action needed)
 - Your travel state appears as a badge on the electoral map and candidate row, signaling your focus to opponents
-- Switching states costs another 5 actions
+- Switching states pays the destination state's current travel cost
 - Strategic travel compensates for lower NPI in swing states
 
 ### Phase 5: In Office

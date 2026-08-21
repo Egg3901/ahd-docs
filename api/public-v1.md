@@ -4,17 +4,22 @@ Base URL: `https://ahousedividedgame.com/api/public/v1`
 
 ## Authentication
 
-All endpoints require an `X-Bot-Token` header containing a valid `PUBLIC_BOT_API_KEY`.
+All endpoints accept either a user API key or the deployment bot token:
 
-```
+```http
+X-API-Key: <your-user-api-key>
+
+# or
 X-Bot-Token: <your-key>
 ```
 
-Contact the admin team to obtain a key.
+User keys can have public or private scope. The legacy bot-token path uses the server's `PUBLIC_BOT_API_KEY` and is normally issued by an administrator.
 
 ## Rate limiting
 
-60 requests per minute per IP / key. On limit: HTTP 429 with `Retry-After` header.
+The default read limit is 60 requests per minute for each endpoint bucket and credential owner. User keys are bucketed by user; the shared bot token is bucketed by route family. Responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and reset metadata. On limit, the API returns HTTP 429 with `Retry-After`.
+
+Successful public responses are edge-cacheable for 30 seconds with a 60-second stale-while-revalidate window. Do not assume two requests inside that window represent different turns.
 
 ## Response envelope
 
@@ -113,6 +118,16 @@ Earned achievements merged with definitions.
 
 Response: `{ ok, found, characterId, characterName, achievements[{ id, name, description, icon, category, isHidden, isHighlighted, earnedAt }] }`
 
+#### `GET /character/:id`
+
+Fetch one character by ObjectId or supported public character identifier.
+
+Response: the same enriched public character fields returned by `GET /character`, wrapped with `{ ok, found }`.
+
+#### `GET /characterSearch`
+
+Compatibility alias for `GET /character`. It accepts the same `name` or `discordId` query parameter and uses the same rate-limit bucket.
+
 ---
 
 ### Elections
@@ -175,7 +190,7 @@ Response: `{ ok, found, countryId, name, governmentType, population, currentLead
 
 #### `GET /country/:code/economy`
 
-Central bank data and macro indicators. History arrays contain up to 12 entries (1 game year).
+Central bank data and macro indicators. Each history array contains the latest 12 recorded observations. The sampling cadence is defined by the producer, so clients should not label this as a full game year without inspecting the returned turn values.
 
 Response: `{ ok, found, countryId, primeRate, inflation, gdpGrowth, chair{ name, profileUrl }, rateHistory[], inflationHistory[], gdpGrowthHistory[], stockMarket{ totalMarketCap, change1h, change24h, exchange } }`
 
@@ -239,6 +254,18 @@ Response: `{ ok, corporations[{ id, name, sequentialId, type, countryId }] }`
 | `page` | number | no (default 1) |
 
 Response: `{ ok, found, bonds[{ id, couponRate, maturityLabel, totalIssued, marketPrice, turnsRemaining, yieldToMaturity, holders, defaulted }], pagination }`
+
+#### `GET /commodities`
+
+Returns every configured commodity. An optional `country=CODE` query adds national price, supply, and demand fields.
+
+Response: `{ ok, commodities[{ key, label, unit, basePrice, globalPrice, globalSupply, globalDemand, nationalPrice?, nationalSupply?, nationalDemand?, turn }] }`
+
+#### `GET /commodity/:key`
+
+Returns one commodity with state-level price, supply, and demand maps plus the top ten producing and consuming states. The optional `country=CODE` query filters state data and adds national totals.
+
+Response: `{ ok, found, commodity{ key, label, unit, basePrice, globalPrice, globalSupply, globalDemand, statePrices, stateSupply, stateDemand, topProducers, topConsumers, turn } }`
 
 ---
 

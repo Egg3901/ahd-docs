@@ -149,7 +149,7 @@ The forced path, `checkForcedConversion`, fires on either of two conditions: Sta
 
 ## Command economy
 
-Everything below is gated behind the `commandEconomyEnabled` GameConfig flag, which is off by default; worlds without it are unchanged.
+Everything below is gated behind the `commandEconomyEnabled` GameConfig flag. Fresh bootstrap ties the flag to the selected era: Eastern Bloc presets enable it and other presets disable it. The static seed default is fail-safe enabled, but bootstrap makes the final preset-specific write before budget seeding.
 
 The regime is a dial, not a switch. `marketizationLevel` runs 0 (fully command) to `MARKET_LEVEL = 100`, with bands at `COMMAND_CEILING = 30` and `DUAL_TRACK_CEILING = 70` (`src/lib/constants/commandEconomy.ts`). `MARKETIZATION_SCHEDULE` gives each country a trajectory: RU, UKR, BLR and BAL sit at level 10 through 1991; CN moves 10 (through 1978) to 50 (through 1992) to 85 (through 2018) and then to market; DD is at 10 through 1990, PL at 12 through 1989, HU at 15 through 1989.
 

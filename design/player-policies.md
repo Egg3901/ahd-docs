@@ -24,7 +24,7 @@ Each request moves **one axis** by one step (`direction` ±1). Values clamp to *
 
 ## Bills and voting
 
-Voting on bills **does not** automatically move your personal policy coordinates. Bills still change **state/national** `statePolicies` records and metrics when enacted; your character's private `(economic, social)` profile is independent unless you shift it manually.
+Voting on a bill moves your personal policy coordinates by **0.25 per applicable provision** in the provision's economic or social direction. Values remain clamped to -5 through +5. The vote therefore changes both the public legislative record and, over a long career, the character's own positioning. Enactment separately changes government policy records and metrics.
 
 ## Viewing the policy landscape
 
