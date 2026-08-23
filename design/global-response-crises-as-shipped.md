@@ -11,6 +11,8 @@ Release 1.3 replaces isolated historical crisis cards with a persistent internat
 
 The combined board does not render an empty world map when there are no shooting wars. Its tension scale, pressure floor, driver cards, consequence bars, intensity markers, lean bars, and summary counts all carry inline help.
 
+The International Response Desk on `/world/conflicts` lists every active crisis carrying a `globalResponse` definition. These records are often stored with `scope: "country"` because each eligible government owns a separate national decision. The National label therefore describes response ownership, not geographic reach. The desk explains that distinction, shows turn progress and participating governments, and links into the full response page. Ordinary domestic crises without a global-response definition, such as a national industrial strike, remain on the crises and actions surfaces rather than appearing on the strategic world board.
+
 ## Module boundary
 
 The deep module is `src/lib/livingConflict/`.
@@ -75,7 +77,7 @@ Discrete events apply immediate deltas and enter a 24-item ledger. Between event
 ```text
 12
 + min(30, Vietnam escalation level * 4)
-+ min(12, active crisis count * 3)
++ min(12, active international response crisis count * 3)
 + min(18, sqrt(total world warheads) * 1.2)
 ```
 
@@ -126,3 +128,4 @@ After migration and wiki reseed, verify:
 - The expected nuclear programs exist and any pre-existing rows retain their prior warheads, nodes, and production rate.
 - The `global-response-crises` wiki page exists at the current seed version.
 - `/world/conflicts` renders without a map-sized empty panel when no shooting war exists.
+- `/world/conflicts` shows active country-scoped global-response crises in the International Response Desk and excludes ordinary domestic crises.
