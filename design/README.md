@@ -37,6 +37,7 @@ snap-election rules, and vacancy handling.
 
 ## Documentation Structure
 
+- [Global Response Crises (as shipped)](./global-response-crises-as-shipped.md) - Persistent international campaigns, global tension, nuclear integration, and release seeding
 - [Technical Architecture](./technical-architecture.md) - Current implementation
   (Next.js, MongoDB, cron, collections)
 - [Core Systems](./core-systems.md) - Term cycles, action economy, Cabinet,

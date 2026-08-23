@@ -1,5 +1,7 @@
 # The Cold War and conflict system (as shipped)
 
+The persistent release 1.3 campaign layer is documented separately in [Global response crises (as shipped)](./global-response-crises-as-shipped.md).
+
 A House Divided models the Cold War as four connected layers: alignment (which way a nation leans, and who is buying that lean), international organizations (the channels blocs push through), the military (forces, generals, doctrine, budgets), and conflicts (live wars with a moving front, battle reports, and negotiated peace). Everything below is read out of the shipped code. Every constant quoted is the value in the repository today.
 
 ## What a player sees
