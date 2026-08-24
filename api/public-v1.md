@@ -352,6 +352,56 @@ Player rankings. Metrics: `npi`, `pi`, `favorability`, `funds`, `actions`.
 | characters[].politicalInfluence | number | PI score |
 | characters[].profileUrl | string | Profile link |
 
+### GET /api/public/v1/country/[code]/history?limit=N[&type=TYPE][&beforeTurn=N]
+
+Append-only country event log (leader changes, bill enactments, referendums, regime changes, international relations). Written by the turn processor.
+
+| Param | Type | Description |
+| --- | --- | --- |
+| limit | number | 1-200, default 50 |
+| type | string | Filter by eventType (e.g. `leader_change`, `bill_enacted`, `referendum_passed`) |
+| beforeTurn | number | Pagination cursor: events strictly before this turn |
+
+Response rows: `events[].turn`, `eventType`, `title`, `officeType`, `characterId` / `characterName` / `party`, `billScope`, `details`, `iterationStartingYear`, `timestamp`.
+
+### GET /api/public/v1/country/[code]/battles?limit=N
+
+Recent battle reports involving the country (as declarer or target), newest turn first.
+
+Response rows: `battles[].theaterId`, `declarerCountry`, `targetCountry`, `attackers`, `defenders`, `turn`, `result` (null = no contact), `noContact`, `unopposedAdvance`, `controlBefore` / `controlAfter` (front-line movement, null when unknown).
+
+### GET /api/public/v1/conflicts?country=CODE[&status=STATUS][&limit=N]
+
+Conflicts, newest first. Filter by involved country (host or belligerent) and/or status (`active`, `escalating`, `winding_down`, `resolved`).
+
+Response rows: `conflicts[].conflictId` (public sequential number), `name`, `hostCountry`, `region`, `type`, `status`, `bloc`, `terrain`, `severity`, `intensity`, `control` (share of host held by side B, 0-100), `supplyA` / `supplyB`, and both sides as `{ label, countries, kind, backer }`.
+
+### GET /api/public/v1/parties?country=CODE
+
+All parties for a country, ordered by member count. Seat counts come from the elected-officials roster so they reconcile with the legislature endpoints.
+
+Response rows: `parties[].id` (sequential id usable with `/party?id=`), `name`, `abbreviation`, `color`, `economicPosition`, `socialPosition`, `memberCount`, `seatCount`, `treasury`, `isDefault`.
+
+### GET /api/public/v1/elections/archives?country=CODE[&limit=N][&type=TYPE]
+
+Completed/resolved elections for a country, newest first.
+
+Response rows: `elections[].id`, `seatId`, `electionType`, `state`, `cycle`, `electionYear`, `totalSeats`, `startTime` / `endTime`, `status`, `totalVotes`, `finalized`, `candidateCount`, and `winner: { characterName, party, votes }` when a final tally exists.
+
+### GET /api/public/v1/funds[?slug=SLUG][&country=CODE][&scope=country\|global]
+
+Index funds. Without `slug`: list all funds sorted by NAV. With `slug`: full detail including top holdings enriched with corporation names.
+
+List rows: `funds[].slug`, `name`, `tickerSymbol`, `scope`, `kind`, `countryId`, `sectorType`, `status`, `pauseReason`, `quotedNav`, `unitSupply`, `anchorCurrencyCode`, `backingRatio`, `sponsorName`, `expenseRatioAnnual`, `updatedAt`.
+
+Detail adds: `reserveUnits`, `cashAnchor`, `lastRebalancedAt`, `charteredAtTurn`, `seedCapitalAnchor`, `windDownStartedAtTurn`, `topHoldings[]` of `{ corporationId, corporationName, shares, lastValueAnchor, avgCostPerShareAnchor }`.
+
+### GET /api/public/v1/corporation/shares/history?name=X[&id=N][&page=N][&pageSize=N]
+
+Public share-trade tape for one corporation (same data the in-game corp page shows). Requires `name` or `id` (sequential id).
+
+Response: `corporation: { id, name }`, `page`, `pageSize`, `total`, `pageCount`, and `entries[]` of `{ kind, turn, createdAt, shares, pricePerShareAnchor, totalAnchor, corpCurrencyCode, from: { name }, to: { name }, note }`. `from`/`to` are null when the public float is that side.
+
 ## Private endpoints (send funds and forex)
 
 Require a **private** personal API key. All in-game restrictions apply identically to API requests.
