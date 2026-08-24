@@ -1,25 +1,47 @@
-# A House Divided — Public API v1
+# A House Divided - Public API v1
 
-Base URL: `https://ahousedividedgame.com/api/public/v1`
+Base URL: `https://ahousedividedgame.com`
+
+Use the API to build tools that read game data or automate fund transfers and forex trades. Generate keys in Settings -> API Keys in-game.
+
+This document is canonical. The old in-app `/api-guide` page redirects here.
 
 ## Authentication
 
-All endpoints accept either a user API key or the deployment bot token:
+All API requests require a personal API key in the `X-API-Key` header:
 
-```http
-X-API-Key: <your-user-api-key>
-
-# or
-X-Bot-Token: <your-key>
+```
+X-API-Key: ahd_pub_...   # public scope (read-only)
+X-API-Key: ahd_priv_...  # private scope (read + write)
 ```
 
-User keys can have public or private scope. The legacy bot-token path uses the server's `PUBLIC_BOT_API_KEY` and is normally issued by an administrator.
+Key scopes:
 
-## Rate limiting
+| Prefix | Scope | Access |
+| --- | --- | --- |
+| `ahd_pub_` | Public | Read-only access to all public endpoints. Cannot send funds or trade forex. |
+| `ahd_priv_` | Private | All public endpoints + send campaign funds + trade forex. Treat like a password. |
 
-The default read limit is 60 requests per minute for each endpoint bucket and credential owner. User keys are bucketed by user; the shared bot token is bucketed by route family. Responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and reset metadata. On limit, the API returns HTTP 429 with `Retry-After`.
+You can have up to 3 active keys per scope type. The full token is shown only once at creation.
 
-Successful public responses are edge-cacheable for 30 seconds with a 60-second stale-while-revalidate window. Do not assume two requests inside that window represent different turns.
+## Rate limits
+
+| Category | Limit |
+| --- | --- |
+| Public read | 60 req/min per key |
+| Fund transfers | 20 req/min per key |
+| Forex trades | 30 req/min per key |
+| Key management | 10 req/min |
+
+Rate-limited responses return HTTP 429 with a `Retry-After` header (seconds).
+
+## Usage guidelines
+
+- Cache responses when possible. Game state turns over every few minutes; polling faster than once per minute is unnecessary.
+- Do not create multiple keys to circumvent limits. All requests under your account count toward the same quota regardless of which key you use.
+- Never commit keys to source control or embed them in client-side code. Revoke compromised keys immediately in Settings.
+- Automated fund transfers respect all in-game rules (cooldowns, minimums, same-country restrictions, admin pauses). Attempting to bypass them revokes API access.
+- Abuse (repeated rate-limit violations, key sharing) results in key revocation and possibly account-level API restrictions.
 
 ## Response envelope
 
@@ -32,10 +54,8 @@ Success:
 Error:
 
 ```json
-{ "ok": false, "error": "Human-readable message", "code": "ERROR_CODE" }
+{ "error": "Human-readable message", "code": "ERROR_CODE" }
 ```
-
-Error codes: `UNAUTHORIZED`, `NOT_FOUND`, `BAD_REQUEST`, `RATE_LIMITED`, `INTERNAL_ERROR`.
 
 ## Stability contract
 
@@ -43,267 +63,362 @@ Error codes: `UNAUTHORIZED`, `NOT_FOUND`, `BAD_REQUEST`, `RATE_LIMITED`, `INTERN
 
 All timestamps are UTC ISO 8601.
 
----
+## Error responses
 
-## Endpoints
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 401 | missing / invalid | No API key, or key not found/revoked |
+| 403 | insufficient scope | Public key used on a private endpoint |
+| 403 | Transfers are paused | Admin has temporarily paused fund transfers |
+| 403 | Currency exchange is not yet enabled | Forex is disabled on this server |
+| 429 | rate_limited | Too many requests, check `Retry-After` |
 
-### Character
+## Public read endpoints
 
-#### `GET /character`
+All accessible with any personal API key via `X-API-Key`.
 
-Query by name (partial match) or Discord ID.
+### GET /api/public/v1/game
 
-| Param       | Type   | Required |
-| ----------- | ------ | -------- |
-| `name`      | string | one of   |
-| `discordId` | string | one of   |
+Current game state and turn timing.
 
-Response:
+| Field | Type | Description |
+| --- | --- | --- |
+| ok | boolean | Always true on success |
+| found | boolean | Whether game data was found |
+| currentTurn | number | Current turn number |
+| gameDate | string | In-game date (YYYY-MM-DD) |
+| nextTurnAt | string \| null | ISO 8601 timestamp of next turn |
+| turnDurationMs | number | Turn duration in milliseconds |
+
+### GET /api/public/v1/character
+
+Search characters. Requires `name` or `discordId` query param. Alias: `GET /api/public/v1/characterSearch` (same params and response).
+
+| Param | Type | Description |
+| --- | --- | --- |
+| name | string | Character name (partial match) |
+| discordId | string | Discord user ID |
+
+Response: `ok`, `found`, `characters[]` with fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| id | string | Character ObjectId |
+| name | string | Display name |
+| bio | string \| null | Character biography |
+| countryId | string \| null | Home country code |
+| party | string | Party name |
+| partyId | string \| null | Party ObjectId |
+| partyColor | string | Hex color |
+| state | string | Home state name |
+| stateCode | string | Home state code |
+| position | string | Current office/position |
+| politicalInfluence | number | PI score |
+| nationalInfluence | number | NPI score |
+| favorability | number | Favorability rating |
+| campaignFunds | number | Campaign treasury |
+| netWorth | number | Total net worth |
+| isCeo | boolean | Whether CEO of a corporation |
+| profileUrl | string | Relative profile URL |
+| activeElection | object \| null | Current election info if running |
+
+### GET /api/public/v1/character/[id]
+
+Full character details by public sequential id (e.g. `75`) or ObjectId. Same field shape as the characters array above, wrapped as `{ ok, found, character }` with additional detail fields.
+
+### GET /api/public/v1/character/[id]/career
+
+Character career history.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| ok | boolean | Always true |
+| found | boolean | Whether the character exists |
+| characterId | string | Character ObjectId |
+| characterName | string | Display name |
+| career[].type | string | Entry type (election, appointment, etc.) |
+| career[].office | string \| null | Office held |
+| career[].party | string \| null | Party at time |
+| career[].fromState | string \| null | Start turn/term |
+| career[].toState | string \| null | End turn/term |
+
+### GET /api/public/v1/character/[id]/achievements
+
+Achievements earned by a character.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| achievements[].id | string | Achievement ID |
+| achievements[].name | string \| null | Display name |
+| achievements[].description | string \| null | Description text |
+| achievements[].icon | string \| null | Emoji/icon |
+| achievements[].category | string \| null | Category |
+| achievements[].isHidden | boolean | Whether hidden from others |
+| achievements[].earnedAt | string \| null | ISO 8601 timestamp |
+
+### GET /api/public/v1/party?id=ID&country=CODE
+
+Party details. Both `id` and `country` params required.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| party.id | string | Party ObjectId |
+| party.name | string | Party name |
+| party.abbreviation | string \| null | Short name |
+| party.color | string | Hex color |
+| party.economicPosition | number | Economic axis position |
+| party.socialPosition | number | Social axis position |
+| party.memberCount | number | Active member count |
+| party.seatCount | number | Legislative seats held |
+| party.treasury | number | Party treasury balance |
+| party.chairName | string \| null | Party chair name |
+| party.topMembers | array | Top 5 members by influence |
+
+### GET /api/public/v1/country
+
+List all countries. Returns `countries[]` of `{ id, name, governmentType }`.
+
+### GET /api/public/v1/country/[code]
+
+Country details by code (e.g. US, GB).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| countryId | string | Country code |
+| name | string | Country name |
+| governmentType | string | Regime type (e.g. presidential, parliamentary) |
+| population | number \| null | Population count |
+| currentLeader | object \| null | `{ name, party, profileUrl }` or null |
+| legislatureComposition[].partyName | string | Party name |
+| legislatureComposition[].seats | number | Seats held |
+| legislatureComposition[].seatPct | number | Percentage of total |
+| lastElectionCycle | number \| null | Last election cycle number |
+
+### GET /api/public/v1/country/[code]/legislature
+
+Legislature details for a country.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| chamber | string | Chamber name |
+| totalSeats | number | Total legislative seats |
+| composition | array | Party seat breakdown |
+| pendingBills[].id | string | Bill ObjectId |
+| pendingBills[].title | string | Bill title |
+| pendingBills[].status | string | Bill status |
+| recentlyPassed | array | Recently passed bills (`{ yes, no }` vote tally per entry) |
+
+### GET /api/public/v1/country/[code]/economy
+
+Economic indicators for a country.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| primeRate | number \| null | Current central bank rate |
+| inflation | number \| null | Current inflation rate |
+| gdpGrowth | number \| null | GDP growth rate |
+| chair | object \| null | Central bank chair `{ name, profileUrl }` |
+| rateHistory | array | `[{ turn, rate }]` historical rates |
+| stockMarket.totalMarketCap | number | Total market cap |
+| stockMarket.change24h | number | 24h change percentage |
+
+### GET /api/public/v1/government?country=CODE
+
+Government overview. Requires `country` query param.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| officials[].role | string | Position title |
+| officials[].characterName | string \| null | Office holder name |
+| officials[].party | string \| null | Party affiliation |
+| officials[].section | string | `"executive"` or `"leadership"` |
+| cabinet | array | Cabinet members |
+| governmentFormation | object | Varies by regime type |
+
+### GET /api/public/v1/elections?country=CODE[&state=STATE]
+
+Active elections. Requires `country`; optional `state`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| elections[].id | string | Election ObjectId |
+| elections[].electionType | string | Type (primary, general, etc.) |
+| elections[].state | string | State code |
+| elections[].status | string | Status (open, closed, etc.) |
+| elections[].candidates[].characterName | string | Candidate name |
+| elections[].candidates[].party | string | Party name |
+| elections[].candidates[].isNPP | boolean | Non-party member |
+
+### GET /api/public/v1/elections/[id]
+
+Detailed election info including candidates, votes, and phases.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| election.electionType | string | Type |
+| election.status | string | Current status |
+| election.totalSeats | number | Seats contested |
+| phase | object | `{ inPrimary, inGeneral, isUpcoming, isEnded }` |
+| incumbent | object \| null | `{ name, party }` or null |
+| candidates | array | Full candidate list with details |
+| votes | object \| null | Vote tallies and snapshots |
+
+### GET /api/public/v1/news?limit=N[&category=CAT]
+
+News feed. Optional `limit` and `category`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| posts[].id | string | Post ObjectId |
+| posts[].title | string \| null | Headline |
+| posts[].content | string \| null | Body text |
+| posts[].authorName | string \| null | Author |
+| posts[].isSystem | boolean | System-generated post |
+| posts[].category | string \| null | Category tag |
+| posts[].countryId | string \| null | Related country |
+| posts[].createdAt | string \| null | ISO 8601 timestamp |
+
+### GET /api/public/v1/legislation?country=CODE[&status=pending\|passed\|failed][&limit=N]
+
+Bills and votes. Optional filters.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| bills[].id | string | Bill ObjectId |
+| bills[].title | string | Bill title |
+| bills[].sponsor | string \| null | Sponsor name |
+| bills[].status | string | pending, passed, or failed |
+| bills[].vote | object | `{ yes, no, abstain }` |
+| bills[].effects | array | `[{ metric, direction }]` |
+
+### GET /api/public/v1/market?type=SECTOR&country=CODE&page=N
+
+Stock market data. `type` param required. Pass `view=share` for shares, `view=unowned` for unowned sectors.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| mode | string | `"share"` or `"unowned"` |
+| sectorType | string | Requested sector type |
+| page / totalPages | number | Pagination |
+| companies \| sectors | array | Results (depends on mode) |
+
+### GET /api/public/v1/bonds?corp=NAME&page=N
+
+Bond market data. Optional `corp` and `page`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| bonds[].id | string | Bond ObjectId |
+| bonds[].couponRate | number | Coupon rate (e.g. 0.05 = 5%) |
+| bonds[].maturityLabel | string \| null | Maturity description |
+| bonds[].totalIssued | number | Total bonds issued |
+| bonds[].marketPrice | number | Current market price |
+| bonds[].yieldToMaturity | number \| null | YTM |
+| bonds[].defaulted | boolean | Whether bond is in default |
+| pagination | object | `{ page, perPage, totalCount, totalPages }` |
+
+### GET /api/public/v1/corporations
+
+List all corporations. Returns `corporations[]` of `{ id, name, sequentialId, type, countryId }`.
+
+### GET /api/public/v1/corporation?name=X[&id=N]
+
+Corporation details. Requires `name` or `id`. Note: `id` is the corporation's `sequentialId` (e.g. 112), not the Mongo ObjectId.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| id | string | Corporation ObjectId |
+| name | string | Corporation name |
+| type / typeLabel | string | Corporation type (+ human-readable label) |
+| ceo | object \| null | `{ name, profileUrl }` |
+| financials | object | Revenue, income, costs, dividends |
+| balanceSheet | object | `{ cashOnHand, marketCapitalization, totalDebt }` |
+| shareStructure | object | Shares, price, float, shareholders |
+| creditRating | object | Rating, score, components |
+| bonds | array | Corporate bonds |
+| sectors | array | Operational sectors |
+
+### GET /api/public/v1/leaderboard?country=CODE[&metric=METRIC][&limit=N]
+
+Player rankings. Metrics: `npi`, `pi`, `favorability`, `funds`, `actions`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| metric | string | Requested metric |
+| characters[].rank | number | Position |
+| characters[].name | string | Character name |
+| characters[].party | string | Party name |
+| characters[].funds | number | Campaign funds |
+| characters[].politicalInfluence | number | PI score |
+| characters[].profileUrl | string | Profile link |
+
+## Private endpoints (send funds and forex)
+
+Require a **private** personal API key. All in-game restrictions apply identically to API requests.
+
+### POST /api/v1/transfer
+
+Send campaign funds to another character.
+
+Request body:
 
 ```json
-{
-  "ok": true,
-  "found": true,
-  "characters": [
-    {
-      "id": "...",
-      "name": "Jane Smith",
-      "bio": "...",
-      "countryId": "US",
-      "party": "Democratic Party",
-      "partyId": "...",
-      "partyColor": "#1a1aff",
-      "partyUrl": "https://...",
-      "state": "California",
-      "stateCode": "CA",
-      "stateUrl": "https://...",
-      "countryUrl": "https://...",
-      "position": "Senator",
-      "officeType": "senate",
-      "politicalInfluence": 42.5,
-      "nationalInfluence": 18.2,
-      "favorability": 55,
-      "infamy": 3,
-      "campaignFunds": 12500,
-      "cashOnHand": 8000,
-      "netWorth": 32500,
-      "portfolioValue": 12000,
-      "actions": 4,
-      "donorBaseLevel": 2,
-      "policies": { "economic": 25, "social": -10 },
-      "avatarUrl": null,
-      "discordAvatarUrl": null,
-      "discordUsername": null,
-      "profileUrl": "https://...",
-      "createdAt": "2025-01-01T00:00:00.000Z",
-      "activeElection": null,
-      "isCeo": false,
-      "ceoOf": null,
-      "isInvestor": true,
-      "investorRank": 3
-    }
-  ]
-}
+{ "targetCharacterId": "<recipient ObjectId>", "amount": 5000 }
 ```
 
-#### `GET /character/:id/career`
+`amount` is in your character's home currency (same unit as your in-game balance, min 1000, integer).
 
-Career history in reverse chronological order.
+Response: `success`, `amount`, `currency` (sender home currency code), `senderRemainingFunds`, `targetName`.
 
-Response: `{ ok, found, characterId, characterName, career[{ type, office, officeLabel, party, electionId, fromState, toState }] }`
+Restrictions:
 
-#### `GET /character/:id/achievements`
+- Minimum transfer: 1,000 (home currency)
+- Sender and target must be in the same country
+- Cannot transfer to yourself
+- Must have sufficient campaign funds
+- Transfers may be paused by admins (returns 403)
 
-Earned achievements merged with definitions.
+### POST /api/v1/forex/exchange
 
-Response: `{ ok, found, characterId, characterName, achievements[{ id, name, description, icon, category, isHidden, isHighlighted, earnedAt }] }`
+Execute a forex market order.
 
-#### `GET /character/:id`
+Request body:
 
-Fetch one character by ObjectId or supported public character identifier.
+```json
+{ "fromCurrency": "USD", "toCurrency": "GBP", "amount": 1000 }
+```
 
-Response: the same enriched public character fields returned by `GET /character`, wrapped with `{ ok, found }`.
+Response: `success`, `trade.fromCurrency`, `trade.toCurrency`, `trade.fromAmount`, `trade.toAmount`, `trade.effectiveRate`, `trade.spreadCharged` (0.275% spread; 50% destroyed, 50% to central bank).
 
-#### `GET /characterSearch`
+Restrictions:
 
-Compatibility alias for `GET /character`. It accepts the same `name` or `discordId` query parameter and uses the same rate-limit bucket.
+- Cannot trade a currency for itself
+- Forex must be enabled on the server
+- Must have sufficient funds in source currency
+- Character must exist and be in an active country
 
----
+## Quick start
 
-### Elections
+```bash
+# Read public data (any key)
+curl -H "X-API-Key: $AHD_API_KEY" \
+  https://ahousedividedgame.com/api/public/v1/game
 
-#### `GET /elections`
+# Send funds (private key)
+curl -X POST -H "X-API-Key: $AHD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"targetCharacterId":"507f1f77bcf86cd799439011","amount":5000}' \
+  https://ahousedividedgame.com/api/v1/transfer
+```
 
-| Param     | Type   | Required |
-| --------- | ------ | -------- |
-| `country` | string | yes      |
-| `state`   | string | no       |
+Python:
 
-Response: `{ ok, found, elections[{ id, seatId, electionType, state, stateName, status, startTime, endTime, candidates[], finalVotes? }] }`
+```python
+import os, requests
 
-`finalVotes` is only present when `status` is `ended/completed/resolved`.
+BASE = "https://ahousedividedgame.com"
+headers = {"X-API-Key": os.environ["AHD_API_KEY"]}
 
-#### `GET /elections/:id`
-
-Full election detail.
-
-Response: `{ ok, found, election{ ... }, phase{ inPrimary, inGeneral, isUpcoming, isEnded }, incumbent (null if none), candidates[], primarySnapshots[{ turn, candidates[{ name, sharePct }] }], votes{ totalVotes, finalized, latestSnapshot } }`
-
----
-
-### Party
-
-#### `GET /party`
-
-| Param     | Type   | Required |
-| --------- | ------ | -------- |
-| `id`      | string | yes      |
-| `country` | string | yes      |
-
-Response: `{ ok, found, party{ id, name, abbreviation, color, economicPosition, socialPosition, economicLabel, socialLabel, memberCount, seatCount, treasury, chairName, partyUrl, recentElectionResults[], topMembers[] } }`
-
----
-
-### Government
-
-#### `GET /government`
-
-| Param     | Type   | Required |
-| --------- | ------ | -------- |
-| `country` | string | yes      |
-
-Response: `{ ok, found, country, countryName, officials[], cabinet[], governmentFormation{ type, ... } }`
-
-Parliamentary countries: `governmentFormation.type = "parliamentary"`, includes `seatsByParty[{ partyId, partyName, partyColor, seats }]`.
-
-Presidential countries: `governmentFormation.type = "presidential"`, includes `president{ name, party, profileUrl }`.
-
----
-
-### Country
-
-#### `GET /country/:code`
-
-Country summary with legislature composition.
-
-Response: `{ ok, found, countryId, name, governmentType, population, currentLeader, legislatureComposition[{ partyId, partyName, partyColor, seats, seatPct }], lastElectionCycle }`
-
-#### `GET /country/:code/economy`
-
-Central bank data and macro indicators. Each history array contains the latest 12 recorded observations. The sampling cadence is defined by the producer, so clients should not label this as a full game year without inspecting the returned turn values.
-
-Response: `{ ok, found, countryId, primeRate, inflation, gdpGrowth, chair{ name, profileUrl }, rateHistory[], inflationHistory[], gdpGrowthHistory[], stockMarket{ totalMarketCap, change1h, change24h, exchange } }`
-
-#### `GET /country/:code/legislature`
-
-Chamber composition and recent legislation. `pendingBills` and `recentlyPassed` are capped at 5 each; use `/legislation` for full browsing.
-
-Response: `{ ok, found, countryId, chamber, totalSeats, composition[], pendingBills[], recentlyPassed[] }`
-
----
-
-### Legislation
-
-#### `GET /legislation`
-
-| Param     | Type                      | Required        |
-| --------- | ------------------------- | --------------- |
-| `country` | string                    | no              |
-| `status`  | `pending\|passed\|failed` | no              |
-| `limit`   | number (max 100)          | no (default 20) |
-
-Response: `{ ok, found, bills[{ id, title, sponsor, sponsorParty, country, status, introducedAt, votedAt, vote{ yes, no, abstain }, effects[{ metric, direction }] }] }`
-
----
-
-### Corporation
-
-#### `GET /corporation`
-
-| Param  | Type                  | Required |
-| ------ | --------------------- | -------- |
-| `name` | string                | one of   |
-| `id`   | string (sequentialId) | one of   |
-
-Response: `{ ok, found, id, name, type, brandColor, countryId, ceo, financials, balanceSheet, shareStructure, creditRating{ rating, compositeScore, components, effectiveCouponRate }, bonds[], sectors[] }`
-
-#### `GET /corporations`
-
-Full list of corporation stubs.
-
-Response: `{ ok, corporations[{ id, name, sequentialId, type, countryId }] }`
-
----
-
-### Market
-
-#### `GET /market`
-
-| Param     | Type                 | Required             |
-| --------- | -------------------- | -------------------- |
-| `type`    | string (sector type) | yes                  |
-| `country` | string               | no                   |
-| `page`    | number               | no (default 1)       |
-| `view`    | `share\|unowned`     | no (default `share`) |
-
-#### `GET /bonds`
-
-| Param  | Type   | Required       |
-| ------ | ------ | -------------- |
-| `corp` | string | no             |
-| `page` | number | no (default 1) |
-
-Response: `{ ok, found, bonds[{ id, couponRate, maturityLabel, totalIssued, marketPrice, turnsRemaining, yieldToMaturity, holders, defaulted }], pagination }`
-
-#### `GET /commodities`
-
-Returns every configured commodity. An optional `country=CODE` query adds national price, supply, and demand fields.
-
-Response: `{ ok, commodities[{ key, label, unit, basePrice, globalPrice, globalSupply, globalDemand, nationalPrice?, nationalSupply?, nationalDemand?, turn }] }`
-
-#### `GET /commodity/:key`
-
-Returns one commodity with state-level price, supply, and demand maps plus the top ten producing and consuming states. The optional `country=CODE` query filters state data and adds national totals.
-
-Response: `{ ok, found, commodity{ key, label, unit, basePrice, globalPrice, globalSupply, globalDemand, statePrices, stateSupply, stateDemand, topProducers, topConsumers, turn } }`
-
----
-
-### Leaderboard
-
-#### `GET /leaderboard`
-
-| Param     | Type                                    | Required           |
-| --------- | --------------------------------------- | ------------------ |
-| `country` | string                                  | no                 |
-| `metric`  | `npi\|pi\|favorability\|funds\|actions` | no (default `npi`) |
-| `limit`   | number (max 50)                         | no (default 10)    |
-
-Response: `{ ok, found, metric, characters[{ rank, id, name, party, partyColor, stateCode, position, politicalInfluence, nationalInfluence, favorability, actions, funds, profileUrl }] }`
-
----
-
-### News
-
-#### `GET /news`
-
-| Param      | Type             | Required        |
-| ---------- | ---------------- | --------------- |
-| `limit`    | number (max 100) | no (default 20) |
-| `category` | string           | no              |
-
-Response: `{ ok, found, posts[{ id, title, content, authorName, isSystem, category, countryId, stateId, reactions, createdAt }] }`
-
-Full content is returned (not truncated).
-
----
-
-### Game State
-
-#### `GET /game`
-
-Current turn, game date, and next turn time.
-
-Response: `{ ok, found, currentTurn, gameDate, nextTurnAt, turnDurationMs }`
-
-`gameDate` is a YYYY-MM-DD string in game time (not real time). Turn 1 = 2020-01-01; each turn = 1 game week.
+game = requests.get(f"{BASE}/api/public/v1/game", headers=headers).json()
+print(f"Turn {game['currentTurn']}")
+```
