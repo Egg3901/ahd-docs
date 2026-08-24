@@ -109,7 +109,10 @@ const ENGINEERING_GROUPS = [
   ["Design System", ["design-system", "design-system-components", "design-system-themes"]],
   ["Workflow & Testing", ["developer-workflow", "test-architecture-and-gaps"]],
 ];
-const API_GROUPS = [["Public API", ["public-v1", "client-integration"]]];
+const API_GROUPS = [
+  ["Public API", ["public-v1", "client-integration"]],
+  ["Guides", ["dashboard-getting-started", "discord-bot-getting-started"]],
+];
 
 const EXCLUDE = new Set(["engineering/ai-development-workflow.md", "engineering/ai-skills-roadmap.md", "design/README.md"]);
 const SCRUB = [
