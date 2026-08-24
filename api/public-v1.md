@@ -402,6 +402,16 @@ Public share-trade tape for one corporation (same data the in-game corp page sho
 
 Response: `corporation: { id, name }`, `page`, `pageSize`, `total`, `pageCount`, and `entries[]` of `{ kind, turn, createdAt, shares, pricePerShareAnchor, totalAnchor, corpCurrencyCode, from: { name }, to: { name }, note }`. `from`/`to` are null when the public float is that side.
 
+### GET /api/public/v1/characters/bulk?ids=1,7,42
+
+Bulk character lookup for dashboards: up to 100 comma-separated sequential ids in one request. Unknown and invalid ids are skipped (match on what came back).
+
+Response: `ok`, `found`, `requested` / `returned` counts, and `characters[]` with the same shape as the search endpoint.
+
+### GET /api/public/v1/meta
+
+Machine-readable catalog of every v1 endpoint with its params, plus base URL, auth header, rate limits, and the stability contract. Bots can validate their integration against this instead of scraping docs.
+
 ## Private endpoints (send funds and forex)
 
 Require a **private** personal API key. All in-game restrictions apply identically to API requests.
