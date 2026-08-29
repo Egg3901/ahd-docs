@@ -176,6 +176,45 @@ export const SATELLITES = [
     ],
   },
   {
+    slug: "verdigris",
+    name: "Verdigris",
+    short: "Verdigris",
+    base: "/g/verdigris",
+    repo: gameRepo("verdigris"),
+    site: "https://lakesidegames.net/games/verdigris/",
+    github: "https://github.com/Egg3901/verdigris",
+    logo: null,
+    askGame: "verdigris",
+    tagline:
+      "A living 1890s city district that brings its troubles to your desk. You are the alderman: you never place a building, you answer the people who come to you, and the ledger judges what the city actually did.",
+    // Every file in this repo's docs tree is player or contributor facing and
+    // was written for publication, so nothing is rejected. The repo is public,
+    // which is why the whole tree can be listed rather than curated.
+    excluded: [],
+    sections: [
+      {
+        key: "playing",
+        label: "Playing",
+        groups: [{ label: "The alderman's day", files: ["docs/PLAYING.md"] }],
+      },
+      {
+        key: "systems",
+        label: "Game Systems",
+        groups: [{ label: "The simulation", files: ["docs/SIMULATION.md"] }],
+      },
+      {
+        key: "engineering",
+        label: "Engineering",
+        groups: [{ label: "Contributing", files: ["docs/ARCHITECTURE.md", "CONTRIBUTING.md"] }],
+      },
+      {
+        key: "reference",
+        label: "Reference",
+        groups: [{ label: "Overview", files: ["README.md"] }],
+      },
+    ],
+  },
+  {
     slug: "electioneer",
     name: "Electioneer",
     short: "Electioneer",
