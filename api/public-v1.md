@@ -54,7 +54,7 @@ Success:
 Error:
 
 ```json
-{ "error": "Human-readable message", "code": "ERROR_CODE" }
+{ "ok": false, "error": "Human-readable message", "code": "ERROR_CODE" }
 ```
 
 ## Stability contract
@@ -244,6 +244,30 @@ Economic indicators for a country.
 | stockMarket.totalMarketCap | number         | Total market cap                                |
 | stockMarket.change24h      | number         | 24h change percentage                           |
 
+### GET /api/public/v1/country/[code]/economy/history
+
+Bounded historical monetary, growth, inflation, fiscal, and sovereign debt
+data for one country. Points are returned oldest to newest.
+
+| Param    | Type   | Description                                  |
+| -------- | ------ | -------------------------------------------- |
+| fromTurn | number | Optional inclusive first turn                |
+| toTurn   | number | Optional inclusive last turn                 |
+| limit    | number | Maximum points, 1-240, default 48            |
+
+Response:
+
+- `series.primeRate[]`, `series.inflation[]`, and `series.gdpGrowth[]` contain
+  `{ turn, value }` points from the per-turn monetary history.
+- `fiscalYears[]` contains annual snapshots with `fiscalYear`, `turn`,
+  `recordedAt`, `currencyCode`, `gdp`, `revenue`, `spending`, `surplus`,
+  `debtPrincipal`, `debtToGdpRatio`, `creditRating`, and `inflation`.
+- `range` echoes the effective filters. `found` is false when the country is
+  valid but its current world has not accumulated history yet.
+
+Internal policy drivers, actor ids, tax bases, and enacted-law implementation
+details are not exposed.
+
 ### GET /api/public/v1/country/[code]/regions
 
 All regions for a country in one request, ordered by name.
@@ -338,6 +362,21 @@ resolution provenance.
 Pass `includePending=true` to add embargo and end-embargo bills still moving
 through a legislature under `pending[]`. Internal acting-character IDs are not
 returned.
+
+### GET /api/public/v1/trade/flows?country=CODE[&commodity=KEY][&fromTurn=N][&toTurn=N][&limit=N]
+
+Historical inter-country commodity trade, returned oldest to newest. `limit`
+defaults to 48 and accepts 1-240. `fromTurn` and `toTurn` are inclusive.
+
+Every point contains `turn`, `recordedAt`, and world `grossVolume`,
+`clearedVolume`, and `unclearedSurplus`. Passing `country` adds that country's
+exports, imports, net balance, and largest surplus and deficit partners.
+Passing `commodity` adds its label and world volume. Passing both adds the
+country's exports, imports, net, and uncleared amount for that commodity.
+
+All monetary values use the game's anchor unit, reported as
+`monetaryUnit: "anchor"`. Full bilateral matrices and internal reachable market
+books are not exposed.
 
 ### GET /api/public/v1/sovereigns
 
@@ -582,7 +621,21 @@ Response: `ok`, `found`, `requested` / `returned` counts, and `characters[]` wit
 
 ### GET /api/public/v1/meta
 
-Machine-readable catalog of every v1 endpoint with its params, plus base URL, auth header, rate limits, and the stability contract. Bots can validate their integration against this instead of scraping docs.
+Machine-readable catalog of every v1 endpoint with its params, plus base URL,
+auth header, rate limits, OpenAPI URL, and the stability contract. Bots can
+validate their integration against this instead of scraping docs.
+
+### GET /api/public/v1/openapi.json
+
+OpenAPI 3.1 contract generated from the same route catalog as `/meta`. It
+describes every public v1 path, query and path parameters, both supported auth
+headers, standard error responses, and rate-limit headers. Use it to generate a
+client or import the interface into API tooling.
+
+```bash
+curl -H "X-API-Key: $AHD_API_KEY" \
+  https://ahousedividedgame.com/api/public/v1/openapi.json
+```
 
 ## Private endpoints (send funds and forex)
 
