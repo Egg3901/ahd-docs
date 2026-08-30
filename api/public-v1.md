@@ -86,9 +86,19 @@ Current game state and turn timing.
 | ok | boolean | Always true on success |
 | found | boolean | Whether game data was found |
 | currentTurn | number | Current turn number |
+| displayTurn | number | Calendar turn after any founding-phase offset |
+| currentYear | number | Current in-game calendar year |
+| startingYear | number | Calendar year at turn 1 for this world |
 | gameDate | string | In-game date (YYYY-MM-DD) |
+| gameDateLabel | string | Human-readable in-game date |
+| calendar | object | `{ month, weekOfMonth, year }` |
 | nextTurnAt | string \| null | ISO 8601 timestamp of next turn |
+| lastTurnAt | string \| null | ISO 8601 timestamp of the last processed turn |
 | turnDurationMs | number | Turn duration in milliseconds |
+| status | string | `active` or `paused` |
+| isActive / fastMode | boolean | Turn-system state and cadence |
+| preset | string \| null | World seed preset id |
+| iteration | object \| null | Current game iteration `{ type, number }` |
 
 ### GET /api/public/v1/character
 
@@ -176,7 +186,11 @@ Party details. Both `id` and `country` params required.
 
 ### GET /api/public/v1/country
 
-List all countries. Returns `countries[]` of `{ id, name, governmentType }`.
+List every registered country in runtime order.
+
+Response rows: `countries[].id`, `name`, `governmentType`, `status`,
+`enabledForPlayers`, `economyPreview`, `currencyCode`, `regionCount`,
+`population`, and `gdpMillions`.
 
 ### GET /api/public/v1/country/[code]
 
@@ -217,10 +231,64 @@ Economic indicators for a country.
 | primeRate | number \| null | Current central bank rate |
 | inflation | number \| null | Current inflation rate |
 | gdpGrowth | number \| null | GDP growth rate |
+| currencyCode | string \| null | National currency code |
+| population | number \| null | Sum of live regional population |
+| gdp | number \| null | Live national GDP in local-currency units |
+| gdpPerCapita | number \| null | GDP divided by population |
+| debt | object \| null | Principal, debt-to-GDP ratio, and credit rating |
+| budgetBalance | number \| null | Revenue less spending |
+| budgetBalancePctGdp | number \| null | Balance as a percentage of smoothed GDP |
+| investorConfidence | number \| null | Current investor-confidence index |
 | chair | object \| null | Central bank chair `{ name, profileUrl }` |
 | rateHistory | array | `[{ turn, rate }]` historical rates |
 | stockMarket.totalMarketCap | number | Total market cap |
 | stockMarket.change24h | number | 24h change percentage |
+
+### GET /api/public/v1/country/[code]/regions
+
+All regions for a country in one request, ordered by name.
+
+Response: `countryId`, `countryName`, `count`, and `regions[]` with `id`,
+`name`, `regionType`, `parentRegionId`, `region`, `population`,
+`votingEligiblePopulation`, `workingAgePopulation`, `gdpMillions`,
+`gdpPerCapita`, `houseDistricts`, `stateSenateSeats`, `votingSystem`,
+`economicLean`, `socialLean`, `sectorSpecializations`, `topSectors`, and
+`metricsUpdatedAt`.
+
+### GET /api/public/v1/country/[code]/budget
+
+Current national fiscal position. Money fields are in `currencyCode` units.
+Sensitive defence accounts and player data are not included.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| fiscalYear | number | Current fiscal year |
+| currencyCode | string | Currency for monetary fields |
+| gdp / gdpSmoothed | number \| null | Live GDP and ratio denominator |
+| revenue | object | Total and source breakdown |
+| spending | object | Total, categories, grants, and debt interest |
+| balance | number | Revenue less spending |
+| balancePctGdp | number \| null | Balance as a percentage of smoothed GDP |
+| treasuryBalance | number \| null | Signed national cash position |
+| debt | object | Principal, rate, ceiling, ratio, rating, and crisis state |
+| taxRates | object | Current national tax rates |
+| economicIndicators | object | Inflation, GDP, wage, trade, and confidence readings |
+| updatedAt | string \| null | ISO 8601 budget update timestamp |
+
+### GET /api/public/v1/forex
+
+Current currency-market snapshot without history. Returns `currencies[]` with
+`countryId`, `currencyCode`, `rate`, `baseRate`, `macroTarget`, percentage
+changes, 24-turn buy/sell/net volume, declared regime, intervention band,
+cycle pressure, spread strength, and `updatedAt`.
+
+Rates are local currency units per one internal anchor unit.
+
+### GET /api/public/v1/forex/[currency]?history=N
+
+One active currency plus trailing rate history. `history` defaults to 48 and
+must be from 1 to 240. Response shape: `{ ok, found, currency }`; the currency
+object has the collection fields above plus `history: [{ turn, rate }]`.
 
 ### GET /api/public/v1/government?country=CODE
 
@@ -387,6 +455,33 @@ Response rows: `parties[].id` (sequential id usable with `/party?id=`), `name`, 
 Completed/resolved elections for a country, newest first.
 
 Response rows: `elections[].id`, `seatId`, `electionType`, `state`, `cycle`, `electionYear`, `totalSeats`, `startTime` / `endTime`, `status`, `totalVotes`, `finalized`, `candidateCount`, and `winner: { characterName, party, votes }` when a final tally exists.
+
+### GET /api/public/v1/referendums?country=CODE[&status=STATUS][&limit=N]
+
+Referendum campaigns and history, newest update first. `country` and `status`
+are optional; `limit` defaults to 50 and must be from 1 to 200.
+
+Response rows: `referendums[].id`, `countryId`, `region: { id, name }`, `kind`,
+`targetCountryId`, `status`, lifecycle turns under `timing`, current and baseline
+Yes shares, `pollHistory`, resolved public party positions, and `result` with
+Yes/No shares, turnout, pass/fail, and resolution turn. Internal cohort models
+and campaign-spend ledgers are not exposed.
+
+### GET /api/public/v1/referendums/[id]
+
+One referendum by ObjectId with the same shape as a collection row, wrapped as
+`{ ok, found, referendum }`.
+
+### GET /api/public/v1/commodities?country=CODE
+
+All commodity markets. Each row includes `key`, `label`, `unit`, `basePrice`,
+global price/supply/demand, and `turn`. Passing `country` adds national
+price/supply/demand.
+
+### GET /api/public/v1/commodity/[key]?country=CODE
+
+One commodity with state price/supply/demand maps plus its top ten producers
+and consumers. Passing `country` limits state data to that country.
 
 ### GET /api/public/v1/funds[?slug=SLUG][&country=CODE][&scope=country\|global]
 
